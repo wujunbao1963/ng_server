@@ -1,0 +1,375 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NG Server v7.7 Prototype Tester</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; }
+    input, textarea, button { width: 100%; margin: 6px 0; padding: 8px; }
+    textarea { height: 120px; font-family: ui-monospace, SFMono-Regular; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
+    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; }
+    small { color: #666; }
+  </style>
+</head>
+<body>
+  <h2>NG Server Prototype Tester</h2>
+  <small>原型测试：从简验证核心链路（Login → Circle → Device → Summary/Manifest → Ticket → Download Range/206）</small>
+
+  <div class="card">
+    <h3>0) 基础配置</h3>
+    <label>Base URL</label>
+    <input id="base" />
+    <label>Dev Login Email</label>
+    <input id="email" value="test@example.com" />
+    <button onclick="saveBase()">Save Base</button>
+  </div>
+
+  <div class="card">
+    <h3>1) Login</h3>
+    <button onclick="devLogin()">POST /api/auth/dev/login</button>
+    <div class="row">
+      <div>
+        <label>JWT</label>
+        <textarea id="jwt" placeholder="JWT will appear here"></textarea>
+      </div>
+      <div>
+        <label>Last Response</label>
+        <pre id="outLogin"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>2) Circle</h3>
+    <button onclick="createCircle()">POST /api/circles</button>
+    <label>circleId</label>
+    <input id="circleId" placeholder="circleId" />
+    <pre id="outCircle"></pre>
+  </div>
+
+  <div class="card">
+    <h3>3) Edge Device</h3>
+    <small>你刚遇到的 400 表明该端点不允许 label/edgeInstanceId。默认发送 <code>{}</code>，也支持 Raw JSON 覆盖。</small>
+    <button onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
+    <label>Raw JSON body（留空= {} ）</label>
+    <textarea id="deviceBody" placeholder='{}'></textarea>
+    <label>deviceKey（从响应自动提取）</label>
+    <input id="deviceKey" placeholder="deviceKey" />
+    <pre id="outDevice"></pre>
+  </div>
+
+  <div class="card">
+    <h3>4) Edge 上报（Summary / Manifest）</h3>
+    <div class="row">
+      <div>
+        <label>eventId</label>
+        <input id="eventId" value="evt-001" />
+        <label>edgeInstanceId（用于 payload 顶层字段）</label>
+        <input id="edgeInstanceId" value="edge-main-001" />
+        <label>X-Device-Key header name（如不确定先保持 X-Device-Key）</label>
+        <input id="deviceHeader" value="X-Device-Key" />
+      </div>
+      <div>
+        <label>edgeUrl（manifest item 的 edgeUrl；Railway 会去拉取）</label>
+        <input id="edgeUrl" value="http://10.0.0.225:8081/evidence/clip_cam_front_001" />
+        <label>evidenceKey</label>
+        <input id="evidenceKey" value="clip_cam_front_001" />
+      </div>
+    </div>
+
+    <button onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
+    <pre id="outSummary"></pre>
+
+    <button onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
+    <pre id="outManifest"></pre>
+  </div>
+
+  <div class="card">
+    <h3>5) App 读取（Events / Manifest）</h3>
+    <button onclick="listEvents()">GET /api/circles/:circleId/events</button>
+    <pre id="outEvents"></pre>
+
+    <button onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
+    <pre id="outManifestRead"></pre>
+  </div>
+
+  <div class="card">
+    <h3>6) Ticket + Download</h3>
+    <button onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
+    <label>ticketId</label>
+    <input id="ticketId" placeholder="ticketId" />
+    <pre id="outTicket"></pre>
+
+    <button onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
+    <pre id="outDownload"></pre>
+  </div>
+
+<script>
+const DEFAULT_BASE = "https://ngserver-production-2bfe.up.railway.app";
+
+function nowIso() { return new Date().toISOString(); }
+function $(id) { return document.getElementById(id); }
+
+function saveBase() {
+  localStorage.setItem("ng_base", $("base").value.trim());
+  alert("saved");
+}
+
+function getBase() {
+  return (localStorage.getItem("ng_base") || DEFAULT_BASE).replace(/\/+$/, "");
+}
+
+function getJWT() {
+  const v = $("jwt").value.trim();
+  if (!v) throw new Error("JWT empty, login first");
+  return v;
+}
+
+async function api(path, { method="GET", headers={}, body } = {}) {
+  const base = getBase();
+  const url = base + path;
+  const opts = { method, headers: { ...headers } };
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opts);
+  const ct = res.headers.get("content-type") || "";
+  let data;
+  if (ct.includes("application/json")) data = await res.json();
+  else data = await res.text();
+  return { res, data };
+}
+
+function pick(obj, keys) {
+  for (const k of keys) if (obj && obj[k]) return obj[k];
+  return null;
+}
+
+async function devLogin() {
+  $("outLogin").textContent = "";
+  try {
+    $("base").value = getBase();
+    const email = $("email").value.trim();
+    const { res, data } = await api("/api/auth/dev/login", { method:"POST", body: { email }});
+    $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
+    const token = pick(data, ["accessToken", "token", "jwt"]);
+    if (token) $("jwt").value = token;
+  } catch (e) {
+    $("outLogin").textContent = String(e);
+  }
+}
+
+async function createCircle() {
+  $("outCircle").textContent = "";
+  try {
+    const jwt = getJWT();
+    const { res, data } = await api("/api/circles", {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body:{ name:"Demo Circle" }
+    });
+    $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const id = pick(data, ["circleId", "id"]);
+    if (id) $("circleId").value = id;
+  } catch (e) {
+    $("outCircle").textContent = String(e);
+  }
+}
+
+async function createEdgeDevice() {
+  $("outDevice").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    if (!circleId) throw new Error("circleId empty");
+
+    let raw = $("deviceBody").value.trim();
+    let body = {};
+    if (raw) body = JSON.parse(raw);
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/devices`, {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body
+    });
+
+    $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const deviceKey = pick(data, ["deviceKey", "key"]);
+    if (deviceKey) $("deviceKey").value = deviceKey;
+  } catch (e) {
+    $("outDevice").textContent = String(e);
+  }
+}
+
+async function sendSummary() {
+  $("outSummary").textContent = "";
+  try {
+    const circleId = $("circleId").value.trim();
+    const deviceKey = $("deviceKey").value.trim();
+    const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
+    const eventId = $("eventId").value.trim();
+    const edgeInstanceId = $("edgeInstanceId").value.trim();
+
+    if (!circleId || !deviceKey || !eventId || !edgeInstanceId) throw new Error("circleId/deviceKey/eventId/edgeInstanceId required");
+
+    const body = {
+      schemaVersion: "v7.7",
+      circleId,
+      eventId,
+      edgeInstanceId,
+      threatState: "PENDING",
+      triggerReason: "motion",
+      updatedAt: nowIso(),
+      sequence: 1,
+      summary: { note: "hello from edge", ts: nowIso() }
+    };
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/events/summary-upsert`, {
+      method:"POST",
+      headers:{ [headerName]: deviceKey },
+      body
+    });
+
+    $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+  } catch (e) {
+    $("outSummary").textContent = String(e);
+  }
+}
+
+async function sendManifest() {
+  $("outManifest").textContent = "";
+  try {
+    const circleId = $("circleId").value.trim();
+    const deviceKey = $("deviceKey").value.trim();
+    const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
+    const eventId = $("eventId").value.trim();
+    const edgeInstanceId = $("edgeInstanceId").value.trim();
+    const evidenceKey = $("evidenceKey").value.trim();
+    const edgeUrl = $("edgeUrl").value.trim();
+
+    if (!circleId || !deviceKey || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
+      throw new Error("circleId/deviceKey/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
+    }
+
+    const t1 = nowIso();
+    const body = {
+      schemaVersion: "v7.7",
+      circleId,
+      eventId,
+      edgeInstanceId,
+      updatedAt: nowIso(),
+      sequence: 2,
+      manifest: {
+        items: [
+          { evidenceKey, kind:"clip", startTs: t1, endTs: nowIso(), sizeBytesApprox: 123456, edgeUrl }
+        ]
+      }
+    };
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/events/${eventId}/incident/manifest-upsert`, {
+      method:"POST",
+      headers:{ [headerName]: deviceKey },
+      body
+    });
+
+    $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+  } catch (e) {
+    $("outManifest").textContent = String(e);
+  }
+}
+
+async function listEvents() {
+  $("outEvents").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const { res, data } = await api(`/api/circles/${circleId}/events`, {
+      headers:{ "Authorization": "Bearer " + jwt }
+    });
+    $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+  } catch (e) {
+    $("outEvents").textContent = String(e);
+  }
+}
+
+async function getManifest() {
+  $("outManifestRead").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
+      headers:{ "Authorization": "Bearer " + jwt }
+    });
+    $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+  } catch (e) {
+    $("outManifestRead").textContent = String(e);
+  }
+}
+
+async function createTicket() {
+  $("outTicket").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const evidenceKey = $("evidenceKey").value.trim();
+
+    const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body:{ evidenceKey }
+    });
+
+    $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const id = pick(data, ["ticketId", "id"]);
+    if (id) $("ticketId").value = id;
+  } catch (e) {
+    $("outTicket").textContent = String(e);
+  }
+}
+
+async function downloadRange() {
+  $("outDownload").textContent = "";
+  try {
+    const jwt = getJWT();
+    const ticketId = $("ticketId").value.trim();
+    if (!ticketId) throw new Error("ticketId empty");
+
+    const base = getBase();
+    const url = `${base}/api/evidence/tickets/${ticketId}/download`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + jwt,
+        "Range": "bytes=0-4"
+      }
+    });
+
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const text = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
+
+    const info = {
+      status: res.status,
+      contentRange: res.headers.get("content-range"),
+      contentType: res.headers.get("content-type"),
+      bytesHex: text
+    };
+    $("outDownload").textContent = JSON.stringify(info, null, 2);
+  } catch (e) {
+    $("outDownload").textContent = String(e);
+  }
+}
+
+window.onload = () => {
+  $("base").value = getBase();
+};
+</script>
+</body>
+</html>
