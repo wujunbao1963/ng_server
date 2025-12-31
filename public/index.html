@@ -6,29 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; line-height: 1.25; }
-    input, textarea, button { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
+    input, textarea, button, select { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
     textarea { height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
-    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 280px; }
+    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px; }
     small { color: #666; }
     .warn { color: #8a4b00; background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; }
     .ok { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; padding: 10px; border-radius: 8px; }
     .muted { color: #666; }
-    .btn { cursor: pointer; }
-    .btn:disabled { cursor: not-allowed; opacity: .6; }
     code { background: #f1f1f1; padding: 1px 4px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h2>NG Server Prototype Tester</h2>
-  <small>原型测试：从简验证主链路（Login → Circle → Edge Device → Summary/Manifest → Ticket → Download Range/206）</small>
+  <small>原型测试：Login → Circle → Edge Device → Edge Summary/Manifest → Ticket → Download(206)</small>
 
   <div class="card">
     <h3>0) 基础配置</h3>
     <div class="warn">
-      <div><b>重要提醒：</b>你 manifest 里填的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器拉不到，后续 Ticket 下载会失败（timeout/502）。</div>
-      <div class="muted">先把 summary/manifest 跑通；再用 ngrok / Cloudflare Tunnel 把 edgeUrl 变成公网可达。</div>
+      <b>提醒：</b>manifest 的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器访问不到，后续 Download 可能 502/timeout。
     </div>
 
     <label>Base URL</label>
@@ -37,13 +34,13 @@
     <label>Dev Login Email</label>
     <input id="email" value="test@example.com" />
 
-    <button class="btn" onclick="saveBase()">Save Base</button>
-    <button class="btn" onclick="clearLocal()">Clear LocalStorage</button>
+    <button onclick="saveAll()">Save</button>
+    <button onclick="clearAll()">Clear LocalStorage</button>
   </div>
 
   <div class="card">
     <h3>1) Login</h3>
-    <button class="btn" onclick="devLogin()">POST /api/auth/dev/login</button>
+    <button onclick="devLogin()">POST /api/auth/dev/login</button>
     <div class="row">
       <div>
         <label>JWT</label>
@@ -58,7 +55,7 @@
 
   <div class="card">
     <h3>2) Circle</h3>
-    <button class="btn" onclick="createCircle()">POST /api/circles</button>
+    <button onclick="createCircle()">POST /api/circles</button>
     <label>circleId</label>
     <input id="circleId" placeholder="circleId" />
     <pre id="outCircle"></pre>
@@ -66,24 +63,21 @@
 
   <div class="card">
     <h3>3) Edge Device（注册拿 deviceKey）</h3>
-    <small class="muted">
-      你之前遇到的 400 表明该端点 DTO 很可能不允许 <code>label</code>/<code>edgeInstanceId</code>。
-      所以默认发送 <code>{}</code>，也支持 Raw JSON 覆盖。
-    </small>
+    <small class="muted">默认发送 <code>{}</code>。如果 server DTO 以后要求字段，可以在 Raw JSON 里填。</small>
 
-    <button class="btn" onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
+    <button onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
 
-    <label>Raw JSON body（留空= {} ）</label>
-    <textarea id="deviceBody" placeholder='{}'></textarea>
+    <label>Raw JSON body（留空 = {}）</label>
+    <textarea id="deviceBody" placeholder="{}"></textarea>
 
     <div class="row">
       <div>
         <label>deviceId（自动提取）</label>
-        <input id="deviceId" placeholder="deviceId" />
+        <input id="deviceId" />
       </div>
       <div>
-        <label>deviceKey（自动提取；用于 Edge 上报）</label>
-        <input id="deviceKeyEdge" placeholder="paste deviceKey here" />
+        <label>deviceKey（自动提取）</label>
+        <input id="deviceKeyEdge" />
       </div>
     </div>
 
@@ -97,93 +91,83 @@
       <div>
         <label>eventId</label>
         <input id="eventId" value="evt-001" />
-        <label>edgeInstanceId（用于 payload 顶层字段）</label>
+        <label>edgeInstanceId</label>
         <input id="edgeInstanceId" value="edge-main-001" />
       </div>
       <div>
-        <label>edgeUrl（manifest item 的 edgeUrl；Railway 会去拉取）</label>
+        <label>edgeUrl（manifest item）</label>
         <input id="edgeUrl" value="http://10.0.0.225:8081/evidence/clip_cam_front_001" />
         <label>evidenceKey</label>
         <input id="evidenceKey" value="test-01" />
       </div>
     </div>
 
-    <label>X-Device-Key header name（建议保持默认）</label>
-    <input id="deviceHeader" value="X-Device-Key" />
+    <label>Device Auth Mode（默认推荐 Authorization: Device）</label>
+    <select id="deviceAuthMode">
+      <option value="authorization">Authorization: Device &lt;deviceKey&gt;</option>
+      <option value="x-device-key">X-Device-Key: &lt;deviceKey&gt;</option>
+    </select>
 
     <div class="ok">
-      <b>说明：</b>上报时会发送 header：<code id="hdrPreview">X-Device-Key: (deviceKey)</code>
+      <b>说明：</b>会使用 deviceKey 做设备鉴权（若为空会禁用按钮）
     </div>
 
-    <button class="btn" id="btnSummary" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
+    <button id="btnSummary" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
     <pre id="outSummary"></pre>
 
-    <button class="btn" id="btnManifest" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
+    <button id="btnManifest" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
     <pre id="outManifest"></pre>
   </div>
 
   <div class="card">
     <h3>5) App 读取（Events / Manifest）</h3>
-    <button class="btn" onclick="listEvents()">GET /api/circles/:circleId/events</button>
+    <button onclick="listEvents()">GET /api/circles/:circleId/events</button>
     <pre id="outEvents"></pre>
 
-    <button class="btn" onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
+    <button onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
     <pre id="outManifestRead"></pre>
   </div>
 
   <div class="card">
     <h3>6) Ticket + Download</h3>
-    <button class="btn" onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
-    <label>ticketId（自动提取）</label>
-    <input id="ticketId" placeholder="ticketId" />
+    <button onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
+    <label>ticketId</label>
+    <input id="ticketId" />
     <pre id="outTicket"></pre>
 
-    <button class="btn" onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
+    <button onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
     <pre id="outDownload"></pre>
   </div>
 
 <script>
 const DEFAULT_BASE = "https://ngserver-production-2bfe.up.railway.app";
-
 function nowIso() { return new Date().toISOString(); }
 function $(id) { return document.getElementById(id); }
 
-function saveLocal() {
-  const keys = ["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"];
-  for (const k of keys) {
-    const el = $(k);
-    if (el) localStorage.setItem("ng_" + k, el.value ?? "");
-  }
-  refreshPreview();
+function saveAll() {
+  const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
+  for (const id of ids) localStorage.setItem("ng_"+id, ($(id).value || ""));
+  alert("saved");
+  refreshButtons();
 }
-function loadLocal() {
-  const keys = ["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"];
-  for (const k of keys) {
-    const el = $(k);
-    if (!el) continue;
-    const v = localStorage.getItem("ng_" + k);
-    if (v !== null && v !== undefined && v !== "") el.value = v;
+function loadAll() {
+  const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
+  for (const id of ids) {
+    const v = localStorage.getItem("ng_"+id);
+    if (v !== null && v !== undefined && v !== "") $(id).value = v;
   }
-  refreshPreview();
+  refreshButtons();
 }
-function clearLocal() {
+function clearAll() {
   Object.keys(localStorage).forEach(k => { if (k.startsWith("ng_")) localStorage.removeItem(k); });
   alert("cleared");
-}
-
-function saveBase() {
-  const v = $("base").value.trim();
-  if (!v) { alert("base empty"); return; }
-  localStorage.setItem("ng_base", v);
-  alert("saved");
-  refreshPreview();
+  location.reload();
 }
 
 function getBase() {
-  const v = $("base").value.trim() || localStorage.getItem("ng_base") || DEFAULT_BASE;
+  const v = ($("base").value || DEFAULT_BASE).trim();
   return v.replace(/\/+$/, "");
 }
-
 function getJWT() {
   const v = $("jwt").value.trim();
   if (!v) throw new Error("JWT empty, login first");
@@ -191,10 +175,8 @@ function getJWT() {
 }
 
 async function api(path, { method="GET", headers={}, body } = {}) {
-  const base = getBase();
-  const url = base + path;
+  const url = getBase() + path;
   const opts = { method, headers: { ...headers } };
-
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
@@ -206,33 +188,38 @@ async function api(path, { method="GET", headers={}, body } = {}) {
   else data = await res.text();
   return { res, data };
 }
-
 function pick(obj, keys) {
   for (const k of keys) if (obj && obj[k]) return obj[k];
   return null;
 }
 
-function refreshPreview() {
-  const name = ($("deviceHeader")?.value || "X-Device-Key").trim() || "X-Device-Key";
-  const dk = ($("deviceKeyEdge")?.value || "").trim();
-  $("hdrPreview").textContent = `${name}: ${dk ? dk.slice(0, 8) + "..." : "(deviceKey empty)"}`;
+function deviceAuthHeaders() {
+  const deviceKey = $("deviceKeyEdge").value.trim();
+  if (!deviceKey) return null;
 
-  // disable edge upsert buttons if no deviceKey/circleId
-  const ok = ($("circleId").value.trim() && $("deviceKeyEdge").value.trim());
-  $("btnSummary").disabled = !ok;
-  $("btnManifest").disabled = !ok;
+  const mode = $("deviceAuthMode").value;
+  if (mode === "authorization") {
+    // Server 原生期望
+    return { "Authorization": "Device " + deviceKey };
+  }
+  // 兼容模式（需要你按本文 server guard 修改后才生效）
+  return { "X-Device-Key": deviceKey };
+}
+
+function refreshButtons() {
+  $("btnSummary").disabled = !$("circleId").value.trim() || !$("deviceKeyEdge").value.trim();
+  $("btnManifest").disabled = $("btnSummary").disabled;
 }
 
 async function devLogin() {
   $("outLogin").textContent = "";
   try {
     const email = $("email").value.trim();
-    const { res, data } = await api("/api/auth/dev/login", { method:"POST", body: { email }});
+    const { res, data } = await api("/api/auth/dev/login", { method:"POST", body:{ email }});
     $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-
-    const token = pick(data, ["accessToken", "token", "jwt"]);
+    const token = pick(data, ["accessToken","token","jwt"]);
     if (token) $("jwt").value = token;
-    saveLocal();
+    saveAll();
   } catch (e) {
     $("outLogin").textContent = String(e);
   }
@@ -248,10 +235,9 @@ async function createCircle() {
       body:{ name:"Demo Circle" }
     });
     $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-
-    const id = pick(data, ["circleId", "id"]);
+    const id = pick(data, ["circleId","id"]);
     if (id) $("circleId").value = id;
-    saveLocal();
+    saveAll();
   } catch (e) {
     $("outCircle").textContent = String(e);
   }
@@ -273,15 +259,15 @@ async function createEdgeDevice() {
       headers:{ "Authorization": "Bearer " + jwt },
       body
     });
-
     $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
 
-    const deviceId = pick(data, ["deviceId", "id"]);
-    const deviceKey = pick(data, ["deviceKey", "key"]);
+    const deviceId = pick(data, ["deviceId","id"]);
+    const deviceKey = pick(data, ["deviceKey","key"]);
     if (deviceId) $("deviceId").value = deviceId;
     if (deviceKey) $("deviceKeyEdge").value = deviceKey;
 
-    saveLocal();
+    saveAll();
+    refreshButtons();
   } catch (e) {
     $("outDevice").textContent = String(e);
   }
@@ -291,15 +277,12 @@ async function sendSummary() {
   $("outSummary").textContent = "";
   try {
     const circleId = $("circleId").value.trim();
-    const deviceKey = $("deviceKeyEdge").value.trim();
-    const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
     const eventId = $("eventId").value.trim();
     const edgeInstanceId = $("edgeInstanceId").value.trim();
+    if (!circleId || !eventId || !edgeInstanceId) throw new Error("circleId/eventId/edgeInstanceId required");
 
-    if (!circleId) throw new Error("circleId empty");
-    if (!deviceKey) throw new Error("deviceKey empty (register edge device first)");
-    if (!eventId) throw new Error("eventId empty");
-    if (!edgeInstanceId) throw new Error("edgeInstanceId empty");
+    const h = deviceAuthHeaders();
+    if (!h) throw new Error("deviceKey empty (register edge device first)");
 
     const body = {
       schemaVersion: "v7.7",
@@ -310,17 +293,17 @@ async function sendSummary() {
       triggerReason: "motion",
       updatedAt: nowIso(),
       sequence: 1,
-      summary: { note: "hello from edge", ts: nowIso() }
+      summary: { note:"hello from UI", ts: nowIso() }
     };
 
     const { res, data } = await api(`/api/circles/${circleId}/edge/events/summary-upsert`, {
       method:"POST",
-      headers:{ [headerName]: deviceKey },
+      headers: h,
       body
     });
 
     $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    saveLocal();
+    saveAll();
   } catch (e) {
     $("outSummary").textContent = String(e);
   }
@@ -330,19 +313,16 @@ async function sendManifest() {
   $("outManifest").textContent = "";
   try {
     const circleId = $("circleId").value.trim();
-    const deviceKey = $("deviceKeyEdge").value.trim();
-    const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
     const eventId = $("eventId").value.trim();
     const edgeInstanceId = $("edgeInstanceId").value.trim();
     const evidenceKey = $("evidenceKey").value.trim();
     const edgeUrl = $("edgeUrl").value.trim();
+    if (!circleId || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
+      throw new Error("circleId/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
+    }
 
-    if (!circleId) throw new Error("circleId empty");
-    if (!deviceKey) throw new Error("deviceKey empty (register edge device first)");
-    if (!eventId) throw new Error("eventId empty");
-    if (!edgeInstanceId) throw new Error("edgeInstanceId empty");
-    if (!evidenceKey) throw new Error("evidenceKey empty");
-    if (!edgeUrl) throw new Error("edgeUrl empty");
+    const h = deviceAuthHeaders();
+    if (!h) throw new Error("deviceKey empty (register edge device first)");
 
     const t1 = nowIso();
     const body = {
@@ -354,19 +334,19 @@ async function sendManifest() {
       sequence: 2,
       manifest: {
         items: [
-          { evidenceKey, kind:"clip", startTs: t1, endTs: nowIso(), sizeBytesApprox: 123456, edgeUrl }
+          { evidenceKey, kind:"clip", startTs:t1, endTs:nowIso(), sizeBytesApprox:123456, edgeUrl }
         ]
       }
     };
 
     const { res, data } = await api(`/api/circles/${circleId}/edge/events/${eventId}/incident/manifest-upsert`, {
       method:"POST",
-      headers:{ [headerName]: deviceKey },
+      headers: h,
       body
     });
 
     $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    saveLocal();
+    saveAll();
   } catch (e) {
     $("outManifest").textContent = String(e);
   }
@@ -377,12 +357,10 @@ async function listEvents() {
   try {
     const jwt = getJWT();
     const circleId = $("circleId").value.trim();
-    if (!circleId) throw new Error("circleId empty");
     const { res, data } = await api(`/api/circles/${circleId}/events`, {
       headers:{ "Authorization": "Bearer " + jwt }
     });
     $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    saveLocal();
   } catch (e) {
     $("outEvents").textContent = String(e);
   }
@@ -394,14 +372,10 @@ async function getManifest() {
     const jwt = getJWT();
     const circleId = $("circleId").value.trim();
     const eventId = $("eventId").value.trim();
-    if (!circleId) throw new Error("circleId empty");
-    if (!eventId) throw new Error("eventId empty");
-
     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
       headers:{ "Authorization": "Bearer " + jwt }
     });
     $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    saveLocal();
   } catch (e) {
     $("outManifestRead").textContent = String(e);
   }
@@ -414,9 +388,6 @@ async function createTicket() {
     const circleId = $("circleId").value.trim();
     const eventId = $("eventId").value.trim();
     const evidenceKey = $("evidenceKey").value.trim();
-    if (!circleId) throw new Error("circleId empty");
-    if (!eventId) throw new Error("eventId empty");
-    if (!evidenceKey) throw new Error("evidenceKey empty");
 
     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
       method:"POST",
@@ -425,9 +396,9 @@ async function createTicket() {
     });
 
     $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    const id = pick(data, ["ticketId", "id"]);
+    const id = pick(data, ["ticketId","id"]);
     if (id) $("ticketId").value = id;
-    saveLocal();
+    saveAll();
   } catch (e) {
     $("outTicket").textContent = String(e);
   }
@@ -439,42 +410,32 @@ async function downloadRange() {
     const jwt = getJWT();
     const ticketId = $("ticketId").value.trim();
     if (!ticketId) throw new Error("ticketId empty");
-
     const url = `${getBase()}/api/evidence/tickets/${ticketId}/download`;
+
     const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Authorization": "Bearer " + jwt,
-        "Range": "bytes=0-4"
-      }
+      method:"GET",
+      headers:{ "Authorization":"Bearer " + jwt, "Range":"bytes=0-4" }
     });
 
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
-
-    const info = {
+    $("outDownload").textContent = JSON.stringify({
       status: res.status,
       contentRange: res.headers.get("content-range"),
       contentType: res.headers.get("content-type"),
       bytesHex: hex,
-      note: "如果这里 502/timeout，通常是 edgeUrl 为内网 10.x，Railway 访问不到"
-    };
-    $("outDownload").textContent = JSON.stringify(info, null, 2);
-    saveLocal();
+      note: "如果 502/timeout，多半 edgeUrl 是内网 10.x，Railway 拉不到"
+    }, null, 2);
   } catch (e) {
     $("outDownload").textContent = String(e);
   }
 }
 
-["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"]
-  .forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLocal(); refreshPreview(); }); });
-
 window.onload = () => {
-  // base default
   $("base").value = localStorage.getItem("ng_base") || DEFAULT_BASE;
-  loadLocal();
-  refreshPreview();
+  loadAll();
+  refreshButtons();
 };
 </script>
 </body>
