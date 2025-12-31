@@ -3,32 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <title>NG Server v7.7 Prototype Tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; }
-    input, textarea, button { width: 100%; margin: 6px 0; padding: 8px; }
-    textarea { height: 120px; font-family: ui-monospace, SFMono-Regular; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; line-height: 1.25; }
+    input, textarea, button { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
+    textarea { height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
-    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; }
+    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 280px; }
     small { color: #666; }
+    .warn { color: #8a4b00; background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; }
+    .ok { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; padding: 10px; border-radius: 8px; }
+    .muted { color: #666; }
+    .btn { cursor: pointer; }
+    .btn:disabled { cursor: not-allowed; opacity: .6; }
+    code { background: #f1f1f1; padding: 1px 4px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h2>NG Server Prototype Tester</h2>
-  <small>原型测试：从简验证核心链路（Login → Circle → Device → Summary/Manifest → Ticket → Download Range/206）</small>
+  <small>原型测试：从简验证主链路（Login → Circle → Edge Device → Summary/Manifest → Ticket → Download Range/206）</small>
 
   <div class="card">
     <h3>0) 基础配置</h3>
+    <div class="warn">
+      <div><b>重要提醒：</b>你 manifest 里填的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器拉不到，后续 Ticket 下载会失败（timeout/502）。</div>
+      <div class="muted">先把 summary/manifest 跑通；再用 ngrok / Cloudflare Tunnel 把 edgeUrl 变成公网可达。</div>
+    </div>
+
     <label>Base URL</label>
     <input id="base" />
+
     <label>Dev Login Email</label>
     <input id="email" value="test@example.com" />
-    <button onclick="saveBase()">Save Base</button>
+
+    <button class="btn" onclick="saveBase()">Save Base</button>
+    <button class="btn" onclick="clearLocal()">Clear LocalStorage</button>
   </div>
 
   <div class="card">
     <h3>1) Login</h3>
-    <button onclick="devLogin()">POST /api/auth/dev/login</button>
+    <button class="btn" onclick="devLogin()">POST /api/auth/dev/login</button>
     <div class="row">
       <div>
         <label>JWT</label>
@@ -43,66 +58,87 @@
 
   <div class="card">
     <h3>2) Circle</h3>
-    <button onclick="createCircle()">POST /api/circles</button>
+    <button class="btn" onclick="createCircle()">POST /api/circles</button>
     <label>circleId</label>
     <input id="circleId" placeholder="circleId" />
     <pre id="outCircle"></pre>
   </div>
 
   <div class="card">
-    <h3>3) Edge Device</h3>
-    <small>你刚遇到的 400 表明该端点不允许 label/edgeInstanceId。默认发送 <code>{}</code>，也支持 Raw JSON 覆盖。</small>
-    <button onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
+    <h3>3) Edge Device（注册拿 deviceKey）</h3>
+    <small class="muted">
+      你之前遇到的 400 表明该端点 DTO 很可能不允许 <code>label</code>/<code>edgeInstanceId</code>。
+      所以默认发送 <code>{}</code>，也支持 Raw JSON 覆盖。
+    </small>
+
+    <button class="btn" onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
+
     <label>Raw JSON body（留空= {} ）</label>
     <textarea id="deviceBody" placeholder='{}'></textarea>
-    <label>deviceKey（从响应自动提取）</label>
-    <input id="deviceKey" placeholder="deviceKey" />
+
+    <div class="row">
+      <div>
+        <label>deviceId（自动提取）</label>
+        <input id="deviceId" placeholder="deviceId" />
+      </div>
+      <div>
+        <label>deviceKey（自动提取；用于 Edge 上报）</label>
+        <input id="deviceKeyEdge" placeholder="paste deviceKey here" />
+      </div>
+    </div>
+
     <pre id="outDevice"></pre>
   </div>
 
   <div class="card">
     <h3>4) Edge 上报（Summary / Manifest）</h3>
+
     <div class="row">
       <div>
         <label>eventId</label>
         <input id="eventId" value="evt-001" />
         <label>edgeInstanceId（用于 payload 顶层字段）</label>
         <input id="edgeInstanceId" value="edge-main-001" />
-        <label>X-Device-Key header name（如不确定先保持 X-Device-Key）</label>
-        <input id="deviceHeader" value="X-Device-Key" />
       </div>
       <div>
         <label>edgeUrl（manifest item 的 edgeUrl；Railway 会去拉取）</label>
         <input id="edgeUrl" value="http://10.0.0.225:8081/evidence/clip_cam_front_001" />
         <label>evidenceKey</label>
-        <input id="evidenceKey" value="clip_cam_front_001" />
+        <input id="evidenceKey" value="test-01" />
       </div>
     </div>
 
-    <button onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
+    <label>X-Device-Key header name（建议保持默认）</label>
+    <input id="deviceHeader" value="X-Device-Key" />
+
+    <div class="ok">
+      <b>说明：</b>上报时会发送 header：<code id="hdrPreview">X-Device-Key: (deviceKey)</code>
+    </div>
+
+    <button class="btn" id="btnSummary" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
     <pre id="outSummary"></pre>
 
-    <button onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
+    <button class="btn" id="btnManifest" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
     <pre id="outManifest"></pre>
   </div>
 
   <div class="card">
     <h3>5) App 读取（Events / Manifest）</h3>
-    <button onclick="listEvents()">GET /api/circles/:circleId/events</button>
+    <button class="btn" onclick="listEvents()">GET /api/circles/:circleId/events</button>
     <pre id="outEvents"></pre>
 
-    <button onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
+    <button class="btn" onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
     <pre id="outManifestRead"></pre>
   </div>
 
   <div class="card">
     <h3>6) Ticket + Download</h3>
-    <button onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
-    <label>ticketId</label>
+    <button class="btn" onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
+    <label>ticketId（自动提取）</label>
     <input id="ticketId" placeholder="ticketId" />
     <pre id="outTicket"></pre>
 
-    <button onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
+    <button class="btn" onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
     <pre id="outDownload"></pre>
   </div>
 
@@ -112,13 +148,40 @@ const DEFAULT_BASE = "https://ngserver-production-2bfe.up.railway.app";
 function nowIso() { return new Date().toISOString(); }
 function $(id) { return document.getElementById(id); }
 
+function saveLocal() {
+  const keys = ["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"];
+  for (const k of keys) {
+    const el = $(k);
+    if (el) localStorage.setItem("ng_" + k, el.value ?? "");
+  }
+  refreshPreview();
+}
+function loadLocal() {
+  const keys = ["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"];
+  for (const k of keys) {
+    const el = $(k);
+    if (!el) continue;
+    const v = localStorage.getItem("ng_" + k);
+    if (v !== null && v !== undefined && v !== "") el.value = v;
+  }
+  refreshPreview();
+}
+function clearLocal() {
+  Object.keys(localStorage).forEach(k => { if (k.startsWith("ng_")) localStorage.removeItem(k); });
+  alert("cleared");
+}
+
 function saveBase() {
-  localStorage.setItem("ng_base", $("base").value.trim());
+  const v = $("base").value.trim();
+  if (!v) { alert("base empty"); return; }
+  localStorage.setItem("ng_base", v);
   alert("saved");
+  refreshPreview();
 }
 
 function getBase() {
-  return (localStorage.getItem("ng_base") || DEFAULT_BASE).replace(/\/+$/, "");
+  const v = $("base").value.trim() || localStorage.getItem("ng_base") || DEFAULT_BASE;
+  return v.replace(/\/+$/, "");
 }
 
 function getJWT() {
@@ -131,6 +194,7 @@ async function api(path, { method="GET", headers={}, body } = {}) {
   const base = getBase();
   const url = base + path;
   const opts = { method, headers: { ...headers } };
+
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
@@ -148,16 +212,27 @@ function pick(obj, keys) {
   return null;
 }
 
+function refreshPreview() {
+  const name = ($("deviceHeader")?.value || "X-Device-Key").trim() || "X-Device-Key";
+  const dk = ($("deviceKeyEdge")?.value || "").trim();
+  $("hdrPreview").textContent = `${name}: ${dk ? dk.slice(0, 8) + "..." : "(deviceKey empty)"}`;
+
+  // disable edge upsert buttons if no deviceKey/circleId
+  const ok = ($("circleId").value.trim() && $("deviceKeyEdge").value.trim());
+  $("btnSummary").disabled = !ok;
+  $("btnManifest").disabled = !ok;
+}
+
 async function devLogin() {
   $("outLogin").textContent = "";
   try {
-    $("base").value = getBase();
     const email = $("email").value.trim();
     const { res, data } = await api("/api/auth/dev/login", { method:"POST", body: { email }});
     $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
 
     const token = pick(data, ["accessToken", "token", "jwt"]);
     if (token) $("jwt").value = token;
+    saveLocal();
   } catch (e) {
     $("outLogin").textContent = String(e);
   }
@@ -173,8 +248,10 @@ async function createCircle() {
       body:{ name:"Demo Circle" }
     });
     $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
     const id = pick(data, ["circleId", "id"]);
     if (id) $("circleId").value = id;
+    saveLocal();
   } catch (e) {
     $("outCircle").textContent = String(e);
   }
@@ -198,8 +275,13 @@ async function createEdgeDevice() {
     });
 
     $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
+    const deviceId = pick(data, ["deviceId", "id"]);
     const deviceKey = pick(data, ["deviceKey", "key"]);
-    if (deviceKey) $("deviceKey").value = deviceKey;
+    if (deviceId) $("deviceId").value = deviceId;
+    if (deviceKey) $("deviceKeyEdge").value = deviceKey;
+
+    saveLocal();
   } catch (e) {
     $("outDevice").textContent = String(e);
   }
@@ -209,12 +291,15 @@ async function sendSummary() {
   $("outSummary").textContent = "";
   try {
     const circleId = $("circleId").value.trim();
-    const deviceKey = $("deviceKey").value.trim();
+    const deviceKey = $("deviceKeyEdge").value.trim();
     const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
     const eventId = $("eventId").value.trim();
     const edgeInstanceId = $("edgeInstanceId").value.trim();
 
-    if (!circleId || !deviceKey || !eventId || !edgeInstanceId) throw new Error("circleId/deviceKey/eventId/edgeInstanceId required");
+    if (!circleId) throw new Error("circleId empty");
+    if (!deviceKey) throw new Error("deviceKey empty (register edge device first)");
+    if (!eventId) throw new Error("eventId empty");
+    if (!edgeInstanceId) throw new Error("edgeInstanceId empty");
 
     const body = {
       schemaVersion: "v7.7",
@@ -235,6 +320,7 @@ async function sendSummary() {
     });
 
     $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    saveLocal();
   } catch (e) {
     $("outSummary").textContent = String(e);
   }
@@ -244,16 +330,19 @@ async function sendManifest() {
   $("outManifest").textContent = "";
   try {
     const circleId = $("circleId").value.trim();
-    const deviceKey = $("deviceKey").value.trim();
+    const deviceKey = $("deviceKeyEdge").value.trim();
     const headerName = $("deviceHeader").value.trim() || "X-Device-Key";
     const eventId = $("eventId").value.trim();
     const edgeInstanceId = $("edgeInstanceId").value.trim();
     const evidenceKey = $("evidenceKey").value.trim();
     const edgeUrl = $("edgeUrl").value.trim();
 
-    if (!circleId || !deviceKey || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
-      throw new Error("circleId/deviceKey/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
-    }
+    if (!circleId) throw new Error("circleId empty");
+    if (!deviceKey) throw new Error("deviceKey empty (register edge device first)");
+    if (!eventId) throw new Error("eventId empty");
+    if (!edgeInstanceId) throw new Error("edgeInstanceId empty");
+    if (!evidenceKey) throw new Error("evidenceKey empty");
+    if (!edgeUrl) throw new Error("edgeUrl empty");
 
     const t1 = nowIso();
     const body = {
@@ -277,6 +366,7 @@ async function sendManifest() {
     });
 
     $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    saveLocal();
   } catch (e) {
     $("outManifest").textContent = String(e);
   }
@@ -287,10 +377,12 @@ async function listEvents() {
   try {
     const jwt = getJWT();
     const circleId = $("circleId").value.trim();
+    if (!circleId) throw new Error("circleId empty");
     const { res, data } = await api(`/api/circles/${circleId}/events`, {
       headers:{ "Authorization": "Bearer " + jwt }
     });
     $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    saveLocal();
   } catch (e) {
     $("outEvents").textContent = String(e);
   }
@@ -302,10 +394,14 @@ async function getManifest() {
     const jwt = getJWT();
     const circleId = $("circleId").value.trim();
     const eventId = $("eventId").value.trim();
+    if (!circleId) throw new Error("circleId empty");
+    if (!eventId) throw new Error("eventId empty");
+
     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
       headers:{ "Authorization": "Bearer " + jwt }
     });
     $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    saveLocal();
   } catch (e) {
     $("outManifestRead").textContent = String(e);
   }
@@ -318,6 +414,9 @@ async function createTicket() {
     const circleId = $("circleId").value.trim();
     const eventId = $("eventId").value.trim();
     const evidenceKey = $("evidenceKey").value.trim();
+    if (!circleId) throw new Error("circleId empty");
+    if (!eventId) throw new Error("eventId empty");
+    if (!evidenceKey) throw new Error("evidenceKey empty");
 
     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
       method:"POST",
@@ -328,6 +427,7 @@ async function createTicket() {
     $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
     const id = pick(data, ["ticketId", "id"]);
     if (id) $("ticketId").value = id;
+    saveLocal();
   } catch (e) {
     $("outTicket").textContent = String(e);
   }
@@ -340,9 +440,7 @@ async function downloadRange() {
     const ticketId = $("ticketId").value.trim();
     if (!ticketId) throw new Error("ticketId empty");
 
-    const base = getBase();
-    const url = `${base}/api/evidence/tickets/${ticketId}/download`;
-
+    const url = `${getBase()}/api/evidence/tickets/${ticketId}/download`;
     const res = await fetch(url, {
       method: "GET",
       headers: {
@@ -353,23 +451,32 @@ async function downloadRange() {
 
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
-    const text = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
 
     const info = {
       status: res.status,
       contentRange: res.headers.get("content-range"),
       contentType: res.headers.get("content-type"),
-      bytesHex: text
+      bytesHex: hex,
+      note: "如果这里 502/timeout，通常是 edgeUrl 为内网 10.x，Railway 访问不到"
     };
     $("outDownload").textContent = JSON.stringify(info, null, 2);
+    saveLocal();
   } catch (e) {
     $("outDownload").textContent = String(e);
   }
 }
 
+["base","email","jwt","circleId","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","deviceHeader","ticketId","deviceBody"]
+  .forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLocal(); refreshPreview(); }); });
+
 window.onload = () => {
-  $("base").value = getBase();
+  // base default
+  $("base").value = localStorage.getItem("ng_base") || DEFAULT_BASE;
+  loadLocal();
+  refreshPreview();
 };
 </script>
 </body>
 </html>
+
