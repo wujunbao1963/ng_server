@@ -6,6 +6,7 @@ import * as fs from 'fs';
 
 import { AppModule } from './app.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 function exists(p: string) {
   try {
@@ -16,9 +17,9 @@ function exists(p: string) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log'],
-  });
+const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  logger: ['error', 'warn', 'log'],
+});
 
   // ---- DIAGNOSTICS (safe) ----
   const adapterType =
