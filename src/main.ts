@@ -7,6 +7,7 @@ import { NgExceptionFilter } from './common/errors/ng-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     // Keep logs minimal for Step 0
+    await app.listen(8080);
     logger: ['error', 'warn', 'log'],
   });
 
