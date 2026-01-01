@@ -1139,8 +1139,6 @@ async function switchLiveCamera(cameraId) {
   placeholder.innerHTML = '<div class="spinner"></div>';
   statusText.textContent = '连接中...';
   
-  // 方案 1: MJPEG 流 (直接设置 img.src)
-  // 注意: MJPEG 需要 Edge 支持 /stream.mjpeg 端点
   try {
     // 先检查摄像头是否可用
     const checkRes = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}`);
@@ -1148,22 +1146,8 @@ async function switchLiveCamera(cameraId) {
       throw new Error('Camera not available');
     }
     
-    // 使用 MJPEG 流
-    img.src = `${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/stream.mjpeg?fps=10&quality=80&t=${Date.now()}`;
-    img.style.display = 'block';
-    placeholder.style.display = 'none';
-    
-    img.onload = () => {
-      statusText.textContent = '● 实时';
-      status.className = 'live-view-status connected';
-      stopBtn.style.display = 'inline-block';
-    };
-    
-    img.onerror = () => {
-      // MJPEG 不支持，回退到快照轮询
-      console.log('MJPEG not supported, falling back to snapshot polling');
-      startSnapshotPolling(cameraId);
-    };
+    // 直接使用快照轮询模式 (每次新连接，避免延迟累积)
+    startSnapshotPolling(cameraId);
     
   } catch (e) {
     console.error('Live view error:', e);
@@ -1176,7 +1160,7 @@ async function switchLiveCamera(cameraId) {
 }
 
 function startSnapshotPolling(cameraId) {
-  // 回退方案: 每秒刷新快照
+  // 快照轮询模式: 每次请求都是新连接，确保实时
   const img = document.getElementById('liveViewImg');
   const placeholder = document.getElementById('liveViewPlaceholder');
   const statusText = document.getElementById('liveViewStatusText');
@@ -1184,12 +1168,15 @@ function startSnapshotPolling(cameraId) {
   const stopBtn = document.getElementById('liveViewStopBtn');
   
   let frameCount = 0;
+  let lastFetchTime = 0;
   
   async function fetchSnapshot() {
     if (!liveStreamActive) return;
     
+    const fetchStart = Date.now();
+    
     try {
-      const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/snapshot`);
+      const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/snapshot?t=${Date.now()}`);
       if (!res.ok) throw new Error('Snapshot failed');
       
       const blob = await res.blob();
@@ -1201,17 +1188,20 @@ function startSnapshotPolling(cameraId) {
       placeholder.style.display = 'none';
       
       frameCount++;
-      statusText.textContent = `● 实时 (${frameCount} 帧)`;
+      const latency = Date.now() - fetchStart;
+      statusText.textContent = `● 实时 (${latency}ms)`;
       status.className = 'live-view-status connected';
       stopBtn.style.display = 'inline-block';
       
     } catch (e) {
       console.error('Snapshot error:', e);
+      statusText.textContent = '连接中断...';
     }
   }
   
   fetchSnapshot();
-  liveStreamInterval = setInterval(fetchSnapshot, 500); // 2 fps
+  // 每秒刷新一次 (每次都是新连接，延迟约 500-1000ms)
+  liveStreamInterval = setInterval(fetchSnapshot, 1000);
 }
 
 function stopLiveView() {
