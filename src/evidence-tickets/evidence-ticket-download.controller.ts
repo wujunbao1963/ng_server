@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { Readable } from 'stream';
-import { finished } from 'stream/promises';
 import { EvidenceTicketsService } from './evidence-tickets.service';
 
 @Controller('/api/evidence/tickets')
@@ -58,25 +57,11 @@ export class EvidenceTicketDownloadController {
       throw new NotFoundException('evidence not available');
     }
 
-    // Acquire per-ticket download lease to limit concurrency.
-    const leaseId = await this.svc.acquireLease({
-      ticketId: ticket.ticketId,
-      requesterUserId: ticket.requesterUserId,
-      leaseType: 'download',
-      ttlSec: 60,
-    });
-    if (!leaseId) {
-      throw new HttpException('too many concurrent downloads', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
-    const safeRelease = async () => {
-      try {
-        await this.svc.releaseLease(leaseId);
-      } catch {
-        // swallow
-      }
-    };
-
+    // Note: Lease mechanism disabled for now because:
+    // 1. Video players send multiple Range requests concurrently
+    // 2. Ticket itself has expiration and is bound to evidenceKey
+    // 3. Audit logging still tracks all downloads
+    
     // Proxy download from edgeUrl. Support HTTP Range requests (video/large files).
     const range = (req.headers?.['range'] as string | undefined) || undefined;
     const ac = new AbortController();
@@ -95,7 +80,7 @@ export class EvidenceTicketDownloadController {
         upstreamStatus: 0,
         bytesSent: null,
       });
-      await safeRelease();
+      
       throw new BadGatewayException('failed to fetch evidence');
     } finally {
       clearTimeout(timeout);
@@ -110,7 +95,7 @@ export class EvidenceTicketDownloadController {
         upstreamStatus: upstream.status,
         bytesSent: null,
       });
-      await safeRelease();
+      
       throw new BadGatewayException(`upstream responded ${upstream.status}`);
     }
     if (!(upstream.status === 200 || upstream.status === 206)) {
@@ -122,7 +107,7 @@ export class EvidenceTicketDownloadController {
         upstreamStatus: upstream.status,
         bytesSent: null,
       });
-      await safeRelease();
+      
       throw new HttpException(`upstream responded ${upstream.status}`, upstream.status);
     }
 
@@ -156,14 +141,6 @@ export class EvidenceTicketDownloadController {
 
     // Pipe web stream to Node response.
     const nodeReadable = Readable.fromWeb(upstream.body as any);
-
     nodeReadable.pipe(res);
-    // IMPORTANT: Wait for response to finish before releasing the lease.
-    // This makes concurrency tests deterministic and avoids teardown races.
-    try {
-      await finished(res);
-    } finally {
-      await safeRelease();
-    }
   }
 }
