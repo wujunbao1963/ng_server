@@ -37,6 +37,80 @@ export class EdgeEventsService {
   ) {}
 
   /**
+   * List edge events for a circle (App read API)
+   */
+  async listEvents(circleId: string, limit: number = 50): Promise<{ items: any[]; nextCursor: string | null }> {
+    const events = await this.edgeRepo.find({
+      where: { circleId },
+      order: { edgeUpdatedAt: 'DESC' },
+      take: limit,
+    });
+
+    const items = events.map((ev) => ({
+      eventId: ev.eventId,
+      edgeInstanceId: ev.edgeInstanceId,
+      threatState: ev.threatState,
+      triggerReason: ev.triggerReason,
+      occurredAt: ev.edgeUpdatedAt.toISOString(),
+      updatedAt: ev.edgeUpdatedAt.toISOString(),
+      status: this.mapThreatStateToStatus(ev.threatState),
+      title: this.generateTitle(ev),
+      // Include summary fields if available
+      ...(ev.summaryJson && typeof ev.summaryJson === 'object' ? this.extractSummaryFields(ev.summaryJson as Record<string, unknown>) : {}),
+    }));
+
+    return { items, nextCursor: null };
+  }
+
+  /**
+   * Get single edge event
+   */
+  async getEvent(circleId: string, eventId: string): Promise<any> {
+    const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
+    if (!ev) {
+      return null;
+    }
+
+    return {
+      eventId: ev.eventId,
+      edgeInstanceId: ev.edgeInstanceId,
+      threatState: ev.threatState,
+      triggerReason: ev.triggerReason,
+      occurredAt: ev.edgeUpdatedAt.toISOString(),
+      updatedAt: ev.edgeUpdatedAt.toISOString(),
+      status: this.mapThreatStateToStatus(ev.threatState),
+      title: this.generateTitle(ev),
+      summaryJson: ev.summaryJson,
+    };
+  }
+
+  private mapThreatStateToStatus(threatState: string): string {
+    // Map threatState to app-friendly status
+    if (threatState === 'RESOLVED' || threatState === 'CANCELED') return 'RESOLVED';
+    if (threatState === 'TRIGGERED') return 'OPEN';
+    return 'OPEN';
+  }
+
+  private generateTitle(ev: NgEdgeEvent): string {
+    const reasonMap: Record<string, string> = {
+      'entry_delay_expired': '入侵警报',
+      'motion': '移动检测',
+      'door_open': '门窗打开',
+      'glass_break': '玻璃破碎',
+    };
+    return reasonMap[ev.triggerReason || ''] || '安全事件';
+  }
+
+  private extractSummaryFields(summary: Record<string, unknown>): Record<string, unknown> {
+    const fields: Record<string, unknown> = {};
+    if (summary.entryPointId) fields.entryPointId = summary.entryPointId;
+    if (summary.mode) fields.mode = summary.mode;
+    if (summary.workflowClass) fields.workflowClass = summary.workflowClass;
+    if (summary.zoneId) fields.zoneId = summary.zoneId;
+    return fields;
+  }
+
+  /**
    * Step 2 behavior:
    *  - Always store raw landing row (audit/debug).
    *  - Upsert authoritative snapshot into ng_edge_events with sequence + timestamp rules.

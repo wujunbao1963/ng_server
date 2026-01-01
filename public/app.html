@@ -689,7 +689,8 @@ function logout() {
 
 async function loadEvents() {
   try {
-    const data = await api(`/api/circles/${state.circleId}/events`);
+    // 查询 edge events (v7.7 新端点)
+    const data = await api(`/api/circles/${state.circleId}/edge/events`);
     // API 返回 { items: [...], nextCursor: ... }
     state.events = data.items || data.events || (Array.isArray(data) ? data : []);
     renderEvents();
