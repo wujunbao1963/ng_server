@@ -342,6 +342,63 @@
     .detail-value { font-weight: 500; font-size: 14px; }
     
     .evidence-list { display: flex; flex-direction: column; gap: 8px; }
+    
+    /* Live View 实时流样式 */
+    .live-view-container {
+      background: #1a1a2e;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .live-view-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px;
+      background: #16213e;
+      overflow-x: auto;
+    }
+    .live-view-tab {
+      padding: 8px 16px;
+      background: #0f3460;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .live-view-tab.active {
+      background: #00adb5;
+    }
+    .live-view-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .live-view-frame img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .live-view-placeholder {
+      color: #666;
+      font-size: 14px;
+    }
+    .live-view-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #16213e;
+      color: #888;
+      font-size: 12px;
+    }
+    .live-view-status.connected { color: #00ff88; }
+    .live-view-status.error { color: #ff4444; }
     .evidence-item {
       display: flex;
       align-items: center;
@@ -549,11 +606,30 @@
             <div class="loading"><div class="spinner"></div></div>
           </div>
         </div>
+        
+        <!-- 实时查看区域 -->
+        <div class="detail-section" id="liveViewSection" style="display: none;">
+          <h3>📹 实时画面</h3>
+          <div class="live-view-container">
+            <div class="live-view-tabs" id="liveViewTabs"></div>
+            <div class="live-view-frame" id="liveViewFrame">
+              <img id="liveViewImg" alt="实时画面" style="display: none;">
+              <div class="live-view-placeholder" id="liveViewPlaceholder">
+                <span>点击上方按钮查看实时画面</span>
+              </div>
+            </div>
+            <div class="live-view-status" id="liveViewStatus">
+              <span id="liveViewStatusText">未连接</span>
+              <button class="btn btn-sm btn-outline" id="liveViewStopBtn" onclick="stopLiveView()" style="display: none;">停止</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
     <div class="action-bar" id="actionBar">
       <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
+      <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
       <button class="btn btn-danger" onclick="confirmEvent('alert')">🚨 报警</button>
     </div>
   </div>
@@ -981,6 +1057,177 @@ async function doConfirm() {
     console.error('Confirm error:', e);
     showToast('操作失败: ' + e.message);
   }
+}
+
+// =============================================================================
+// Live Stream Verification
+// =============================================================================
+
+// Edge 服务器地址 (通过 Cloudflare Tunnel)
+const EDGE_URL = 'https://evidence.neighbor-guard.com';
+
+// 实时流状态
+let liveStreamActive = false;
+let liveStreamCamera = null;
+let liveStreamInterval = null;
+
+async function startVerification() {
+  // 显示实时查看区域
+  const section = document.getElementById('liveViewSection');
+  section.style.display = 'block';
+  
+  // 获取摄像头列表
+  try {
+    const res = await fetch(`${EDGE_URL}/api/live/cameras`);
+    const data = await res.json();
+    
+    const tabs = document.getElementById('liveViewTabs');
+    tabs.innerHTML = '';
+    
+    if (!data.cameras || data.cameras.length === 0) {
+      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头</span>';
+      return;
+    }
+    
+    // 创建摄像头按钮
+    data.cameras.forEach((cam, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'live-view-tab' + (idx === 0 ? ' active' : '');
+      btn.textContent = cam.name || cam.cameraId;
+      btn.onclick = () => switchLiveCamera(cam.cameraId);
+      tabs.appendChild(btn);
+    });
+    
+    // 自动启动第一个摄像头
+    if (data.cameras.length > 0) {
+      switchLiveCamera(data.cameras[0].cameraId);
+    }
+    
+  } catch (e) {
+    console.error('Failed to load cameras:', e);
+    document.getElementById('liveViewPlaceholder').innerHTML = 
+      `<span style="color: #ff4444;">无法连接 Edge 服务器</span>`;
+  }
+}
+
+async function switchLiveCamera(cameraId) {
+  // 停止当前流
+  stopLiveView();
+  
+  // 更新 tab 样式
+  document.querySelectorAll('.live-view-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.textContent.includes(cameraId));
+  });
+  
+  liveStreamCamera = cameraId;
+  liveStreamActive = true;
+  
+  const img = document.getElementById('liveViewImg');
+  const placeholder = document.getElementById('liveViewPlaceholder');
+  const status = document.getElementById('liveViewStatus');
+  const statusText = document.getElementById('liveViewStatusText');
+  const stopBtn = document.getElementById('liveViewStopBtn');
+  
+  placeholder.innerHTML = '<div class="spinner"></div>';
+  statusText.textContent = '连接中...';
+  
+  // 方案 1: MJPEG 流 (直接设置 img.src)
+  // 注意: MJPEG 需要 Edge 支持 /stream.mjpeg 端点
+  try {
+    // 先检查摄像头是否可用
+    const checkRes = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}`);
+    if (!checkRes.ok) {
+      throw new Error('Camera not available');
+    }
+    
+    // 使用 MJPEG 流
+    img.src = `${EDGE_URL}/api/live/cameras/${cameraId}/stream.mjpeg?fps=10&quality=80&t=${Date.now()}`;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+    
+    img.onload = () => {
+      statusText.textContent = '● 实时';
+      status.className = 'live-view-status connected';
+      stopBtn.style.display = 'inline-block';
+    };
+    
+    img.onerror = () => {
+      // MJPEG 不支持，回退到快照轮询
+      console.log('MJPEG not supported, falling back to snapshot polling');
+      startSnapshotPolling(cameraId);
+    };
+    
+  } catch (e) {
+    console.error('Live view error:', e);
+    statusText.textContent = '连接失败';
+    status.className = 'live-view-status error';
+    placeholder.innerHTML = `<span style="color: #ff4444;">${e.message}</span>`;
+    placeholder.style.display = 'block';
+    img.style.display = 'none';
+  }
+}
+
+function startSnapshotPolling(cameraId) {
+  // 回退方案: 每秒刷新快照
+  const img = document.getElementById('liveViewImg');
+  const placeholder = document.getElementById('liveViewPlaceholder');
+  const statusText = document.getElementById('liveViewStatusText');
+  const status = document.getElementById('liveViewStatus');
+  const stopBtn = document.getElementById('liveViewStopBtn');
+  
+  let frameCount = 0;
+  
+  async function fetchSnapshot() {
+    if (!liveStreamActive) return;
+    
+    try {
+      const res = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}/snapshot`);
+      if (!res.ok) throw new Error('Snapshot failed');
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      
+      img.onload = () => URL.revokeObjectURL(url);
+      img.src = url;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+      
+      frameCount++;
+      statusText.textContent = `● 实时 (${frameCount} 帧)`;
+      status.className = 'live-view-status connected';
+      stopBtn.style.display = 'inline-block';
+      
+    } catch (e) {
+      console.error('Snapshot error:', e);
+    }
+  }
+  
+  fetchSnapshot();
+  liveStreamInterval = setInterval(fetchSnapshot, 500); // 2 fps
+}
+
+function stopLiveView() {
+  liveStreamActive = false;
+  liveStreamCamera = null;
+  
+  if (liveStreamInterval) {
+    clearInterval(liveStreamInterval);
+    liveStreamInterval = null;
+  }
+  
+  const img = document.getElementById('liveViewImg');
+  const placeholder = document.getElementById('liveViewPlaceholder');
+  const statusText = document.getElementById('liveViewStatusText');
+  const status = document.getElementById('liveViewStatus');
+  const stopBtn = document.getElementById('liveViewStopBtn');
+  
+  img.src = '';
+  img.style.display = 'none';
+  placeholder.style.display = 'block';
+  placeholder.innerHTML = '<span>点击上方按钮查看实时画面</span>';
+  statusText.textContent = '已停止';
+  status.className = 'live-view-status';
+  stopBtn.style.display = 'none';
 }
 
 // =============================================================================
