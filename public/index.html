@@ -609,7 +609,7 @@ async function createTicket() {
     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
       method:"POST",
       headers:{ "Authorization": "Bearer " + jwt },
-      body:{ evidenceKey },
+      body:{ evidenceKey, ttlSec: 600 },
       traceKey:"ticket"
     });
 
