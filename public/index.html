@@ -1,1084 +1,696 @@
-*** a/index.html
---- b/index.html
-***************
-*** 1,38 ****
-  <!doctype html>
-  <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>NG Server v7.7 Prototype Tester</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; line-height: 1.25; }
-      input, textarea, button, select { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
-      textarea { height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
-      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
-      pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px; }
-      small { color: #666; }
-      .warn { color: #8a4b00; background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; }
-      .ok { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; padding: 10px; border-radius: 8px; }
-      .muted { color: #666; }
-      code { background: #f1f1f1; padding: 1px 4px; border-radius: 4px; }
-    </style>
-  </head>
-  <body>
-    <h2>NG Server Prototype Tester</h2>
-    <small>原型测试：Login → Circle → Edge Device → Edge Summary/Manifest → Ticket → Download(206)</small>
---- 1,67 ----
-  <!doctype html>
-  <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>NG Server v7.7 Prototype Tester</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; line-height: 1.25; }
-      input, textarea, button, select { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
-      textarea { height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
-      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
-      pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px; }
-      small { color: #666; }
-      .warn { color: #8a4b00; background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; }
-      .ok { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; padding: 10px; border-radius: 8px; }
-      .muted { color: #666; }
-      code { background: #f1f1f1; padding: 1px 4px; border-radius: 4px; }
-+ 
-+     .hrow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-+     .hrow > * { flex: 0 0 auto; }
-+     .btn { cursor:pointer; }
-+     .btnSmall { width:auto; padding:6px 10px; font-size: 12px; }
-+     .badge { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #ddd; background:#f7f7f7; color:#444; }
-+     .badge.ok { background:#d1e7dd; border-color:#badbcc; color:#0f5132; }
-+     .badge.bad { background:#f8d7da; border-color:#f5c2c7; color:#842029; }
-+     .badge.neutral { background:#f7f7f7; border-color:#ddd; color:#444; }
-+     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
-+     .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-+     .k { color:#666; font-size:12px; }
-+     .nowrap { white-space:nowrap; }
-    </style>
-  </head>
-  <body>
-    <h2>NG Server Prototype Tester</h2>
-    <small>原型测试：Login → Circle → Edge Device → Edge Summary/Manifest → Ticket → Download(206)</small>
-***************
-*** 40,57 ****
-    <div class="card">
-      <h3>0) 基础配置</h3>
-      <div class="warn">
-        <b>提醒：</b>manifest 的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器访问不到，后续 Download 可能 502/timeout。
-      </div>
-  
-      <label>Base URL</label>
-      <input id="base" />
-  
-      <label>Dev Login Email</label>
-      <input id="email" value="test@example.com" />
-  
-      <button onclick="saveAll()">Save</button>
-      <button onclick="clearAll()">Clear LocalStorage</button>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NG Server v7.7 Prototype Tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system; padding: 16px; line-height: 1.25; }
+    input, textarea, button, select { width: 100%; margin: 6px 0; padding: 8px; box-sizing: border-box; }
+    textarea { height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 12px; border-radius: 8px; margin: 10px 0; }
+    pre { background: #f7f7f7; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px; }
+    small { color: #666; }
+    .warn { color: #8a4b00; background: #fff3cd; border: 1px solid #ffe69c; padding: 10px; border-radius: 8px; }
+    .ok { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; padding: 10px; border-radius: 8px; }
+    .muted { color: #666; }
+    code { background: #f1f1f1; padding: 1px 4px; border-radius: 4px; }
+
+    .hrow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .hrow > * { flex: 0 0 auto; }
+    .btn { cursor:pointer; }
+    .btnSmall { width:auto; padding:6px 10px; font-size: 12px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #ddd; background:#f7f7f7; color:#444; }
+    .badge.ok { background:#d1e7dd; border-color:#badbcc; color:#0f5132; }
+    .badge.bad { background:#f8d7da; border-color:#f5c2c7; color:#842029; }
+    .badge.neutral { background:#f7f7f7; border-color:#ddd; color:#444; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; }
+    .twoCol { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .nowrap { white-space:nowrap; }
+  </style>
+</head>
+<body>
+  <h2>NG Server Prototype Tester</h2>
+  <small>原型测试：Login → Circle → Edge Device → Edge Summary/Manifest → Ticket → Download(206)</small>
+
+  <!--
+  NG v7.7 Proto Flow (Canonical)
+  1. Dev Login
+  2. Create Circle
+  3. Register Edge Device
+  4. Edge Summary Upsert
+  5. Edge Manifest Upsert
+  6. App List Events
+  7. App Get Manifest
+  8. Create Evidence Ticket
+  9. Download Evidence (Range 206)
+  -->
+
+  <div class="card">
+    <h3>0) 基础配置</h3>
+    <div class="warn">
+      <b>提醒：</b>manifest 的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器访问不到，后续 Download 可能 502/timeout。
     </div>
---- 69,111 ----
-    <div class="card">
-      <h3>0) 基础配置</h3>
-      <div class="warn">
-        <b>提醒：</b>manifest 的 <code>edgeUrl</code> 如果是 <code>http://10.x</code> 内网地址，Railway 公网服务器访问不到，后续 Download 可能 502/timeout。
-      </div>
-  
-      <label>Base URL</label>
-      <input id="base" />
-  
-      <label>Dev Login Email</label>
-      <input id="email" value="test@example.com" />
-  
--     <button onclick="saveAll()">Save</button>
--     <button onclick="clearAll()">Clear LocalStorage</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="saveAll()">Save</button>
-+       <button class="btn btnSmall" onclick="clearAll()">Clear LocalStorage</button>
-+       <span id="stBase" class="badge neutral">• base</span>
-+     </div>
+
+    <label>Base URL</label>
+    <input id="base" />
+
+    <label>Dev Login Email</label>
+    <input id="email" value="test@example.com" />
+
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="saveAll()">Save</button>
+      <button class="btn btnSmall" onclick="clearAll()">Clear LocalStorage</button>
+      <span id="stBase" class="badge neutral">• base</span>
     </div>
-+ 
-+   <div class="card">
-+     <h3>Trace（Last HTTP）</h3>
-+     <small class="muted">每次按钮请求都会刷新这里：Request/Response + curl（便于复制复现 & 对照 Railway logs）。</small>
-+     <div class="twoCol">
-+       <div>
-+         <div class="hrow">
-+           <b class="nowrap">Request</b>
-+           <span id="traceReqLine" class="badge neutral mono">-</span>
-+           <button class="btn btnSmall" onclick="copyTraceCurl()">Copy curl</button>
-+         </div>
-+         <pre id="traceReq" class="mono"></pre>
-+       </div>
-+       <div>
-+         <div class="hrow">
-+           <b class="nowrap">Response</b>
-+           <span id="traceResLine" class="badge neutral mono">-</span>
-+         </div>
-+         <pre id="traceRes" class="mono"></pre>
-+       </div>
-+     </div>
-+   </div>
-***************
-*** 59,75 ****
-    <div class="card">
-      <h3>1) Login</h3>
--     <button onclick="devLogin()">POST /api/auth/dev/login</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="devLogin()">POST /api/auth/dev/login</button>
-+       <span id="stLogin" class="badge neutral">• login</span>
-+       <button class="btn btnSmall" onclick="copyCurl('login')">Copy curl</button>
-+     </div>
-      <div class="row">
-        <div>
-          <label>JWT</label>
-          <textarea id="jwt" placeholder="JWT will appear here"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>Trace（Last HTTP）</h3>
+    <small class="muted">每次按钮请求都会刷新这里：Request/Response + curl（便于复制复现 & 对照 Railway logs）。</small>
+    <div class="twoCol">
+      <div>
+        <div class="hrow">
+          <b class="nowrap">Request</b>
+          <span id="traceReqLine" class="badge neutral mono">-</span>
+          <button class="btn btnSmall" onclick="copyTraceCurl()">Copy curl</button>
         </div>
-        <div>
-          <label>Last Response</label>
-          <pre id="outLogin"></pre>
+        <pre id="traceReq" class="mono"></pre>
+      </div>
+      <div>
+        <div class="hrow">
+          <b class="nowrap">Response</b>
+          <span id="traceResLine" class="badge neutral mono">-</span>
         </div>
+        <pre id="traceRes" class="mono"></pre>
       </div>
     </div>
---- 113,136 ----
-    <div class="card">
-      <h3>1) Login</h3>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="devLogin()">POST /api/auth/dev/login</button>
-+       <span id="stLogin" class="badge neutral">• login</span>
-+       <button class="btn btnSmall" onclick="copyCurl('login')">Copy curl</button>
-+     </div>
-      <div class="row">
-        <div>
-          <label>JWT</label>
-          <textarea id="jwt" placeholder="JWT will appear here"></textarea>
-        </div>
-        <div>
-          <label>Last Response</label>
-          <pre id="outLogin"></pre>
-        </div>
+  </div>
+
+  <div class="card">
+    <h3>1) Login</h3>
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="devLogin()">POST /api/auth/dev/login</button>
+      <span id="stLogin" class="badge neutral">• login</span>
+      <button class="btn btnSmall" onclick="copyCurl('login')">Copy curl</button>
+    </div>
+    <div class="row">
+      <div>
+        <label>JWT</label>
+        <textarea id="jwt" placeholder="JWT will appear here"></textarea>
+      </div>
+      <div>
+        <label>Last Response</label>
+        <pre id="outLogin"></pre>
       </div>
     </div>
-***************
-*** 77,86 ****
-    <div class="card">
-      <h3>2) Circle</h3>
--     <button onclick="createCircle()">POST /api/circles</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="createCircle()">POST /api/circles</button>
-+       <span id="stCircle" class="badge neutral">• circle</span>
-+       <button class="btn btnSmall" onclick="copyCurl('circle')">Copy curl</button>
-+     </div>
-      <label>circleId</label>
-      <input id="circleId" placeholder="circleId" />
-      <pre id="outCircle"></pre>
+  </div>
+
+  <div class="card">
+    <h3>2) Circle</h3>
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="createCircle()">POST /api/circles</button>
+      <span id="stCircle" class="badge neutral">• circle</span>
+      <button class="btn btnSmall" onclick="copyCurl('circle')">Copy curl</button>
     </div>
---- 138,152 ----
-    <div class="card">
-      <h3>2) Circle</h3>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="createCircle()">POST /api/circles</button>
-+       <span id="stCircle" class="badge neutral">• circle</span>
-+       <button class="btn btnSmall" onclick="copyCurl('circle')">Copy curl</button>
-+     </div>
-      <label>circleId</label>
-      <input id="circleId" placeholder="circleId" />
-      <pre id="outCircle"></pre>
+    <label>circleId</label>
+    <input id="circleId" placeholder="circleId" />
+    <pre id="outCircle"></pre>
+  </div>
+
+  <div class="card">
+    <h3>3) Edge Device（注册拿 deviceKey）</h3>
+    <small class="muted">默认发送 <code>{}</code>。如果 server DTO 以后要求字段，可以在 Raw JSON 里填。</small>
+
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
+      <span id="stDevice" class="badge neutral">• device</span>
+      <button class="btn btnSmall" onclick="copyCurl('device')">Copy curl</button>
     </div>
-***************
-*** 88,104 ****
-    <div class="card">
-      <h3>3) Edge Device（注册拿 deviceKey）</h3>
-      <small class="muted">默认发送 <code>{}</code>。如果 server DTO 以后要求字段，可以在 Raw JSON 里填。</small>
-  
--     <button onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
-+       <span id="stDevice" class="badge neutral">• device</span>
-+       <button class="btn btnSmall" onclick="copyCurl('device')">Copy curl</button>
-+     </div>
-  
-      <label>Raw JSON body（留空 = {}）</label>
-      <textarea id="deviceBody" placeholder="{}"></textarea>
-  
-      <div class="row">
-        <div>
-          <label>deviceId（自动提取）</label>
-          <input id="deviceId" />
-        </div>
-        <div>
-          <label>deviceKey（自动提取）</label>
-          <input id="deviceKeyEdge" />
-        </div>
+
+    <label>Raw JSON body（留空 = {}）</label>
+    <textarea id="deviceBody" placeholder="{}"></textarea>
+
+    <div class="row">
+      <div>
+        <label>deviceId（自动提取）</label>
+        <input id="deviceId" />
       </div>
-  
-      <pre id="outDevice"></pre>
-    </div>
---- 154,175 ----
-    <div class="card">
-      <h3>3) Edge Device（注册拿 deviceKey）</h3>
-      <small class="muted">默认发送 <code>{}</code>。如果 server DTO 以后要求字段，可以在 Raw JSON 里填。</small>
-  
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="createEdgeDevice()">POST /api/circles/:circleId/edge/devices</button>
-+       <span id="stDevice" class="badge neutral">• device</span>
-+       <button class="btn btnSmall" onclick="copyCurl('device')">Copy curl</button>
-+     </div>
-  
-      <label>Raw JSON body（留空 = {}）</label>
-      <textarea id="deviceBody" placeholder="{}"></textarea>
-  
-      <div class="row">
-        <div>
-          <label>deviceId（自动提取）</label>
-          <input id="deviceId" />
-        </div>
-        <div>
-          <label>deviceKey（自动提取）</label>
-          <input id="deviceKeyEdge" />
-        </div>
+      <div>
+        <label>deviceKey（自动提取）</label>
+        <input id="deviceKeyEdge" />
       </div>
-  
-      <pre id="outDevice"></pre>
     </div>
-***************
-*** 106,147 ****
-    <div class="card">
-      <h3>4) Edge 上报（Summary / Manifest）</h3>
-  
-      <div class="row">
-        <div>
-          <label>eventId</label>
-          <input id="eventId" value="evt-001" />
-          <label>edgeInstanceId</label>
-          <input id="edgeInstanceId" value="edge-main-001" />
-        </div>
-        <div>
-          <label>edgeUrl（manifest item）</label>
-          <input id="edgeUrl" value="http://10.0.0.225:8081/evidence/clip_cam_front_001" />
-          <label>evidenceKey</label>
-          <input id="evidenceKey" value="test-01" />
-        </div>
+
+    <pre id="outDevice"></pre>
+  </div>
+
+  <div class="card">
+    <h3>4) Edge 上报（Summary / Manifest）</h3>
+
+    <div class="row">
+      <div>
+        <label>eventId</label>
+        <input id="eventId" value="evt-001" />
+        <label>edgeInstanceId</label>
+        <input id="edgeInstanceId" value="edge-main-001" />
       </div>
-  
-      <label>Device Auth Mode（默认推荐 Authorization: Device）</label>
-      <select id="deviceAuthMode">
-        <option value="authorization">Authorization: Device &lt;deviceKey&gt;</option>
-        <option value="x-device-key">X-Device-Key: &lt;deviceKey&gt;</option>
-      </select>
-  
-      <div class="ok">
-        <b>说明：</b>会使用 deviceKey 做设备鉴权（若为空会禁用按钮）
+      <div>
+        <label>edgeUrl（manifest item）</label>
+        <input id="edgeUrl" value="http://10.0.0.225:8081/evidence/clip_cam_front_001" />
+        <label>evidenceKey</label>
+        <input id="evidenceKey" value="test-01" />
       </div>
-  
--     <button id="btnSummary" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
-+     <div class="hrow">
-+       <button id="btnSummary" class="btn btnSmall" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
-+       <span id="stSummary" class="badge neutral">• summary</span>
-+       <button class="btn btnSmall" onclick="copyCurl('summary')">Copy curl</button>
-+     </div>
-      <pre id="outSummary"></pre>
-  
--     <button id="btnManifest" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
-+     <div class="hrow">
-+       <button id="btnManifest" class="btn btnSmall" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
-+       <span id="stManifest" class="badge neutral">• manifest</span>
-+       <button class="btn btnSmall" onclick="copyCurl('manifest')">Copy curl</button>
-+     </div>
-      <pre id="outManifest"></pre>
     </div>
-***************
-*** 149,160 ****
-    <div class="card">
-      <h3>5) App 读取（Events / Manifest）</h3>
--     <button onclick="listEvents()">GET /api/circles/:circleId/events</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="listEvents()">GET /api/circles/:circleId/events</button>
-+       <span id="stEvents" class="badge neutral">• events</span>
-+       <button class="btn btnSmall" onclick="copyCurl('events')">Copy curl</button>
-+     </div>
-      <pre id="outEvents"></pre>
-  
--     <button onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
-+       <span id="stManifestRead" class="badge neutral">• manifest-read</span>
-+       <button class="btn btnSmall" onclick="copyCurl('manifestRead')">Copy curl</button>
-+     </div>
-      <pre id="outManifestRead"></pre>
+
+    <label>Device Auth Mode（默认推荐 Authorization: Device）</label>
+    <select id="deviceAuthMode">
+      <option value="authorization">Authorization: Device &lt;deviceKey&gt;</option>
+      <option value="x-device-key">X-Device-Key: &lt;deviceKey&gt;</option>
+    </select>
+
+    <div class="ok">
+      <b>说明：</b>会使用 deviceKey 做设备鉴权（若为空会禁用按钮）
     </div>
-***************
-*** 162,176 ****
-    <div class="card">
-      <h3>6) Ticket + Download</h3>
--     <button onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
-+       <span id="stTicket" class="badge neutral">• ticket</span>
-+       <button class="btn btnSmall" onclick="copyCurl('ticket')">Copy curl</button>
-+     </div>
-      <label>ticketId</label>
-      <input id="ticketId" />
-      <pre id="outTicket"></pre>
-  
--     <button onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
-+     <div class="hrow">
-+       <button class="btn btnSmall" onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
-+       <span id="stDownload" class="badge neutral">• download</span>
-+       <button class="btn btnSmall" onclick="copyCurl('download')">Copy curl</button>
-+     </div>
-      <pre id="outDownload"></pre>
+
+    <div class="hrow">
+      <button id="btnSummary" class="btn btnSmall" onclick="sendSummary()">POST /api/circles/:circleId/edge/events/summary-upsert</button>
+      <span id="stSummary" class="badge neutral">• summary</span>
+      <button class="btn btnSmall" onclick="copyCurl('summary')">Copy curl</button>
     </div>
-  
-  <script>
-  const DEFAULT_BASE = "https://ngserver-production-2bfe.up.railway.app";
-  function nowIso() { return new Date().toISOString(); }
-  function $(id) { return document.getElementById(id); }
-+ 
-+ // ----验收增强：Trace + curl + 状态徽章----
-+ const TRACE = {
-+   last: null,         // { key, req, res, curl }
-+   byKey: {},          // key -> trace
-+ };
-+ 
-+ function setBadge(id, ok, text) {
-+   const el = $(id);
-+   if (!el) return;
-+   el.classList.remove("ok","bad","neutral");
-+   if (ok === true) el.classList.add("ok");
-+   else if (ok === false) el.classList.add("bad");
-+   else el.classList.add("neutral");
-+   el.textContent = text || (ok === true ? "✅" : ok === false ? "❌" : "•");
-+ }
-+ 
-+ function safeJsonParse(s) {
-+   try { return JSON.parse(s); } catch { return null; }
-+ }
-+ 
-+ function toCurl({ method, url, headers, body }) {
-+   const parts = ["curl", "-i", "-X", method];
-+   const hKeys = Object.keys(headers || {});
-+   for (const k of hKeys) parts.push("-H", `${k}: ${headers[k]}`);
-+   if (body !== undefined) parts.push("-d", JSON.stringify(body));
-+   parts.push(url);
-+   return parts.map(x => (/\s/.test(x) ? `'${x.replace(/'/g, `'\\''`)}'` : x)).join(" ");
-+ }
-+ 
-+ async function copyText(s) {
-+   await navigator.clipboard.writeText(s);
-+   alert("copied");
-+ }
-+ 
-+ function renderTrace(trace) {
-+   if (!trace) return;
-+   $("traceReqLine").textContent = `${trace.req.method} ${trace.req.path}`;
-+   $("traceResLine").textContent = `${trace.res.status} ${trace.res.statusText || ""}`.trim();
-+ 
-+   const reqView = {
-+     url: trace.req.url,
-+     method: trace.req.method,
-+     headers: trace.req.headers,
-+     body: trace.req.body,
-+   };
-+   const resView = {
-+     status: trace.res.status,
-+     statusText: trace.res.statusText,
-+     headers: trace.res.headers,
-+     body: trace.res.body,
-+   };
-+   $("traceReq").textContent = JSON.stringify(reqView, null, 2);
-+   $("traceRes").textContent = JSON.stringify(resView, null, 2);
-+ }
-+ 
-+ function stashTrace(key, trace) {
-+   TRACE.byKey[key] = trace;
-+   TRACE.last = trace;
-+   renderTrace(trace);
-+ }
-+ 
-+ function copyCurl(key) {
-+   const t = TRACE.byKey[key];
-+   if (!t) return alert("no trace for: " + key);
-+   copyText(t.curl);
-+ }
-+ function copyTraceCurl() {
-+   if (!TRACE.last) return alert("no trace yet");
-+   copyText(TRACE.last.curl);
-+ }
-***************
-*** 178,228 ****
-  function saveAll() {
-    const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
-    for (const id of ids) localStorage.setItem("ng_"+id, ($(id).value || ""));
-    alert("saved");
-    refreshButtons();
-  }
-  function loadAll() {
-    const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
-    for (const id of ids) {
-      const v = localStorage.getItem("ng_"+id);
-      if (v !== null && v !== undefined && v !== "") $(id).value = v;
-    }
-    refreshButtons();
-  }
-  function clearAll() {
-    Object.keys(localStorage).forEach(k => { if (k.startsWith("ng_")) localStorage.removeItem(k); });
-    alert("cleared");
-    location.reload();
-  }
-  
-  function getBase() {
-    const v = ($("base").value || DEFAULT_BASE).trim();
-    return v.replace(/\/+$/, "");
-  }
-  function getJWT() {
-    const v = $("jwt").value.trim();
-    if (!v) throw new Error("JWT empty, login first");
-    return v;
-  }
-  
-! async function api(path, { method="GET", headers={}, body } = {}) {
-    const url = getBase() + path;
-    const opts = { method, headers: { ...headers } };
-    if (body !== undefined) {
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(body);
-    }
-    const res = await fetch(url, opts);
-    const ct = res.headers.get("content-type") || "";
-    let data;
-    if (ct.includes("application/json")) data = await res.json();
-    else data = await res.text();
-    return { res, data };
-  }
-  function pick(obj, keys) {
-    for (const k of keys) if (obj && obj[k]) return obj[k];
-    return null;
-  }
---- 238,314 ----
-  function saveAll() {
-    const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
-    for (const id of ids) localStorage.setItem("ng_"+id, ($(id).value || ""));
-    alert("saved");
-    refreshButtons();
-+   setBadge("stBase", true, "✅ base saved");
-  }
-  function loadAll() {
-    const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
-    for (const id of ids) {
-      const v = localStorage.getItem("ng_"+id);
-      if (v !== null && v !== undefined && v !== "") $(id).value = v;
-    }
-    refreshButtons();
-  }
-  function clearAll() {
-    Object.keys(localStorage).forEach(k => { if (k.startsWith("ng_")) localStorage.removeItem(k); });
-    alert("cleared");
-    location.reload();
-  }
-  
-  function getBase() {
-    const v = ($("base").value || DEFAULT_BASE).trim();
-    return v.replace(/\/+$/, "");
-  }
-  function getJWT() {
-    const v = $("jwt").value.trim();
-    if (!v) throw new Error("JWT empty, login first");
-    return v;
-  }
-  
-! async function api(path, { method="GET", headers={}, body, traceKey="(anon)" } = {}) {
-    const url = getBase() + path;
-    const reqHeaders = { ...headers };
-    const opts = { method, headers: reqHeaders };
-    if (body !== undefined) {
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(body);
-    }
-+ 
-+   // Request trace (pre)
-+   const reqTrace = {
-+     path,
-+     url,
-+     method,
-+     headers: reqHeaders,
-+     body,
-+   };
-+ 
-    const res = await fetch(url, opts);
-    const ct = res.headers.get("content-type") || "";
-    let data;
-    if (ct.includes("application/json")) data = await res.json();
-    else data = await res.text();
-+ 
-+   // Response headers dump
-+   const resHeaders = {};
-+   try {
-+     res.headers.forEach((v, k) => { resHeaders[k] = v; });
-+   } catch {}
-+ 
-+   const trace = {
-+     key: traceKey,
-+     req: reqTrace,
-+     res: {
-+       status: res.status,
-+       statusText: res.statusText,
-+       headers: resHeaders,
-+       body: data,
-+     },
-+     curl: toCurl({ method, url, headers: reqHeaders, body }),
-+   };
-+   stashTrace(traceKey, trace);
-+ 
-    return { res, data };
-  }
-  function pick(obj, keys) {
-    for (const k of keys) if (obj && obj[k]) return obj[k];
-    return null;
-  }
-***************
-*** 256,282 ****
-  function refreshButtons() {
-    $("btnSummary").disabled = !$("circleId").value.trim() || !$("deviceKeyEdge").value.trim();
-    $("btnManifest").disabled = $("btnSummary").disabled;
-  }
-  
-  async function devLogin() {
-    $("outLogin").textContent = "";
-    try {
-      const email = $("email").value.trim();
-!     const { res, data } = await api("/api/auth/dev/login", { method:"POST", body:{ email }});
-      $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const token = pick(data, ["accessToken","token","jwt"]);
-      if (token) $("jwt").value = token;
-      saveAll();
-    } catch (e) {
-      $("outLogin").textContent = String(e);
-    }
-  }
---- 342,381 ----
-  function refreshButtons() {
-    $("btnSummary").disabled = !$("circleId").value.trim() || !$("deviceKeyEdge").value.trim();
-    $("btnManifest").disabled = $("btnSummary").disabled;
-  }
-  
-  async function devLogin() {
-    $("outLogin").textContent = "";
-    try {
-      const email = $("email").value.trim();
-!     const { res, data } = await api("/api/auth/dev/login", { method:"POST", body:{ email }, traceKey:"login" });
-      $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const token = pick(data, ["accessToken","token","jwt"]);
-      if (token) $("jwt").value = token;
-+     setBadge("stLogin", res.status >= 200 && res.status < 300 && !!token, (token ? "✅ login ok" : "❌ no token"));
-      saveAll();
-    } catch (e) {
-      $("outLogin").textContent = String(e);
-+     setBadge("stLogin", false, "❌ login err");
-    }
-  }
-***************
-*** 284,301 ****
-  async function createCircle() {
-    $("outCircle").textContent = "";
-    try {
-      const jwt = getJWT();
-!     const { res, data } = await api("/api/circles", {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body:{ name:"Demo Circle" }
-      });
-      $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const id = pick(data, ["circleId","id"]);
-      if (id) $("circleId").value = id;
-      saveAll();
-    } catch (e) {
-      $("outCircle").textContent = String(e);
-    }
-  }
---- 383,407 ----
-  async function createCircle() {
-    $("outCircle").textContent = "";
-    try {
-      const jwt = getJWT();
-!     const { res, data } = await api("/api/circles", {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body:{ name:"Demo Circle" },
-+       traceKey:"circle"
-      });
-      $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const id = pick(data, ["circleId","id"]);
-      if (id) $("circleId").value = id;
-+     setBadge("stCircle", res.status >= 200 && res.status < 300 && !!id, (id ? "✅ circle ok" : "❌ no circleId"));
-      saveAll();
-    } catch (e) {
-      $("outCircle").textContent = String(e);
-+     setBadge("stCircle", false, "❌ circle err");
-    }
-  }
-***************
-*** 303,333 ****
-  async function createEdgeDevice() {
-    $("outDevice").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      if (!circleId) throw new Error("circleId empty");
-  
-      let raw = $("deviceBody").value.trim();
-      let body = {};
-      if (raw) body = JSON.parse(raw);
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/devices`, {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body
-      });
-      $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-  
-      const deviceId = pick(data, ["deviceId","id"]);
-      const deviceKey = pick(data, ["deviceKey","key"]);
-      if (deviceId) $("deviceId").value = deviceId;
-      if (deviceKey) $("deviceKeyEdge").value = deviceKey;
-  
-      saveAll();
-      refreshButtons();
-    } catch (e) {
-      $("outDevice").textContent = String(e);
-    }
-  }
---- 409,447 ----
-  async function createEdgeDevice() {
-    $("outDevice").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      if (!circleId) throw new Error("circleId empty");
-  
-      let raw = $("deviceBody").value.trim();
-      let body = {};
-      if (raw) body = JSON.parse(raw);
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/devices`, {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body,
-+       traceKey:"device"
-      });
-      $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-  
-      const deviceId = pick(data, ["deviceId","id"]);
-      const deviceKey = pick(data, ["deviceKey","key"]);
-      if (deviceId) $("deviceId").value = deviceId;
-      if (deviceKey) $("deviceKeyEdge").value = deviceKey;
-+     setBadge("stDevice", res.status >= 200 && res.status < 300 && !!deviceKey, (deviceKey ? "✅ device ok" : "❌ no deviceKey"));
-  
-      saveAll();
-      refreshButtons();
-    } catch (e) {
-      $("outDevice").textContent = String(e);
-+     setBadge("stDevice", false, "❌ device err");
-    }
-  }
-***************
-*** 335,372 ****
-  async function sendSummary() {
-    $("outSummary").textContent = "";
-    try {
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const edgeInstanceId = $("edgeInstanceId").value.trim();
-      if (!circleId || !eventId || !edgeInstanceId) throw new Error("circleId/eventId/edgeInstanceId required");
-  
-      const h = deviceAuthHeaders();
-      if (!h) throw new Error("deviceKey empty (register edge device first)");
-  
-      const body = {
-        schemaVersion: "v7.7",
-        circleId,
-        eventId,
-        edgeInstanceId,
-        threatState: "PENDING",
-        triggerReason: "motion",
-        updatedAt: nowIso(),
-        sequence: 1,
-        summary: { note:"hello from UI", ts: nowIso() }
-      };
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/events/summary-upsert`, {
-        method:"POST",
-        headers: h,
-        body
-      });
-  
-      $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      saveAll();
-    } catch (e) {
-      $("outSummary").textContent = String(e);
-    }
-  }
---- 449,491 ----
-  async function sendSummary() {
-    $("outSummary").textContent = "";
-    try {
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const edgeInstanceId = $("edgeInstanceId").value.trim();
-      if (!circleId || !eventId || !edgeInstanceId) throw new Error("circleId/eventId/edgeInstanceId required");
-  
-      const h = deviceAuthHeaders();
-      if (!h) throw new Error("deviceKey empty (register edge device first)");
-  
-      const body = {
-        schemaVersion: "v7.7",
-        circleId,
-        eventId,
-        edgeInstanceId,
-        threatState: "PENDING",
-        triggerReason: "motion",
-        updatedAt: nowIso(),
-        sequence: 1,
-        summary: { note:"hello from UI", ts: nowIso() }
-      };
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/events/summary-upsert`, {
-        method:"POST",
-        headers: h,
-        body,
-+       traceKey:"summary"
-      });
-  
-      $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-+     setBadge("stSummary", res.status >= 200 && res.status < 300, (res.status >= 200 && res.status < 300) ? "✅ summary ok" : "❌ summary bad");
-      saveAll();
-    } catch (e) {
-      $("outSummary").textContent = String(e);
-+     setBadge("stSummary", false, "❌ summary err");
-    }
-  }
-***************
-*** 374,420 ****
-  async function sendManifest() {
-    $("outManifest").textContent = "";
-    try {
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const edgeInstanceId = $("edgeInstanceId").value.trim();
-      const evidenceKey = $("evidenceKey").value.trim();
-      const edgeUrl = $("edgeUrl").value.trim();
-      if (!circleId || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
-        throw new Error("circleId/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
-      }
-  
-      const h = deviceAuthHeaders();
-      if (!h) throw new Error("deviceKey empty (register edge device first)");
-  
-      const t1 = nowIso();
-      const body = {
-        schemaVersion: "v7.7",
-        circleId,
-        eventId,
-        edgeInstanceId,
-        updatedAt: nowIso(),
-        sequence: 2,
-        manifest: {
-          items: [
-            { evidenceKey, kind:"clip", startTs:t1, endTs:nowIso(), sizeBytesApprox:123456, edgeUrl }
-          ]
-        }
-      };
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/events/${eventId}/incident/manifest-upsert`, {
-        method:"POST",
-        headers: h,
-        body
-      });
-  
-      $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      saveAll();
-    } catch (e) {
-      $("outManifest").textContent = String(e);
-    }
-  }
---- 493,542 ----
-  async function sendManifest() {
-    $("outManifest").textContent = "";
-    try {
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const edgeInstanceId = $("edgeInstanceId").value.trim();
-      const evidenceKey = $("evidenceKey").value.trim();
-      const edgeUrl = $("edgeUrl").value.trim();
-      if (!circleId || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
-        throw new Error("circleId/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
-      }
-  
-      const h = deviceAuthHeaders();
-      if (!h) throw new Error("deviceKey empty (register edge device first)");
-  
-      const t1 = nowIso();
-      const body = {
-        schemaVersion: "v7.7",
-        circleId,
-        eventId,
-        edgeInstanceId,
-        updatedAt: nowIso(),
-        sequence: 2,
-        manifest: {
-          items: [
-            { evidenceKey, kind:"clip", startTs:t1, endTs:nowIso(), sizeBytesApprox:123456, edgeUrl }
-          ]
-        }
-      };
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/edge/events/${eventId}/incident/manifest-upsert`, {
-        method:"POST",
-        headers: h,
-        body,
-+       traceKey:"manifest"
-      });
-  
-      $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-+     // 额外提示：edgeUrl 内网时，download 回源一定失败
-+     const isPrivate10 = /^http:\/\/10\./.test(edgeUrl);
-+     const ok = res.status >= 200 && res.status < 300;
-+     setBadge("stManifest", ok, ok ? (isPrivate10 ? "✅ manifest ok (⚠ 10.x)" : "✅ manifest ok") : "❌ manifest bad");
-      saveAll();
-    } catch (e) {
-      $("outManifest").textContent = String(e);
-+     setBadge("stManifest", false, "❌ manifest err");
-    }
-  }
-***************
-*** 422,437 ****
-  async function listEvents() {
-    $("outEvents").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-!     const { res, data } = await api(`/api/circles/${circleId}/events`, {
-        headers:{ "Authorization": "Bearer " + jwt }
-      });
-      $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    } catch (e) {
-      $("outEvents").textContent = String(e);
-    }
-  }
---- 544,565 ----
-  async function listEvents() {
-    $("outEvents").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-!     const { res, data } = await api(`/api/circles/${circleId}/events`, {
-        headers:{ "Authorization": "Bearer " + jwt },
-+       traceKey:"events"
-      });
-      $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-+     setBadge("stEvents", res.status >= 200 && res.status < 300, (res.status >= 200 && res.status < 300) ? "✅ events ok" : "❌ events bad");
-    } catch (e) {
-      $("outEvents").textContent = String(e);
-+     setBadge("stEvents", false, "❌ events err");
-    }
-  }
-***************
-*** 439,455 ****
-  async function getManifest() {
-    $("outManifestRead").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-!     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
-        headers:{ "Authorization": "Bearer " + jwt }
-      });
-      $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-    } catch (e) {
-      $("outManifestRead").textContent = String(e);
-    }
-  }
---- 567,593 ----
-  async function getManifest() {
-    $("outManifestRead").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-!     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
-        headers:{ "Authorization": "Bearer " + jwt },
-+       traceKey:"manifestRead"
-      });
-      $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-+     // 尝试校验 manifest.items 是否包含当前 evidenceKey
-+     const ek = $("evidenceKey").value.trim();
-+     const items = (data && data.manifest && data.manifest.items) || (data && data.items) || null;
-+     let hasEk = null;
-+     if (Array.isArray(items) && ek) hasEk = items.some(it => it && it.evidenceKey === ek);
-+     const ok = res.status >= 200 && res.status < 300 && (hasEk !== false);
-+     setBadge("stManifestRead", ok, ok ? (hasEk === true ? "✅ manifest-read ok" : "✅ manifest-read ok") : "❌ manifest-read bad");
-    } catch (e) {
-      $("outManifestRead").textContent = String(e);
-+     setBadge("stManifestRead", false, "❌ manifest-read err");
-    }
-  }
-***************
-*** 457,481 ****
-  async function createTicket() {
-    $("outTicket").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const evidenceKey = $("evidenceKey").value.trim();
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body:{ evidenceKey }
-      });
-  
-      $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const id = pick(data, ["ticketId","id"]);
-      if (id) $("ticketId").value = id;
-      saveAll();
-    } catch (e) {
-      $("outTicket").textContent = String(e);
-    }
-  }
---- 595,625 ----
-  async function createTicket() {
-    $("outTicket").textContent = "";
-    try {
-      const jwt = getJWT();
-      const circleId = $("circleId").value.trim();
-      const eventId = $("eventId").value.trim();
-      const evidenceKey = $("evidenceKey").value.trim();
-  
-!     const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
-        method:"POST",
-        headers:{ "Authorization": "Bearer " + jwt },
-        body:{ evidenceKey },
-+       traceKey:"ticket"
-      });
-  
-      $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
-      const id = pick(data, ["ticketId","id"]);
-      if (id) $("ticketId").value = id;
-+     setBadge("stTicket", res.status >= 200 && res.status < 300 && !!id, (id ? "✅ ticket ok" : "❌ no ticketId"));
-      saveAll();
-    } catch (e) {
-      $("outTicket").textContent = String(e);
-+     setBadge("stTicket", false, "❌ ticket err");
-    }
-  }
-***************
-*** 483,515 ****
-  async function downloadRange() {
-    $("outDownload").textContent = "";
-    try {
-      const jwt = getJWT();
-      const ticketId = $("ticketId").value.trim();
-      if (!ticketId) throw new Error("ticketId empty");
-      const url = `${getBase()}/api/evidence/tickets/${ticketId}/download`;
-  
-      const res = await fetch(url, {
-        method:"GET",
-        headers:{ "Authorization":"Bearer " + jwt, "Range":"bytes=0-4" }
-      });
-  
-      const buf = await res.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
-      $("outDownload").textContent = JSON.stringify({
-        status: res.status,
-        contentRange: res.headers.get("content-range"),
-        contentType: res.headers.get("content-type"),
-        bytesHex: hex,
-        note: "如果 502/timeout，多半 edgeUrl 是内网 10.x，Railway 拉不到"
-      }, null, 2);
-    } catch (e) {
-      $("outDownload").textContent = String(e);
-    }
-  }
-  
-  window.onload = () => {
-    $("base").value = localStorage.getItem("ng_base") || DEFAULT_BASE;
-    loadAll();
-    refreshButtons();
+    <pre id="outSummary"></pre>
+
+    <div class="hrow">
+      <button id="btnManifest" class="btn btnSmall" onclick="sendManifest()">POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert</button>
+      <span id="stManifest" class="badge neutral">• manifest</span>
+      <button class="btn btnSmall" onclick="copyCurl('manifest')">Copy curl</button>
+    </div>
+    <pre id="outManifest"></pre>
+  </div>
+
+  <div class="card">
+    <h3>5) App 读取（Events / Manifest）</h3>
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="listEvents()">GET /api/circles/:circleId/events</button>
+      <span id="stEvents" class="badge neutral">• events</span>
+      <button class="btn btnSmall" onclick="copyCurl('events')">Copy curl</button>
+    </div>
+    <pre id="outEvents"></pre>
+
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="getManifest()">GET /api/circles/:circleId/events/:eventId/incident/manifest</button>
+      <span id="stManifestRead" class="badge neutral">• manifest-read</span>
+      <button class="btn btnSmall" onclick="copyCurl('manifestRead')">Copy curl</button>
+    </div>
+    <pre id="outManifestRead"></pre>
+  </div>
+
+  <div class="card">
+    <h3>6) Ticket + Download</h3>
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="createTicket()">POST /api/circles/:circleId/events/:eventId/evidence/tickets</button>
+      <span id="stTicket" class="badge neutral">• ticket</span>
+      <button class="btn btnSmall" onclick="copyCurl('ticket')">Copy curl</button>
+    </div>
+    <label>ticketId</label>
+    <input id="ticketId" />
+    <pre id="outTicket"></pre>
+
+    <div class="hrow">
+      <button class="btn btnSmall" onclick="downloadRange()">GET /api/evidence/tickets/:ticketId/download (Range bytes=0-4)</button>
+      <span id="stDownload" class="badge neutral">• download</span>
+      <button class="btn btnSmall" onclick="copyCurl('download')">Copy curl</button>
+    </div>
+    <pre id="outDownload"></pre>
+  </div>
+
+<script>
+const DEFAULT_BASE = "https://ngserver-production-2bfe.up.railway.app";
+function nowIso() { return new Date().toISOString(); }
+function $(id) { return document.getElementById(id); }
+
+// ----验收增强：Trace + curl + 状态徽章----
+const TRACE = {
+  last: null,         // { key, req, res, curl }
+  byKey: {},          // key -> trace
+};
+
+function setBadge(id, ok, text) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.remove("ok","bad","neutral");
+  if (ok === true) el.classList.add("ok");
+  else if (ok === false) el.classList.add("bad");
+  else el.classList.add("neutral");
+  el.textContent = text || (ok === true ? "✅" : ok === false ? "❌" : "•");
+}
+
+function toCurl({ method, url, headers, body }) {
+  const parts = ["curl", "-i", "-X", method];
+  const hKeys = Object.keys(headers || {});
+  for (const k of hKeys) parts.push("-H", `${k}: ${headers[k]}`);
+  if (body !== undefined) parts.push("-d", JSON.stringify(body));
+  parts.push(url);
+  return parts.map(x => (/\s/.test(x) ? `'${x.replace(/'/g, `'\\''`)}'` : x)).join(" ");
+}
+
+async function copyText(s) {
+  await navigator.clipboard.writeText(s);
+  alert("copied");
+}
+
+function renderTrace(trace) {
+  if (!trace) return;
+  $("traceReqLine").textContent = `${trace.req.method} ${trace.req.path}`;
+  $("traceResLine").textContent = `${trace.res.status} ${trace.res.statusText || ""}`.trim();
+
+  const reqView = {
+    url: trace.req.url,
+    method: trace.req.method,
+    headers: trace.req.headers,
+    body: trace.req.body,
   };
-  </script>
-  </body>
-  </html>
---- 627,701 ----
-  async function downloadRange() {
-    $("outDownload").textContent = "";
-    try {
-      const jwt = getJWT();
-      const ticketId = $("ticketId").value.trim();
-      if (!ticketId) throw new Error("ticketId empty");
-      const url = `${getBase()}/api/evidence/tickets/${ticketId}/download`;
-  
-+     // 为 download 单独构造 trace（因为这里以前不用 api()）
-+     const reqHeaders = { "Authorization":"Bearer " + jwt, "Range":"bytes=0-4" };
-+     const reqTrace = { path:`/api/evidence/tickets/${ticketId}/download`, url, method:"GET", headers:reqHeaders, body:undefined };
-+     const curl = toCurl({ method:"GET", url, headers:reqHeaders, body:undefined });
-+ 
-      const res = await fetch(url, {
-        method:"GET",
-        headers: reqHeaders
-      });
-  
-+     const resHeaders = {};
-+     try { res.headers.forEach((v,k)=>{ resHeaders[k]=v; }); } catch {}
-+ 
-      const buf = await res.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
-+ 
-+     const cr = res.headers.get("content-range");
-+     const ok = (res.status === 206) && !!cr;
-+     setBadge("stDownload", ok, ok ? "✅ download 206" : `❌ download ${res.status}`);
-+ 
-+     stashTrace("download", {
-+       key: "download",
-+       req: reqTrace,
-+       res: { status: res.status, statusText: res.statusText, headers: resHeaders, body: { bytesHex: hex, note: "(binary)" } },
-+       curl,
-+     });
-+ 
-      $("outDownload").textContent = JSON.stringify({
-        status: res.status,
-        contentRange: cr,
-        contentType: res.headers.get("content-type"),
-        bytesHex: hex,
-        note: "如果 502/timeout，多半 edgeUrl 是内网 10.x，Railway 拉不到"
-      }, null, 2);
-    } catch (e) {
-      $("outDownload").textContent = String(e);
-+     setBadge("stDownload", false, "❌ download err");
-    }
-  }
-  
-  window.onload = () => {
-    $("base").value = localStorage.getItem("ng_base") || DEFAULT_BASE;
-    loadAll();
-    refreshButtons();
-+   setBadge("stBase", null, "• base");
-+   setBadge("stLogin", null, "• login");
-+   setBadge("stCircle", null, "• circle");
-+   setBadge("stDevice", null, "• device");
-+   setBadge("stSummary", null, "• summary");
-+   setBadge("stManifest", null, "• manifest");
-+   setBadge("stEvents", null, "• events");
-+   setBadge("stManifestRead", null, "• manifest-read");
-+   setBadge("stTicket", null, "• ticket");
-+   setBadge("stDownload", null, "• download");
+  const resView = {
+    status: trace.res.status,
+    statusText: trace.res.statusText,
+    headers: trace.res.headers,
+    body: trace.res.body,
   };
-  </script>
-  </body>
-  </html>
+  $("traceReq").textContent = JSON.stringify(reqView, null, 2);
+  $("traceRes").textContent = JSON.stringify(resView, null, 2);
+}
+
+function stashTrace(key, trace) {
+  TRACE.byKey[key] = trace;
+  TRACE.last = trace;
+  renderTrace(trace);
+}
+
+function copyCurl(key) {
+  const t = TRACE.byKey[key];
+  if (!t) return alert("no trace for: " + key);
+  copyText(t.curl);
+}
+function copyTraceCurl() {
+  if (!TRACE.last) return alert("no trace yet");
+  copyText(TRACE.last.curl);
+}
+
+function saveAll() {
+  const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
+  for (const id of ids) localStorage.setItem("ng_"+id, ($(id).value || ""));
+  alert("saved");
+  refreshButtons();
+  setBadge("stBase", true, "✅ base saved");
+}
+function loadAll() {
+  const ids = ["base","email","jwt","circleId","deviceBody","deviceId","deviceKeyEdge","eventId","edgeInstanceId","edgeUrl","evidenceKey","ticketId","deviceAuthMode"];
+  for (const id of ids) {
+    const v = localStorage.getItem("ng_"+id);
+    if (v !== null && v !== undefined && v !== "") $(id).value = v;
+  }
+  refreshButtons();
+}
+function clearAll() {
+  Object.keys(localStorage).forEach(k => { if (k.startsWith("ng_")) localStorage.removeItem(k); });
+  alert("cleared");
+  location.reload();
+}
+
+function getBase() {
+  const v = ($("base").value || DEFAULT_BASE).trim();
+  return v.replace(/\/+$/, "");
+}
+function getJWT() {
+  const v = $("jwt").value.trim();
+  if (!v) throw new Error("JWT empty, login first");
+  return v;
+}
+
+async function api(path, { method="GET", headers={}, body, traceKey="(anon)" } = {}) {
+  const url = getBase() + path;
+  const reqHeaders = { ...headers };
+  const opts = { method, headers: reqHeaders };
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+
+  // Request trace (pre)
+  const reqTrace = {
+    path,
+    url,
+    method,
+    headers: reqHeaders,
+    body,
+  };
+
+  const res = await fetch(url, opts);
+  const ct = res.headers.get("content-type") || "";
+  let data;
+  if (ct.includes("application/json")) data = await res.json();
+  else data = await res.text();
+
+  // Response headers dump
+  const resHeaders = {};
+  try { res.headers.forEach((v, k) => { resHeaders[k] = v; }); } catch {}
+
+  const trace = {
+    key: traceKey,
+    req: reqTrace,
+    res: {
+      status: res.status,
+      statusText: res.statusText,
+      headers: resHeaders,
+      body: data,
+    },
+    curl: toCurl({ method, url, headers: reqHeaders, body }),
+  };
+  stashTrace(traceKey, trace);
+
+  return { res, data };
+}
+
+function pick(obj, keys) {
+  for (const k of keys) if (obj && obj[k]) return obj[k];
+  return null;
+}
+
+function deviceAuthHeaders() {
+  const deviceKey = $("deviceKeyEdge").value.trim();
+  if (!deviceKey) return null;
+
+  const mode = $("deviceAuthMode").value;
+  if (mode === "authorization") {
+    // Server 原生期望
+    return { "Authorization": "Device " + deviceKey };
+  }
+  // 兼容模式（需要你按本文 server guard 修改后才生效）
+  return { "X-Device-Key": deviceKey };
+}
+
+function refreshButtons() {
+  $("btnSummary").disabled = !$("circleId").value.trim() || !$("deviceKeyEdge").value.trim();
+  $("btnManifest").disabled = $("btnSummary").disabled;
+}
+
+async function devLogin() {
+  $("outLogin").textContent = "";
+  try {
+    const email = $("email").value.trim();
+    const { res, data } = await api("/api/auth/dev/login", { method:"POST", body:{ email }, traceKey:"login" });
+    $("outLogin").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const token = pick(data, ["accessToken","token","jwt"]);
+    if (token) $("jwt").value = token;
+    setBadge("stLogin", res.status >= 200 && res.status < 300 && !!token, (token ? "✅ login ok" : "❌ no token"));
+    saveAll();
+  } catch (e) {
+    $("outLogin").textContent = String(e);
+    setBadge("stLogin", false, "❌ login err");
+  }
+}
+
+async function createCircle() {
+  $("outCircle").textContent = "";
+  try {
+    const jwt = getJWT();
+    const { res, data } = await api("/api/circles", {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body:{ name:"Demo Circle" },
+      traceKey:"circle"
+    });
+    $("outCircle").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const id = pick(data, ["circleId","id"]);
+    if (id) $("circleId").value = id;
+    setBadge("stCircle", res.status >= 200 && res.status < 300 && !!id, (id ? "✅ circle ok" : "❌ no circleId"));
+    saveAll();
+  } catch (e) {
+    $("outCircle").textContent = String(e);
+    setBadge("stCircle", false, "❌ circle err");
+  }
+}
+
+async function createEdgeDevice() {
+  $("outDevice").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    if (!circleId) throw new Error("circleId empty");
+
+    let raw = $("deviceBody").value.trim();
+    let body = {};
+    if (raw) body = JSON.parse(raw);
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/devices`, {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body,
+      traceKey:"device"
+    });
+    $("outDevice").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
+    const deviceId = pick(data, ["deviceId","id"]);
+    const deviceKey = pick(data, ["deviceKey","key"]);
+    if (deviceId) $("deviceId").value = deviceId;
+    if (deviceKey) $("deviceKeyEdge").value = deviceKey;
+
+    setBadge("stDevice", res.status >= 200 && res.status < 300 && !!deviceKey, (deviceKey ? "✅ device ok" : "❌ no deviceKey"));
+
+    saveAll();
+    refreshButtons();
+  } catch (e) {
+    $("outDevice").textContent = String(e);
+    setBadge("stDevice", false, "❌ device err");
+  }
+}
+
+async function sendSummary() {
+  $("outSummary").textContent = "";
+  try {
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const edgeInstanceId = $("edgeInstanceId").value.trim();
+    if (!circleId || !eventId || !edgeInstanceId) throw new Error("circleId/eventId/edgeInstanceId required");
+
+    const h = deviceAuthHeaders();
+    if (!h) throw new Error("deviceKey empty (register edge device first)");
+
+    const body = {
+      schemaVersion: "v7.7",
+      circleId,
+      eventId,
+      edgeInstanceId,
+      threatState: "PENDING",
+      triggerReason: "motion",
+      updatedAt: nowIso(),
+      sequence: 1,
+      summary: { note:"hello from UI", ts: nowIso() }
+    };
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/events/summary-upsert`, {
+      method:"POST",
+      headers: h,
+      body,
+      traceKey:"summary"
+    });
+
+    $("outSummary").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    setBadge("stSummary", res.status >= 200 && res.status < 300, (res.status >= 200 && res.status < 300) ? "✅ summary ok" : "❌ summary bad");
+    saveAll();
+  } catch (e) {
+    $("outSummary").textContent = String(e);
+    setBadge("stSummary", false, "❌ summary err");
+  }
+}
+
+async function sendManifest() {
+  $("outManifest").textContent = "";
+  try {
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const edgeInstanceId = $("edgeInstanceId").value.trim();
+    const evidenceKey = $("evidenceKey").value.trim();
+    const edgeUrl = $("edgeUrl").value.trim();
+    if (!circleId || !eventId || !edgeInstanceId || !evidenceKey || !edgeUrl) {
+      throw new Error("circleId/eventId/edgeInstanceId/evidenceKey/edgeUrl required");
+    }
+
+    const h = deviceAuthHeaders();
+    if (!h) throw new Error("deviceKey empty (register edge device first)");
+
+    const t1 = nowIso();
+    const body = {
+      schemaVersion: "v7.7",
+      circleId,
+      eventId,
+      edgeInstanceId,
+      updatedAt: nowIso(),
+      sequence: 2,
+      manifest: {
+        items: [
+          { evidenceKey, kind:"clip", startTs:t1, endTs:nowIso(), sizeBytesApprox:123456, edgeUrl }
+        ]
+      }
+    };
+
+    const { res, data } = await api(`/api/circles/${circleId}/edge/events/${eventId}/incident/manifest-upsert`, {
+      method:"POST",
+      headers: h,
+      body,
+      traceKey:"manifest"
+    });
+
+    $("outManifest").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
+    const isPrivate10 = /^http:\/\/10\./.test(edgeUrl);
+    const ok = res.status >= 200 && res.status < 300;
+    setBadge("stManifest", ok, ok ? (isPrivate10 ? "✅ manifest ok (⚠ 10.x)" : "✅ manifest ok") : "❌ manifest bad");
+
+    saveAll();
+  } catch (e) {
+    $("outManifest").textContent = String(e);
+    setBadge("stManifest", false, "❌ manifest err");
+  }
+}
+
+async function listEvents() {
+  $("outEvents").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const { res, data } = await api(`/api/circles/${circleId}/events`, {
+      headers:{ "Authorization": "Bearer " + jwt },
+      traceKey:"events"
+    });
+    $("outEvents").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    setBadge("stEvents", res.status >= 200 && res.status < 300, (res.status >= 200 && res.status < 300) ? "✅ events ok" : "❌ events bad");
+  } catch (e) {
+    $("outEvents").textContent = String(e);
+    setBadge("stEvents", false, "❌ events err");
+  }
+}
+
+async function getManifest() {
+  $("outManifestRead").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/incident/manifest`, {
+      headers:{ "Authorization": "Bearer " + jwt },
+      traceKey:"manifestRead"
+    });
+    $("outManifestRead").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+
+    // 尝试校验 manifest.items 是否包含当前 evidenceKey
+    const ek = $("evidenceKey").value.trim();
+    const items = (data && data.manifest && data.manifest.items) || (data && data.items) || null;
+    let hasEk = null;
+    if (Array.isArray(items) && ek) hasEk = items.some(it => it && it.evidenceKey === ek);
+
+    const ok = res.status >= 200 && res.status < 300 && (hasEk !== false);
+    setBadge("stManifestRead", ok, ok ? "✅ manifest-read ok" : "❌ manifest-read bad");
+  } catch (e) {
+    $("outManifestRead").textContent = String(e);
+    setBadge("stManifestRead", false, "❌ manifest-read err");
+  }
+}
+
+async function createTicket() {
+  $("outTicket").textContent = "";
+  try {
+    const jwt = getJWT();
+    const circleId = $("circleId").value.trim();
+    const eventId = $("eventId").value.trim();
+    const evidenceKey = $("evidenceKey").value.trim();
+
+    const { res, data } = await api(`/api/circles/${circleId}/events/${eventId}/evidence/tickets`, {
+      method:"POST",
+      headers:{ "Authorization": "Bearer " + jwt },
+      body:{ evidenceKey },
+      traceKey:"ticket"
+    });
+
+    $("outTicket").textContent = JSON.stringify({ status: res.status, data }, null, 2);
+    const id = pick(data, ["ticketId","id"]);
+    if (id) $("ticketId").value = id;
+
+    setBadge("stTicket", res.status >= 200 && res.status < 300 && !!id, (id ? "✅ ticket ok" : "❌ no ticketId"));
+    saveAll();
+  } catch (e) {
+    $("outTicket").textContent = String(e);
+    setBadge("stTicket", false, "❌ ticket err");
+  }
+}
+
+async function downloadRange() {
+  $("outDownload").textContent = "";
+  try {
+    const jwt = getJWT();
+    const ticketId = $("ticketId").value.trim();
+    if (!ticketId) throw new Error("ticketId empty");
+    const url = `${getBase()}/api/evidence/tickets/${ticketId}/download`;
+
+    // 为 download 单独构造 trace（因为这里不用 api()，要读 binary）
+    const reqHeaders = { "Authorization":"Bearer " + jwt, "Range":"bytes=0-4" };
+    const reqTrace = { path:`/api/evidence/tickets/${ticketId}/download`, url, method:"GET", headers:reqHeaders, body:undefined };
+    const curl = toCurl({ method:"GET", url, headers:reqHeaders, body:undefined });
+
+    const res = await fetch(url, {
+      method:"GET",
+      headers: reqHeaders
+    });
+
+    const resHeaders = {};
+    try { res.headers.forEach((v,k)=>{ resHeaders[k]=v; }); } catch {}
+
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,"0")).join(" ");
+
+    const cr = res.headers.get("content-range");
+    const ok = (res.status === 206) && !!cr;
+    setBadge("stDownload", ok, ok ? "✅ download 206" : `❌ download ${res.status}`);
+
+    stashTrace("download", {
+      key: "download",
+      req: reqTrace,
+      res: { status: res.status, statusText: res.statusText, headers: resHeaders, body: { bytesHex: hex, note: "(binary)" } },
+      curl,
+    });
+
+    $("outDownload").textContent = JSON.stringify({
+      status: res.status,
+      contentRange: cr,
+      contentType: res.headers.get("content-type"),
+      bytesHex: hex,
+      note: "如果 502/timeout，多半 edgeUrl 是内网 10.x，Railway 拉不到"
+    }, null, 2);
+  } catch (e) {
+    $("outDownload").textContent = String(e);
+    setBadge("stDownload", false, "❌ download err");
+  }
+}
+
+window.onload = () => {
+  $("base").value = localStorage.getItem("ng_base") || DEFAULT_BASE;
+  loadAll();
+  refreshButtons();
+
+  setBadge("stBase", null, "• base");
+  setBadge("stLogin", null, "• login");
+  setBadge("stCircle", null, "• circle");
+  setBadge("stDevice", null, "• device");
+  setBadge("stSummary", null, "• summary");
+  setBadge("stManifest", null, "• manifest");
+  setBadge("stEvents", null, "• events");
+  setBadge("stManifestRead", null, "• manifest-read");
+  setBadge("stTicket", null, "• ticket");
+  setBadge("stDownload", null, "• download");
+};
+</script>
+</body>
+</html>
 
