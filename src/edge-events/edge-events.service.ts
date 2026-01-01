@@ -84,6 +84,45 @@ export class EdgeEventsService {
     };
   }
 
+  /**
+   * Update edge event status (App collaboration)
+   */
+  async updateEventStatus(
+    circleId: string,
+    eventId: string,
+    status: 'OPEN' | 'ACKED' | 'RESOLVED',
+    note?: string,
+  ): Promise<{ updated: boolean; eventId: string; status: string; updatedAt: string }> {
+    const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
+    if (!ev) {
+      return null as any; // Will be handled by controller
+    }
+
+    // Map app status to threatState
+    const newThreatState = status === 'RESOLVED' ? 'RESOLVED' : 
+                          status === 'ACKED' ? 'PENDING' : ev.threatState;
+    
+    const now = new Date();
+    const updated = ev.threatState !== newThreatState;
+    
+    if (updated) {
+      await this.edgeRepo.update(
+        { circleId, eventId },
+        { 
+          threatState: newThreatState,
+          edgeUpdatedAt: now,
+        }
+      );
+    }
+
+    return {
+      updated,
+      eventId,
+      status,
+      updatedAt: now.toISOString(),
+    };
+  }
+
   private mapThreatStateToStatus(threatState: string): string {
     // Map threatState to app-friendly status
     if (threatState === 'RESOLVED' || threatState === 'CANCELED') return 'RESOLVED';

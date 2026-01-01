@@ -880,7 +880,7 @@ async function playEvidence(idx) {
     const eventId = state.currentEvent.eventId;
     const evidenceKey = item.evidenceKey;
     
-    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/evidence/tickets`, {
+    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/evidence/tickets`, {
       method: 'POST',
       body: { evidenceKey, ttlSec: 600 },
     });
@@ -962,7 +962,7 @@ async function doConfirm() {
   
   try {
     // 使用正确的 API: PATCH /api/circles/:cid/events/:eid/status
-    await api(`/api/circles/${state.circleId}/events/${eventId}/status`, {
+    await api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
       method: 'PATCH',
       body: { 
         status: newStatus, 

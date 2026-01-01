@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContractsValidatorService } from '../common/contracts/contracts-validator.service';
 import { makeValidationError, NgHttpError } from '../common/errors/ng-http-error';
@@ -58,6 +58,47 @@ export class EdgeEventsController {
       });
     }
     return event;
+  }
+
+  /**
+   * Update edge event status (user auth)
+   * PATCH /api/circles/:circleId/edge/events/:eventId/status
+   */
+  @Patch(':eventId/status')
+  @UseGuards(AuthGuard('jwt'))
+  async updateStatus(
+    @Req() req: { user: JwtUser },
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Param('eventId') eventId: string,
+    @Body() body: { status: 'OPEN' | 'ACKED' | 'RESOLVED'; note?: string },
+  ) {
+    await this.circles.mustBeMember(req.user.userId, circleId);
+    
+    if (!['OPEN', 'ACKED', 'RESOLVED'].includes(body.status)) {
+      throw new NgHttpError({
+        statusCode: 400,
+        error: 'Bad Request',
+        code: 'INVALID_STATUS',
+        message: 'Status must be OPEN, ACKED, or RESOLVED',
+        timestamp: new Date().toISOString(),
+        details: { status: body.status },
+        retryable: false,
+      });
+    }
+    
+    const result = await this.svc.updateEventStatus(circleId, eventId, body.status, body.note);
+    if (!result) {
+      throw new NgHttpError({
+        statusCode: 404,
+        error: 'Not Found',
+        code: 'NOT_FOUND',
+        message: 'Event not found',
+        timestamp: new Date().toISOString(),
+        details: { circleId, eventId },
+        retryable: false,
+      });
+    }
+    return result;
   }
 
   @Post('summary-upsert')
