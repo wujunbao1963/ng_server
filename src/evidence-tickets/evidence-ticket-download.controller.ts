@@ -10,39 +10,39 @@ import {
   ParseUUIDPipe,
   Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
-import { CirclesService } from '../circles/circles.service';
-import { JwtUser } from '../auth/auth.types';
 import { EvidenceTicketsService } from './evidence-tickets.service';
 
 @Controller('/api/evidence/tickets')
 export class EvidenceTicketDownloadController {
   constructor(
     private readonly svc: EvidenceTicketsService,
-    private readonly circles: CirclesService,
   ) {}
 
+  /**
+   * Download evidence via ticket
+   * 
+   * 注意：此端点不使用 JWT 认证，因为：
+   * 1. Ticket 本身就是短期认证凭证 (TTL 通常 10 分钟)
+   * 2. Ticket 创建时已验证用户身份和 circle 权限
+   * 3. <video> 和 <img> 标签无法发送 Authorization header
+   * 
+   * 安全措施：
+   * - Ticket 有过期时间
+   * - Ticket 绑定特定 evidenceKey
+   * - 每次下载都记录审计日志
+   */
   @Get(':ticketId/download')
-  @UseGuards(AuthGuard('jwt'))
   async download(
-    @Req() req: { user: JwtUser; headers?: Record<string, string | string[] | undefined> },
     @Param('ticketId', new ParseUUIDPipe({ version: '4' })) ticketId: string,
+    @Req() req: { headers?: Record<string, string | string[] | undefined> },
     @Res() res: Response,
   ) {
     const { ticket, manifest } = await this.svc.resolveTicket({ ticketId });
-    if (!ticket) throw new NotFoundException();
-
-    await this.circles.mustBeMember(req.user.userId, ticket.circleId);
-
-    // Ticket is scoped to the requester to prevent forwarding.
-    if (ticket.requesterUserId !== req.user.userId) {
-      throw new ForbiddenException('ticket not owned');
-    }
+    if (!ticket) throw new NotFoundException('ticket not found');
 
     const now = Date.now();
     if (ticket.expiresAt.getTime() <= now) {
@@ -61,7 +61,7 @@ export class EvidenceTicketDownloadController {
     // Acquire per-ticket download lease to limit concurrency.
     const leaseId = await this.svc.acquireLease({
       ticketId: ticket.ticketId,
-      requesterUserId: req.user.userId,
+      requesterUserId: ticket.requesterUserId,
       leaseType: 'download',
       ttlSec: 60,
     });
@@ -90,7 +90,7 @@ export class EvidenceTicketDownloadController {
     } catch (e) {
       await this.svc.writeDownloadAudit({
         ticket,
-        requesterUserId: req.user.userId,
+        requesterUserId: ticket.requesterUserId,
         requestedRange: range || null,
         upstreamStatus: 0,
         bytesSent: null,
@@ -105,7 +105,7 @@ export class EvidenceTicketDownloadController {
     if (!upstream.body) {
       await this.svc.writeDownloadAudit({
         ticket,
-        requesterUserId: req.user.userId,
+        requesterUserId: ticket.requesterUserId,
         requestedRange: range || null,
         upstreamStatus: upstream.status,
         bytesSent: null,
@@ -117,7 +117,7 @@ export class EvidenceTicketDownloadController {
       // 4xx/5xx from upstream
       await this.svc.writeDownloadAudit({
         ticket,
-        requesterUserId: req.user.userId,
+        requesterUserId: ticket.requesterUserId,
         requestedRange: range || null,
         upstreamStatus: upstream.status,
         bytesSent: null,
@@ -145,7 +145,7 @@ export class EvidenceTicketDownloadController {
     try {
       await this.svc.writeDownloadAudit({
         ticket,
-        requesterUserId: req.user.userId,
+        requesterUserId: ticket.requesterUserId,
         requestedRange: range || null,
         upstreamStatus: upstream.status,
         bytesSent: len ? Number(len) : null,
