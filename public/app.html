@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>NeighborGuard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --success: #16a34a;
+      --success-bg: #f0fdf4;
+      --warning: #d97706;
+      --warning-bg: #fffbeb;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-900);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    
+    /* Pages */
+    .page { display: none; min-height: 100vh; }
+    .page.active { display: flex; flex-direction: column; }
+    
+    /* Header */
+    .header {
+      background: white;
+      padding: 16px;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header-back {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 4px 8px;
+      margin: -4px -8px -4px -8px;
+    }
+    .header-right { display: flex; gap: 8px; align-items: center; }
+    
+    /* Login Page */
+    .login-page {
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    }
+    .login-card {
+      background: white;
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: var(--shadow-lg);
+    }
+    .login-logo {
+      text-align: center;
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+    .login-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .login-subtitle {
+      text-align: center;
+      color: var(--gray-500);
+      margin-bottom: 24px;
+    }
+    
+    /* Form */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:disabled { background: var(--gray-300); cursor: not-allowed; }
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    .btn-outline {
+      background: white;
+      border: 1px solid var(--gray-300);
+      color: var(--gray-700);
+    }
+    .btn-sm {
+      padding: 8px 16px;
+      font-size: 14px;
+      width: auto;
+    }
+    .btn-icon {
+      padding: 8px;
+      width: auto;
+      background: none;
+      border: none;
+      font-size: 20px;
+    }
+    
+    /* Events List */
+    .events-page { background: var(--gray-50); }
+    .events-container { flex: 1; padding: 16px; }
+    .events-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: white;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      font-size: 14px;
+      color: var(--gray-500);
+    }
+    .events-status .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .events-list { display: flex; flex-direction: column; gap: 12px; }
+    
+    .event-card {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .event-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+    .event-card.alert { border-left: 4px solid var(--danger); }
+    .event-card.resolved { border-left: 4px solid var(--success); }
+    .event-card.pending { border-left: 4px solid var(--warning); }
+    
+    .event-header {
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .event-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .event-icon.alert { background: var(--danger-bg); }
+    .event-icon.resolved { background: var(--success-bg); }
+    .event-icon.pending { background: var(--warning-bg); }
+    
+    .event-info { flex: 1; min-width: 0; }
+    .event-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .event-meta {
+      font-size: 13px;
+      color: var(--gray-500);
+    }
+    .event-time {
+      font-size: 12px;
+      color: var(--gray-500);
+      white-space: nowrap;
+    }
+    
+    .event-thumb {
+      height: 120px;
+      background: var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-500);
+      font-size: 14px;
+    }
+    .event-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-danger { background: var(--danger-bg); color: var(--danger); }
+    .badge-success { background: var(--success-bg); color: var(--success); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning); }
+    
+    /* Event Detail Page */
+    .detail-page { background: var(--gray-50); }
+    .detail-container { flex: 1; overflow-y: auto; }
+    
+    .detail-media {
+      background: black;
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .detail-media img, .detail-media video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    .detail-media .placeholder {
+      color: white;
+      font-size: 14px;
+    }
+    .media-nav {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+    }
+    .media-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.5);
+      cursor: pointer;
+    }
+    .media-dot.active { background: white; }
+    
+    .detail-content { padding: 20px; }
+    
+    .detail-section {
+      background: white;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .detail-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: var(--gray-500); font-size: 14px; }
+    .detail-value { font-weight: 500; font-size: 14px; }
+    
+    .evidence-list { display: flex; flex-direction: column; gap: 8px; }
+    .evidence-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .evidence-item:hover { background: var(--gray-100); }
+    .evidence-icon { font-size: 24px; }
+    .evidence-info { flex: 1; }
+    .evidence-name { font-weight: 500; font-size: 14px; }
+    .evidence-size { font-size: 12px; color: var(--gray-500); }
+    
+    /* Action Buttons */
+    .action-bar {
+      padding: 16px;
+      background: white;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 12px;
+    }
+    .action-bar .btn { flex: 1; }
+    
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--gray-500);
+    }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state-title { font-size: 18px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; }
+    
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gray-900);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 1000;
+      animation: slideUp 0.3s;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 400px;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .modal-header h2 { font-size: 18px; }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .modal-footer .btn { width: auto; }
+    
+    /* Responsive */
+    @media (min-width: 768px) {
+      .events-container { max-width: 600px; margin: 0 auto; }
+      .detail-container { max-width: 800px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Login Page -->
+  <div id="loginPage" class="page login-page active">
+    <div class="login-card">
+      <div class="login-logo">🏠</div>
+      <h1 class="login-title">NeighborGuard</h1>
+      <p class="login-subtitle">智能家居安防系统</p>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <input type="email" id="loginEmail" class="form-input" value="test@example.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Circle ID (可选)</label>
+          <input type="text" id="loginCircleId" class="form-input" placeholder="留空则使用默认">
+        </div>
+        <button type="submit" class="btn btn-primary">登录</button>
+      </form>
+      
+      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">
+        v7.7 测试版
+      </p>
+    </div>
+  </div>
+  
+  <!-- Events Page -->
+  <div id="eventsPage" class="page events-page">
+    <div class="header">
+      <h1>🏠 NeighborGuard</h1>
+      <div class="header-right">
+        <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
+        <button class="btn-icon" onclick="logout()" title="登出">👤</button>
+      </div>
+    </div>
+    
+    <div class="events-container">
+      <div class="events-status">
+        <span class="dot"></span>
+        <span>实时监控中</span>
+        <span style="margin-left: auto;" id="lastUpdate">--</span>
+      </div>
+      
+      <div id="eventsList" class="events-list">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Event Detail Page -->
+  <div id="detailPage" class="page detail-page">
+    <div class="header">
+      <button class="header-back" onclick="showPage('events')">←</button>
+      <h1>事件详情</h1>
+      <div class="header-right">
+        <span id="detailBadge" class="badge badge-danger">警报</span>
+      </div>
+    </div>
+    
+    <div class="detail-container">
+      <div class="detail-media" id="detailMedia">
+        <span class="placeholder">加载中...</span>
+      </div>
+      
+      <div class="detail-content">
+        <div class="detail-section">
+          <h3>事件信息</h3>
+          <div class="detail-row">
+            <span class="detail-label">事件 ID</span>
+            <span class="detail-value" id="detailEventId">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">位置</span>
+            <span class="detail-value" id="detailLocation">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">触发原因</span>
+            <span class="detail-value" id="detailReason">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">时间</span>
+            <span class="detail-value" id="detailTime">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">状态</span>
+            <span class="detail-value" id="detailStatus">-</span>
+          </div>
+        </div>
+        
+        <div class="detail-section">
+          <h3>证据文件</h3>
+          <div id="evidenceList" class="evidence-list">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="action-bar" id="actionBar">
+      <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
+      <button class="btn btn-danger" onclick="confirmEvent('alert')">🚨 报警</button>
+    </div>
+  </div>
+  
+  <!-- Confirm Modal -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">确认操作</h2>
+      </div>
+      <div class="modal-body">
+        <p id="modalMessage">确定要执行此操作吗？</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" onclick="closeModal()">取消</button>
+        <button id="modalConfirmBtn" class="btn btn-primary btn-sm" onclick="doConfirm()">确认</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast -->
+  <div id="toast" class="toast" style="display: none;"></div>
+
+<script>
+// =============================================================================
+// State
+// =============================================================================
+
+const state = {
+  jwt: localStorage.getItem('ng_jwt') || '',
+  circleId: localStorage.getItem('ng_circleId') || '',
+  events: [],
+  currentEvent: null,
+  currentManifest: null,
+  refreshTimer: null,
+  pendingAction: null,
+};
+
+const BASE_URL = window.location.origin;
+
+// =============================================================================
+// API
+// =============================================================================
+
+async function api(path, options = {}) {
+  const url = BASE_URL + path;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (state.jwt && !options.noAuth) {
+    headers['Authorization'] = `Bearer ${state.jwt}`;
+  }
+  
+  const res = await fetch(url, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
+  
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  }
+  
+  return data;
+}
+
+// =============================================================================
+// Auth
+// =============================================================================
+
+async function login(email, circleId) {
+  // Dev login
+  const data = await api('/api/auth/dev/login', {
+    method: 'POST',
+    body: { email },
+    noAuth: true,
+  });
+  
+  state.jwt = data.token || data.jwt || data.accessToken;
+  localStorage.setItem('ng_jwt', state.jwt);
+  
+  // 如果没有指定 circleId，尝试获取或创建
+  if (!circleId) {
+    try {
+      // 尝试获取用户的 circles
+      const circles = await api('/api/circles');
+      if (circles && circles.length > 0) {
+        circleId = circles[0].id || circles[0].circleId;
+      }
+    } catch (e) {
+      console.log('No existing circles, will create one');
+    }
+    
+    if (!circleId) {
+      // 创建新 circle
+      const newCircle = await api('/api/circles', {
+        method: 'POST',
+        body: { name: 'Home' },
+      });
+      circleId = newCircle.id || newCircle.circleId;
+    }
+  }
+  
+  state.circleId = circleId;
+  localStorage.setItem('ng_circleId', circleId);
+  
+  return { jwt: state.jwt, circleId: state.circleId };
+}
+
+function logout() {
+  state.jwt = '';
+  state.circleId = '';
+  state.events = [];
+  localStorage.removeItem('ng_jwt');
+  localStorage.removeItem('ng_circleId');
+  stopRefresh();
+  showPage('login');
+}
+
+// =============================================================================
+// Events
+// =============================================================================
+
+async function loadEvents() {
+  try {
+    const data = await api(`/api/circles/${state.circleId}/events`);
+    // API 返回 { items: [...], nextCursor: ... }
+    state.events = data.items || data.events || (Array.isArray(data) ? data : []);
+    renderEvents();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    console.error('Load events error:', e);
+    if (e.message.includes('401') || e.message.includes('Unauthorized')) {
+      logout();
+    }
+  }
+}
+
+function renderEvents() {
+  const container = document.getElementById('eventsList');
+  
+  if (state.events.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <div class="empty-state-title">一切正常</div>
+        <p>暂无安全事件</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = state.events.map(event => {
+    // status: OPEN, ACKED, RESOLVED
+    // alarmState: TRIGGERED, PENDING, PRE 等
+    const status = event.status || 'OPEN';
+    const alarmState = event.alarmState || event.threatState || '';
+    
+    const isAlert = status === 'OPEN' && (alarmState === 'TRIGGERED' || event.severity === 'CRITICAL');
+    const isResolved = status === 'RESOLVED';
+    const isPending = status === 'ACKED' || (status === 'OPEN' && alarmState !== 'TRIGGERED');
+    
+    const statusClass = isAlert ? 'alert' : (isResolved ? 'resolved' : 'pending');
+    const icon = isAlert ? '🚨' : (isResolved ? '✅' : '⚠️');
+    
+    const time = event.occurredAt || event.updatedAt || event.createdAt;
+    const timeStr = time ? formatTime(time) : '-';
+    
+    const zone = event.entryPointId || event.zoneId || '未知位置';
+    const title = event.title || getStatusLabel(status, alarmState);
+    
+    return `
+      <div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')">
+        <div class="event-header">
+          <div class="event-icon ${statusClass}">${icon}</div>
+          <div class="event-info">
+            <div class="event-title">${title}</div>
+            <div class="event-meta">${zone}</div>
+          </div>
+          <div class="event-time">${timeStr}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getStatusLabel(status, alarmState) {
+  if (status === 'RESOLVED') return '已解决';
+  if (status === 'ACKED') return '已确认';
+  
+  const alarmLabels = {
+    'TRIGGERED': '安全警报',
+    'PENDING': '待确认',
+    'PRE': '可疑活动',
+    'PRE_L1': '轻微异常',
+    'PRE_L2': '可疑活动',
+    'PRE_L3': '高度可疑',
+  };
+  return alarmLabels[alarmState] || '安全事件';
+}
+
+function formatTime(isoStr) {
+  try {
+    const date = new Date(isoStr);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+    
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return isoStr;
+  }
+}
+
+// =============================================================================
+// Event Detail
+// =============================================================================
+
+async function showEventDetail(eventId) {
+  const event = state.events.find(e => e.eventId === eventId);
+  if (!event) {
+    showToast('事件未找到');
+    return;
+  }
+  
+  state.currentEvent = event;
+  state.currentManifest = null;
+  
+  // 渲染基本信息
+  document.getElementById('detailEventId').textContent = eventId.substring(0, 8) + '...';
+  document.getElementById('detailLocation').textContent = event.entryPointId || event.zoneId || '-';
+  document.getElementById('detailReason').textContent = event.title || '-';
+  document.getElementById('detailTime').textContent = event.occurredAt ? new Date(event.occurredAt).toLocaleString('zh-CN') : '-';
+  
+  const status = event.status || 'OPEN';
+  const alarmState = event.alarmState || '';
+  document.getElementById('detailStatus').textContent = getStatusLabel(status, alarmState);
+  
+  const badge = document.getElementById('detailBadge');
+  const isAlert = status === 'OPEN' && alarmState === 'TRIGGERED';
+  const isResolved = status === 'RESOLVED';
+  badge.textContent = getStatusLabel(status, alarmState);
+  badge.className = 'badge ' + (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning'));
+  
+  // 显示/隐藏操作按钮 (只有 OPEN 状态才显示)
+  const actionBar = document.getElementById('actionBar');
+  actionBar.style.display = (status === 'OPEN') ? 'flex' : 'none';
+  
+  // 清空媒体和证据
+  document.getElementById('detailMedia').innerHTML = '<span class="placeholder">加载中...</span>';
+  document.getElementById('evidenceList').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  showPage('detail');
+  
+  // 加载 manifest
+  try {
+    const manifest = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/manifest`);
+    state.currentManifest = manifest;
+    renderEvidence(manifest);
+  } catch (e) {
+    console.error('Load manifest error:', e);
+    document.getElementById('evidenceList').innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
+    document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
+  }
+}
+
+async function renderEvidence(manifest) {
+  const items = manifest.items || manifest.manifest?.items || [];
+  const evidenceList = document.getElementById('evidenceList');
+  
+  if (items.length === 0) {
+    evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
+    document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
+    return;
+  }
+  
+  // 渲染证据列表
+  evidenceList.innerHTML = items.map((item, idx) => {
+    const icon = item.type === 'clip' || item.kind === 'clip' ? '🎬' : '📸';
+    const name = item.type === 'clip' || item.kind === 'clip' ? '视频片段' : '截图';
+    const size = item.sizeBytesApprox ? formatSize(item.sizeBytesApprox) : '-';
+    
+    return `
+      <div class="evidence-item" onclick="playEvidence(${idx})">
+        <span class="evidence-icon">${icon}</span>
+        <div class="evidence-info">
+          <div class="evidence-name">${name}</div>
+          <div class="evidence-size">${size}</div>
+        </div>
+        <span style="color: var(--gray-400);">▶</span>
+      </div>
+    `;
+  }).join('');
+  
+  // 显示第一个媒体
+  await playEvidence(0);
+}
+
+async function playEvidence(idx) {
+  const items = state.currentManifest?.items || state.currentManifest?.manifest?.items || [];
+  if (idx >= items.length) return;
+  
+  const item = items[idx];
+  const mediaContainer = document.getElementById('detailMedia');
+  
+  mediaContainer.innerHTML = '<span class="placeholder">加载中...</span>';
+  
+  try {
+    // 创建 ticket
+    const eventId = state.currentEvent.eventId;
+    const evidenceKey = item.evidenceKey;
+    
+    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/evidence/tickets`, {
+      method: 'POST',
+      body: { evidenceKey, ttlSec: 600 },
+    });
+    
+    const ticketId = ticketRes.ticketId || ticketRes.id;
+    const downloadUrl = `${BASE_URL}/api/evidence/tickets/${ticketId}/download`;
+    
+    const isVideo = item.type === 'clip' || item.kind === 'clip';
+    
+    if (isVideo) {
+      mediaContainer.innerHTML = `
+        <video controls autoplay playsinline style="max-width: 100%; max-height: 100%;">
+          <source src="${downloadUrl}" type="video/mp4">
+          您的浏览器不支持视频播放
+        </video>
+      `;
+    } else {
+      mediaContainer.innerHTML = `<img src="${downloadUrl}" alt="证据图片">`;
+    }
+    
+    // 添加导航点
+    if (items.length > 1) {
+      const dots = items.map((_, i) => `<span class="media-dot ${i === idx ? 'active' : ''}" onclick="playEvidence(${i})"></span>`).join('');
+      mediaContainer.innerHTML += `<div class="media-nav">${dots}</div>`;
+    }
+    
+  } catch (e) {
+    console.error('Play evidence error:', e);
+    mediaContainer.innerHTML = `<span class="placeholder">加载失败: ${e.message}</span>`;
+  }
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+// =============================================================================
+// Actions
+// =============================================================================
+
+function confirmEvent(action) {
+  state.pendingAction = action;
+  
+  const modal = document.getElementById('confirmModal');
+  const title = document.getElementById('modalTitle');
+  const message = document.getElementById('modalMessage');
+  const btn = document.getElementById('modalConfirmBtn');
+  
+  if (action === 'safe') {
+    title.textContent = '确认安全';
+    message.textContent = '确定此事件为误报？系统将标记为已解决。';
+    btn.className = 'btn btn-success btn-sm';
+    btn.textContent = '确认安全';
+  } else {
+    title.textContent = '触发报警';
+    message.textContent = '确定要触发报警？系统将通知紧急联系人。';
+    btn.className = 'btn btn-danger btn-sm';
+    btn.textContent = '确认报警';
+  }
+  
+  modal.classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('confirmModal').classList.remove('active');
+  state.pendingAction = null;
+}
+
+async function doConfirm() {
+  closeModal();
+  
+  if (!state.currentEvent || !state.pendingAction) return;
+  
+  const eventId = state.currentEvent.eventId || state.currentEvent.id;
+  const newStatus = state.pendingAction === 'safe' ? 'RESOLVED' : 'ACKED';
+  const note = state.pendingAction === 'safe' ? '用户确认安全' : '用户触发报警';
+  
+  try {
+    // 使用正确的 API: PATCH /api/circles/:cid/events/:eid/status
+    await api(`/api/circles/${state.circleId}/events/${eventId}/status`, {
+      method: 'PATCH',
+      body: { 
+        status: newStatus, 
+        note: note,
+        clientRequestId: `web-${Date.now()}`
+      },
+    });
+    
+    showToast(state.pendingAction === 'safe' ? '已标记为安全' : '已确认警报');
+    
+    // 刷新事件列表
+    await loadEvents();
+    showPage('events');
+    
+  } catch (e) {
+    console.error('Confirm error:', e);
+    showToast('操作失败: ' + e.message);
+  }
+}
+
+// =============================================================================
+// UI
+// =============================================================================
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(page + 'Page').classList.add('active');
+  
+  if (page === 'events') {
+    loadEvents();
+    startRefresh();
+  } else {
+    stopRefresh();
+  }
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+function startRefresh() {
+  stopRefresh();
+  state.refreshTimer = setInterval(loadEvents, 10000); // 每 10 秒刷新
+}
+
+function stopRefresh() {
+  if (state.refreshTimer) {
+    clearInterval(state.refreshTimer);
+    state.refreshTimer = null;
+  }
+}
+
+// =============================================================================
+// Init
+// =============================================================================
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const email = document.getElementById('loginEmail').value;
+  const circleId = document.getElementById('loginCircleId').value;
+  const btn = e.target.querySelector('button');
+  
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+  
+  try {
+    await login(email, circleId);
+    showPage('events');
+  } catch (err) {
+    showToast('登录失败: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '登录';
+  }
+});
+
+// Check saved login
+if (state.jwt && state.circleId) {
+  showPage('events');
+} else {
+  showPage('login');
+}
+</script>
+
+</body>
+</html>
