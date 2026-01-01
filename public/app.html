@@ -1064,7 +1064,11 @@ async function doConfirm() {
 // =============================================================================
 
 // Edge 服务器地址 (通过 Cloudflare Tunnel)
+// 证据 + 实时流使用同一地址
 const EDGE_URL = 'https://evidence.neighbor-guard.com';
+
+// Live Stream 使用同一地址 (同端口不同路径)
+const LIVE_STREAM_URL = EDGE_URL;
 
 // 实时流状态
 let liveStreamActive = false;
@@ -1078,14 +1082,15 @@ async function startVerification() {
   
   // 获取摄像头列表
   try {
-    const res = await fetch(`${EDGE_URL}/api/live/cameras`);
+    const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     
     const tabs = document.getElementById('liveViewTabs');
     tabs.innerHTML = '';
     
     if (!data.cameras || data.cameras.length === 0) {
-      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头</span>';
+      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头 (请检查 Edge 配置)</span>';
       return;
     }
     
@@ -1105,8 +1110,11 @@ async function startVerification() {
     
   } catch (e) {
     console.error('Failed to load cameras:', e);
-    document.getElementById('liveViewPlaceholder').innerHTML = 
-      `<span style="color: #ff4444;">无法连接 Edge 服务器</span>`;
+    document.getElementById('liveViewTabs').innerHTML = `
+      <span style="color: #ff4444; padding: 8px;">
+        无法连接实时流服务 (${e.message})
+      </span>
+    `;
   }
 }
 
@@ -1135,13 +1143,13 @@ async function switchLiveCamera(cameraId) {
   // 注意: MJPEG 需要 Edge 支持 /stream.mjpeg 端点
   try {
     // 先检查摄像头是否可用
-    const checkRes = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}`);
+    const checkRes = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}`);
     if (!checkRes.ok) {
       throw new Error('Camera not available');
     }
     
     // 使用 MJPEG 流
-    img.src = `${EDGE_URL}/api/live/cameras/${cameraId}/stream.mjpeg?fps=10&quality=80&t=${Date.now()}`;
+    img.src = `${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/stream.mjpeg?fps=10&quality=80&t=${Date.now()}`;
     img.style.display = 'block';
     placeholder.style.display = 'none';
     
@@ -1181,7 +1189,7 @@ function startSnapshotPolling(cameraId) {
     if (!liveStreamActive) return;
     
     try {
-      const res = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}/snapshot`);
+      const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/snapshot`);
       if (!res.ok) throw new Error('Snapshot failed');
       
       const blob = await res.blob();
