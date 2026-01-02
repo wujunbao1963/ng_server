@@ -38,8 +38,9 @@ export class NotificationsController {
       throw new NgHttpError({
         statusCode: 400,
         error: 'Bad Request',
-        code: NgErrorCodes.VALIDATION,
+        code: NgErrorCodes.VALIDATION_ERROR,
         message: 'Invalid platform. Must be ios, android, or web.',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -47,8 +48,9 @@ export class NotificationsController {
       throw new NgHttpError({
         statusCode: 400,
         error: 'Bad Request',
-        code: NgErrorCodes.VALIDATION,
+        code: NgErrorCodes.VALIDATION_ERROR,
         message: 'Invalid token.',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -86,6 +88,7 @@ export class NotificationsController {
         error: 'Not Found',
         code: NgErrorCodes.NOT_FOUND,
         message: 'Push device not found.',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -130,6 +133,7 @@ export class NotificationsController {
         error: 'Not Found',
         code: NgErrorCodes.NOT_FOUND,
         message: 'Notification not found.',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -160,6 +164,7 @@ export class NotificationsController {
         error: 'Not Found',
         code: NgErrorCodes.NOT_FOUND,
         message: 'Notification not found.',
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -190,6 +195,7 @@ export class NotificationsController {
         error: 'Not Found',
         code: NgErrorCodes.NOT_FOUND,
         message: 'Notification not found.',
+        timestamp: new Date().toISOString(),
       });
     }
 

@@ -164,7 +164,7 @@ export class EdgeEventsService {
     const incomingUpdatedAt = new Date(payload.updatedAt);
     const payloadHash = sha256Hex(stableStringify(payload));
 
-    const result = await this.dataSource.transaction(async (manager) => {
+    const result: EdgeSummaryUpsertResult = await this.dataSource.transaction(async (manager) => {
       // 1) Raw landing write (always).
       const rawRow = this.rawRepo.create({
         circleId: payload.circleId,
