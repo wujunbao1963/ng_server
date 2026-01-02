@@ -137,7 +137,36 @@ export class IncidentManifestsService {
       existing.edgeUpdatedAt = incomingUpdatedAt;
       existing.lastSequence = String(incomingSeq);
       existing.lastPayloadHash = payloadHash;
-      existing.manifestJson = payload;
+      
+      // 合并 items 而不是替换（支持同一 incident 多次证据采集）
+      const oldItems: any[] = (existing.manifestJson as any)?.manifest?.items ?? [];
+      const newItems: any[] = (payload as any)?.manifest?.items ?? [];
+      
+      // 基于 signedUrl 或 itemId 去重
+      const mergedItems = [...oldItems];
+      for (const newItem of newItems) {
+        const exists = mergedItems.some(old => 
+          (old.signedUrl && old.signedUrl === newItem.signedUrl) ||
+          (old.itemId && old.itemId === newItem.itemId)
+        );
+        if (!exists) {
+          mergedItems.push(newItem);
+        }
+      }
+      
+      // 日志：显示合并结果
+      console.log(`[ManifestUpsert] eventId=${payload.eventId}: merged ${oldItems.length} old + ${newItems.length} new → ${mergedItems.length} items`);
+      
+      // 构建合并后的 payload
+      const mergedPayload = {
+        ...payload,
+        manifest: {
+          ...(payload as any).manifest,
+          items: mergedItems,
+        },
+      };
+      
+      existing.manifestJson = mergedPayload;
       await repo.save(existing);
 
       await audit.insert({
