@@ -142,11 +142,11 @@ export class IncidentManifestsService {
       const oldItems: any[] = (existing.manifestJson as any)?.manifest?.items ?? [];
       const newItems: any[] = (payload as any)?.manifest?.items ?? [];
       
-      // 基于 signedUrl 或 itemId 去重
+      // 基于 edgeUrl 或 itemId 去重
       const mergedItems = [...oldItems];
       for (const newItem of newItems) {
         const exists = mergedItems.some(old => 
-          (old.signedUrl && old.signedUrl === newItem.signedUrl) ||
+          (old.edgeUrl && old.edgeUrl === newItem.edgeUrl) ||
           (old.itemId && old.itemId === newItem.itemId)
         );
         if (!exists) {

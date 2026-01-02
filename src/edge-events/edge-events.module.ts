@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContractsValidatorService } from '../common/contracts/contracts-validator.service';
 import { DeviceAuthModule } from '../device-auth/device-auth.module';
 import { CirclesModule } from '../circles/circles.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { NgEdgeEvent } from './ng-edge-event.entity';
 import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
 import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
@@ -13,7 +14,7 @@ import { EdgeEventsService } from './edge-events.service';
 import { IncidentManifestsService } from './incident-manifests.service';
 
 @Module({
-  imports: [DeviceAuthModule, CirclesModule, TypeOrmModule.forFeature([NgEdgeEventSummaryRaw, NgEdgeEvent, NgEdgeIngestAudit, NgIncidentManifestRaw, NgIncidentManifest])],
+  imports: [DeviceAuthModule, CirclesModule, NotificationsModule, TypeOrmModule.forFeature([NgEdgeEventSummaryRaw, NgEdgeEvent, NgEdgeIngestAudit, NgIncidentManifestRaw, NgIncidentManifest])],
   controllers: [EdgeEventsController],
   providers: [EdgeEventsService, IncidentManifestsService, ContractsValidatorService],
 })

@@ -6,6 +6,8 @@ import { NgEdgeEvent } from './ng-edge-event.entity';
 import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
 import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
 import { stableStringify } from '../common/utils/stable-json';
+import { NotificationsService } from '../notifications/notifications.service';
+import { CirclesService } from '../circles/circles.service';
 
 export type EdgeEventSummaryUpsertV77 = {
   schemaVersion: 'v7.7';
@@ -34,6 +36,8 @@ export class EdgeEventsService {
     @InjectRepository(NgEdgeIngestAudit)
     private readonly auditRepo: Repository<NgEdgeIngestAudit>,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
+    private readonly circlesService: CirclesService,
   ) {}
 
   /**
@@ -136,6 +140,7 @@ export class EdgeEventsService {
       'motion': '移动检测',
       'door_open': '门窗打开',
       'glass_break': '玻璃破碎',
+      'delivery_detected': '📦 快递到达',
     };
     return reasonMap[ev.triggerReason || ''] || '安全事件';
   }
@@ -159,7 +164,7 @@ export class EdgeEventsService {
     const incomingUpdatedAt = new Date(payload.updatedAt);
     const payloadHash = sha256Hex(stableStringify(payload));
 
-    return await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       // 1) Raw landing write (always).
       const rawRow = this.rawRepo.create({
         circleId: payload.circleId,
@@ -280,6 +285,50 @@ export class EdgeEventsService {
 
       return { applied: true, reason: 'applied' };
     });
+
+    // 事件应用成功后，检查是否需要触发通知
+    if (result.applied) {
+      await this.maybeCreateNotification(payload);
+    }
+
+    return result;
+  }
+
+  /**
+   * 检查是否需要为该事件创建通知
+   * 
+   * 当前支持：
+   * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
+   */
+  private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
+    const workflowClass = (payload as any).workflowClass;
+    const triggerReason = payload.triggerReason;
+
+    // 只处理 LOGISTICS 快递事件
+    if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
+      try {
+        // 获取 Circle owner
+        const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
+        if (!ownerUserId) {
+          console.log(`[EdgeEvents] No owner found for circle ${payload.circleId}, skipping notification`);
+          return;
+        }
+
+        // 创建快递到达通知
+        await this.notificationsService.createParcelNotification({
+          userId: ownerUserId,
+          circleId: payload.circleId,
+          eventId: payload.eventId,
+          edgeInstanceId: payload.edgeInstanceId,
+          entryPointId: (payload as any).entryPointId,
+        });
+
+        console.log(`[EdgeEvents] Created parcel notification for event ${payload.eventId}`);
+      } catch (error) {
+        // 通知创建失败不应影响事件处理
+        console.error(`[EdgeEvents] Failed to create notification:`, error);
+      }
+    }
   }
 }
 

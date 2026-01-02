@@ -138,4 +138,14 @@ export class CirclesService {
     }
     return m;
   }
+
+  /**
+   * 获取 Circle 的 owner userId
+   */
+  async getCircleOwner(circleId: string): Promise<string | null> {
+    const owner = await this.membersRepo.findOne({
+      where: { circleId, role: 'owner' },
+    });
+    return owner?.userId ?? null;
+  }
 }

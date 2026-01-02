@@ -16,6 +16,7 @@ import { EdgeEventsModule } from './edge-events/edge-events.module';
 import { IncidentReadModule } from './incident-read/incident-read.module';
 import { EvidenceTicketsModule } from './evidence-tickets/evidence-tickets.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
 
 @Module({
@@ -66,6 +67,7 @@ import { NgExceptionFilter } from './common/errors/ng-exception.filter';
     EvidenceTicketsModule,
     AdminModule,
     EvidenceModule,
+    NotificationsModule,
   ],
   providers: [
     // Ensure contract-aligned error envelope and request validation are active
