@@ -399,6 +399,90 @@
     }
     .live-view-status.connected { color: #00ff88; }
     .live-view-status.error { color: #ff4444; }
+    
+    /* Mode Control 模式控制 */
+    .mode-control {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .mode-control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .mode-control-title {
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .mode-control-status {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
+    .mode-control-status.armed { background: #ff4444; color: white; }
+    .mode-control-status.disarmed { background: #00aa55; color: white; }
+    .mode-control-status.home { background: #ff9500; color: white; }
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .mode-btn {
+      padding: 12px 8px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      background: transparent;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .mode-btn:hover { border-color: rgba(255,255,255,0.5); }
+    .mode-btn.active { border-color: var(--primary); background: rgba(59,130,246,0.2); }
+    .mode-btn .mode-icon { font-size: 20px; }
+    .mode-btn .mode-label { font-size: 11px; opacity: 0.8; }
+    
+    /* Alert Actions 报警操作 */
+    .alert-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .alert-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .alert-btn.siren {
+      background: #ff4444;
+      color: white;
+    }
+    .alert-btn.silence {
+      background: #666;
+      color: white;
+    }
+    .alert-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
     .evidence-item {
       display: flex;
       align-items: center;
@@ -548,6 +632,36 @@
     </div>
     
     <div class="events-container">
+      <!-- Mode Control 模式控制 -->
+      <div class="mode-control" id="modeControl">
+        <div class="mode-control-header">
+          <span class="mode-control-title">🛡️ 安防模式</span>
+          <span class="mode-control-status disarmed" id="modeStatus">加载中...</span>
+        </div>
+        <div class="mode-buttons">
+          <button class="mode-btn" data-mode="disarm" onclick="setMode('disarm')">
+            <span class="mode-icon">🔓</span>
+            <span class="mode-label">撤防</span>
+          </button>
+          <button class="mode-btn" data-mode="home" onclick="setMode('home')">
+            <span class="mode-icon">🏠</span>
+            <span class="mode-label">在家</span>
+          </button>
+          <button class="mode-btn" data-mode="away" onclick="setMode('away')">
+            <span class="mode-icon">🚪</span>
+            <span class="mode-label">离家</span>
+          </button>
+        </div>
+        <div class="alert-actions" id="alertActions" style="display: none;">
+          <button class="alert-btn siren" id="sirenBtn" onclick="triggerSiren()">
+            🔊 触发警报
+          </button>
+          <button class="alert-btn silence" id="silenceBtn" onclick="silenceAlarm()">
+            🔇 静音
+          </button>
+        </div>
+      </div>
+      
       <div class="events-status">
         <span class="dot"></span>
         <span>实时监控中</span>
@@ -666,6 +780,10 @@ const state = {
   currentManifest: null,
   refreshTimer: null,
   pendingAction: null,
+  // 模式控制
+  currentMode: 'disarm',
+  alarmActive: false,
+  sirenActive: false,
 };
 
 const BASE_URL = window.location.origin;
@@ -1200,8 +1318,8 @@ function startSnapshotPolling(cameraId) {
   }
   
   fetchSnapshot();
-  // 每秒刷新一次 (每次都是新连接，延迟约 500-1000ms)
-  liveStreamInterval = setInterval(fetchSnapshot, 1000);
+  // 每 2 秒刷新一次 (ffmpeg 每次需要 1-2 秒)
+  liveStreamInterval = setInterval(fetchSnapshot, 2000);
 }
 
 function stopLiveView() {
@@ -1226,6 +1344,211 @@ function stopLiveView() {
   statusText.textContent = '已停止';
   status.className = 'live-view-status';
   stopBtn.style.display = 'none';
+}
+
+// =============================================================================
+// Mode Control 模式控制
+// =============================================================================
+
+async function loadModeStatus() {
+  try {
+    const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
+    if (!res.ok) throw new Error('Failed to load status');
+    
+    const data = await res.json();
+    
+    // 更新状态
+    state.currentMode = data.mode || 'disarm';
+    state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
+    state.sirenActive = data.deterrent_active || false;
+    
+    updateModeUI();
+    
+  } catch (e) {
+    console.error('Load mode status error:', e);
+  }
+}
+
+function updateModeUI() {
+  // 更新模式按钮
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === state.currentMode);
+  });
+  
+  // 更新状态标签
+  const statusEl = document.getElementById('modeStatus');
+  if (statusEl) {
+    const modeMap = {
+      'disarm': { text: '已撤防', class: 'disarmed' },
+      'home': { text: '在家模式', class: 'home' },
+      'away': { text: '离家模式', class: 'armed' },
+    };
+    const mode = modeMap[state.currentMode] || modeMap['disarm'];
+    statusEl.textContent = mode.text;
+    statusEl.className = 'mode-control-status ' + mode.class;
+  }
+  
+  // 显示/隐藏报警操作按钮
+  const alertActions = document.getElementById('alertActions');
+  if (alertActions) {
+    // 只有在非撤防模式下显示报警按钮
+    alertActions.style.display = state.currentMode !== 'disarm' ? 'flex' : 'none';
+  }
+  
+  // 更新警报按钮状态
+  const sirenBtn = document.getElementById('sirenBtn');
+  const silenceBtn = document.getElementById('silenceBtn');
+  if (sirenBtn && silenceBtn) {
+    sirenBtn.disabled = state.sirenActive;
+    silenceBtn.disabled = !state.sirenActive;
+  }
+}
+
+async function setMode(mode) {
+  try {
+    // 撤防需要验证 PIN
+    if (mode === 'disarm' && state.currentMode !== 'disarm') {
+      const pin = prompt('请输入安全密码:');
+      if (!pin) return;
+      
+      const res = await fetch(`${EDGE_URL}/api/pipeline/disarm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.detail || '密码错误');
+        return;
+      }
+    } else if (mode !== 'disarm') {
+      // 设置 Home/Away 模式
+      const res = await fetch(`${EDGE_URL}/api/pipeline/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.detail || '设置失败');
+        return;
+      }
+    }
+    
+    state.currentMode = mode;
+    updateModeUI();
+    showToast(`已切换到${mode === 'disarm' ? '撤防' : mode === 'home' ? '在家' : '离家'}模式`);
+    
+  } catch (e) {
+    console.error('Set mode error:', e);
+    showToast('设置失败: ' + e.message);
+  }
+}
+
+async function triggerSiren() {
+  try {
+    // 直接触发摄像头警报
+    const res = await fetch(`${EDGE_URL}/api/camera/deterrent/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        siren: true, 
+        spotlight: true,
+        duration: 30 
+      }),
+    });
+    
+    if (res.ok) {
+      state.sirenActive = true;
+      updateModeUI();
+      showToast('🔊 警报已触发');
+    } else {
+      showToast('触发失败');
+    }
+  } catch (e) {
+    console.error('Trigger siren error:', e);
+    showToast('触发失败: ' + e.message);
+  }
+}
+
+async function silenceAlarm() {
+  try {
+    const res = await fetch(`${EDGE_URL}/api/pipeline/silence`, {
+      method: 'POST',
+    });
+    
+    if (res.ok) {
+      state.sirenActive = false;
+      updateModeUI();
+      showToast('🔇 已静音');
+    } else {
+      showToast('静音失败');
+    }
+  } catch (e) {
+    console.error('Silence alarm error:', e);
+    showToast('静音失败: ' + e.message);
+  }
+}
+
+// =============================================================================
+// Web Push Notifications
+// =============================================================================
+
+async function requestPushPermission() {
+  if (!('Notification' in window)) {
+    console.log('This browser does not support notifications');
+    return false;
+  }
+  
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    console.log('Notification permission granted');
+    return true;
+  }
+  return false;
+}
+
+function showNotification(title, body, options = {}) {
+  if (Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      body,
+      icon: '🏠',
+      badge: '🚨',
+      vibrate: [200, 100, 200],
+      ...options,
+    });
+    
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+    
+    return notification;
+  }
+}
+
+// 定期检查新事件并发送通知
+let lastEventId = null;
+async function checkForNewEvents() {
+  try {
+    const data = await api(`/api/circles/${state.circleId}/edge/events`);
+    if (data.items && data.items.length > 0) {
+      const latestEvent = data.items[0];
+      if (lastEventId && latestEvent.eventId !== lastEventId) {
+        // 新事件！发送通知
+        showNotification(
+          '🚨 安全警报',
+          `${latestEvent.title || '检测到异常'} - ${latestEvent.entryPointId || '未知位置'}`,
+          { tag: latestEvent.eventId }
+        );
+      }
+      lastEventId = latestEvent.eventId;
+    }
+  } catch (e) {
+    console.error('Check events error:', e);
+  }
 }
 
 // =============================================================================
@@ -1291,6 +1614,17 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 // Check saved login
 if (state.jwt && state.circleId) {
   showPage('events');
+  
+  // 加载模式状态
+  loadModeStatus();
+  // 定期刷新模式状态（每 10 秒）
+  setInterval(loadModeStatus, 10000);
+  
+  // 请求通知权限
+  requestPushPermission();
+  // 定期检查新事件（每 15 秒）
+  setInterval(checkForNewEvents, 15000);
+  
 } else {
   showPage('login');
 }
