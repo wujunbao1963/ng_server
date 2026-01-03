@@ -18,9 +18,16 @@ import { EvidenceTicketsModule } from './evidence-tickets/evidence-tickets.modul
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
+import { InfraModule } from './common/infra/infra.module';
+import { OutboxModule } from './common/outbox/outbox.module';
+import { ApplicationModule } from './application/application.module';
 
 @Module({
-  imports: [TopoMapModule, 
+  imports: [
+    // Infrastructure (must be first - provides global services)
+    InfraModule,
+
+    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
@@ -54,6 +61,14 @@ import { NgExceptionFilter } from './common/errors/ng-exception.filter';
       },
     }),
 
+    // Application Layer (UseCases)
+    ApplicationModule,
+
+    // Infrastructure - Outbox (must be before domain modules that use it)
+    OutboxModule,
+
+    // Domain Modules
+    TopoMapModule,
     HealthModule,
     AuthModule,
     CirclesModule,

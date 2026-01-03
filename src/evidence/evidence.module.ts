@@ -10,12 +10,14 @@ import { NgEvidenceItem } from './ng-evidence-item.entity';
 import { NgEvidenceSession } from './ng-evidence-session.entity';
 import { NgEventEvidence } from './ng-event-evidence.entity';
 import { CirclesModule } from '../circles/circles.module';
+import { ApplicationModule } from '../application/application.module';
 
 @Module({
   imports: [
     ContractsModule,
     DeviceAuthModule,
     CirclesModule,
+    ApplicationModule,
     TypeOrmModule.forFeature([NgEvent, NgEvidenceSession, NgEvidenceItem, NgEventEvidence]),
   ],
   controllers: [EvidenceController],

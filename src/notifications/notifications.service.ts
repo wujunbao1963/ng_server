@@ -1,18 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository, EntityManager } from 'typeorm';
 import { NgNotification, NotificationType } from './ng-notification.entity';
 import { NgPushDevice } from './ng-push-device.entity';
 import * as crypto from 'crypto';
+import { NgLoggerService } from '../common/infra/logger.service';
+import { CLOCK_PORT, ClockPort } from '../common/infra/clock.port';
+import { OutboxService, PushNotificationPayload } from '../common/outbox';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger: NgLoggerService;
+
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(NgNotification)
     private readonly notificationsRepo: Repository<NgNotification>,
     @InjectRepository(NgPushDevice)
     private readonly pushDevicesRepo: Repository<NgPushDevice>,
-  ) {}
+    @Inject(CLOCK_PORT) private readonly clock: ClockPort,
+    private readonly outboxService: OutboxService,
+    logger: NgLoggerService,
+  ) {
+    this.logger = logger.setContext('NotificationsService');
+  }
 
   // =========================================================================
   // Push Device Management
@@ -152,6 +163,11 @@ export class NotificationsService {
   /**
    * 创建快递到达通知
    * 
+   * 使用 Outbox 模式确保：
+   * 1. 通知和推送消息在同一事务中写入
+   * 2. Worker 异步处理推送
+   * 3. 失败自动重试
+   * 
    * 去重规则：同一 (userId, eventId, type) 只创建一条
    */
   async createParcelNotification(args: {
@@ -161,8 +177,13 @@ export class NotificationsService {
     edgeInstanceId?: string;
     entryPointId?: string;
   }): Promise<NgNotification | null> {
+    const logCtx = {
+      userId: args.userId,
+      circleId: args.circleId,
+      eventId: args.eventId,
+    };
+
     // 检查是否已存在（去重）
-    // 注意：JSONB 查询需要使用数据库列名 event_ref，普通列使用 Entity 属性名
     const existing = await this.notificationsRepo
       .createQueryBuilder('n')
       .where('n.userId = :userId', { userId: args.userId })
@@ -171,38 +192,102 @@ export class NotificationsService {
       .getOne();
 
     if (existing) {
-      console.log(`[Notifications] Skipping duplicate parcel notification: eventId=${args.eventId}`);
+      this.logger.log('Skipping duplicate parcel notification', logCtx);
       return existing;
     }
 
-    // 创建新通知
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
+    // 在事务中创建通知 + Outbox 消息
+    const notification = await this.dataSource.transaction(async (manager) => {
+      return this.createNotificationWithOutbox(manager, {
+        userId: args.userId,
+        circleId: args.circleId,
+        type: 'LOGISTICS_PARCEL_DELIVERED' as NotificationType,
+        severity: 'info',
+        title: '📦 快递到达',
+        body: args.entryPointId ? `在 ${args.entryPointId} 检测到快递` : '检测到快递到达',
+        deeplinkRoute: 'event_detail',
+        deeplinkParams: { eventId: args.eventId },
+        eventRef: {
+          eventId: args.eventId,
+          workflowClass: 'LOGISTICS',
+          deviceId: args.edgeInstanceId,
+        },
+      });
+    });
 
-    const notification = this.notificationsRepo.create({
+    this.logger.log('Created parcel notification with outbox', {
+      ...logCtx,
+      notificationId: notification.id,
+    });
+
+    return notification;
+  }
+
+  /**
+   * 在事务中创建通知并入队推送消息
+   * 
+   * 这是创建需要推送的通知的标准方法
+   */
+  async createNotificationWithOutbox(
+    manager: EntityManager,
+    args: {
+      userId: string;
+      circleId: string;
+      type: NotificationType;
+      severity: 'info' | 'warning' | 'critical';
+      title: string;
+      body: string;
+      deeplinkRoute?: string;
+      deeplinkParams?: Record<string, any>;
+      eventRef?: Record<string, any>;
+    },
+  ): Promise<NgNotification> {
+    const expiresAt = this.clock.after(7 * 24 * 60 * 60); // 7天后过期
+
+    // 1. 创建通知
+    const notificationRepo = manager.getRepository(NgNotification);
+    const notification = notificationRepo.create({
       userId: args.userId,
       circleId: args.circleId,
-      type: 'LOGISTICS_PARCEL_DELIVERED' as NotificationType,
-      severity: 'info',
-      title: '📦 快递到达',
-      body: args.entryPointId ? `在 ${args.entryPointId} 检测到快递` : '检测到快递到达',
-      deeplinkRoute: 'event_detail',
-      deeplinkParams: { eventId: args.eventId },
-      eventRef: {
-        eventId: args.eventId,
-        workflowClass: 'LOGISTICS',
-        deviceId: args.edgeInstanceId,
-      },
+      type: args.type,
+      severity: args.severity,
+      title: args.title,
+      body: args.body,
+      deeplinkRoute: args.deeplinkRoute,
+      deeplinkParams: args.deeplinkParams,
+      eventRef: args.eventRef,
       deliveredPush: false,
       deliveredInApp: true,
       expiresAt,
     });
+    await notificationRepo.save(notification);
 
-    await this.notificationsRepo.save(notification);
-    console.log(`[Notifications] Created parcel notification: ${notification.id} for eventId=${args.eventId}`);
+    // 2. 入队推送消息
+    const pushPayload: PushNotificationPayload = {
+      notificationId: notification.id,
+      userId: args.userId,
+      title: args.title,
+      body: args.body,
+      data: {
+        notificationId: notification.id,
+        type: args.type,
+        circleId: args.circleId,
+        deeplinkRoute: args.deeplinkRoute ?? '',
+        deeplinkParams: JSON.stringify(args.deeplinkParams ?? {}),
+      },
+      priority: args.severity === 'critical' ? 'high' : 'normal',
+    };
 
-    // TODO: 触发推送（Phase 2）
-    // await this.sendPushNotification(notification);
+    await this.outboxService.enqueue(
+      {
+        messageType: 'PUSH_NOTIFICATION',
+        payload: pushPayload,
+        aggregateId: notification.id,
+        aggregateType: 'Notification',
+        idempotencyKey: `push:${notification.id}`,
+      },
+      manager,
+    );
 
     return notification;
   }

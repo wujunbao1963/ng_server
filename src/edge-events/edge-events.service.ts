@@ -1,44 +1,31 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import * as crypto from 'crypto';
+import { Repository } from 'typeorm';
 import { NgEdgeEvent } from './ng-edge-event.entity';
-import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
-import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
-import { stableStringify } from '../common/utils/stable-json';
+import { NgLoggerService } from '../common/infra/logger.service';
+import { CLOCK_PORT, ClockPort } from '../common/infra/clock.port';
+import { IngestEdgeEventUseCase, EdgeEventSummaryUpsertV77, EdgeSummaryUpsertResult } from '../application/usecases/ingest-edge-event.usecase';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
 
-export type EdgeEventSummaryUpsertV77 = {
-  schemaVersion: 'v7.7';
-  circleId: string;
-  eventId: string;
-  edgeInstanceId: string;
-  threatState: string;
-  updatedAt: string;
-  sequence?: number;
-  triggerReason?: string;
-  [k: string]: unknown;
-};
-
-export type EdgeSummaryUpsertResult = {
-  applied: boolean;
-  reason: 'applied' | 'stale_sequence' | 'stale_timestamp' | 'duplicate_payload';
-};
+// Re-export types for backward compatibility
+export { EdgeEventSummaryUpsertV77, EdgeSummaryUpsertResult };
 
 @Injectable()
 export class EdgeEventsService {
+  private readonly logger: NgLoggerService;
+
   constructor(
-    @InjectRepository(NgEdgeEventSummaryRaw)
-    private readonly rawRepo: Repository<NgEdgeEventSummaryRaw>,
     @InjectRepository(NgEdgeEvent)
     private readonly edgeRepo: Repository<NgEdgeEvent>,
-    @InjectRepository(NgEdgeIngestAudit)
-    private readonly auditRepo: Repository<NgEdgeIngestAudit>,
-    private readonly dataSource: DataSource,
+    @Inject(CLOCK_PORT) private readonly clock: ClockPort,
+    private readonly ingestUseCase: IngestEdgeEventUseCase,
     private readonly notificationsService: NotificationsService,
     private readonly circlesService: CirclesService,
-  ) {}
+    logger: NgLoggerService,
+  ) {
+    this.logger = logger.setContext('EdgeEventsService');
+  }
 
   /**
    * List edge events for a circle (App read API)
@@ -155,183 +142,70 @@ export class EdgeEventsService {
   }
 
   /**
-   * Step 2 behavior:
-   *  - Always store raw landing row (audit/debug).
-   *  - Upsert authoritative snapshot into ng_edge_events with sequence + timestamp rules.
+   * 事件摘要入库 - 委托给 UseCase
+   *
+   * UseCase 返回需要调度的通知，这里负责执行通知调度
    */
   async storeSummaryUpsert(payload: EdgeEventSummaryUpsertV77): Promise<EdgeSummaryUpsertResult> {
-    const incomingSeq = typeof payload.sequence === 'number' ? payload.sequence : 0;
-    const incomingUpdatedAt = new Date(payload.updatedAt);
-    const payloadHash = sha256Hex(stableStringify(payload));
+    // 1) 委托给 UseCase 执行核心业务逻辑
+    const { result, notifications } = await this.ingestUseCase.execute(payload);
 
-    const result: EdgeSummaryUpsertResult = await this.dataSource.transaction(async (manager) => {
-      // 1) Raw landing write (always).
-      const rawRow = this.rawRepo.create({
-        circleId: payload.circleId,
-        eventId: payload.eventId,
-        edgeInstanceId: payload.edgeInstanceId,
-        threatState: payload.threatState,
-        edgeUpdatedAt: incomingUpdatedAt,
-        payload,
-      });
-      await manager.getRepository(NgEdgeEventSummaryRaw).save(rawRow);
-
-      // 2) Authoritative snapshot upsert.
-      const repo = manager.getRepository(NgEdgeEvent);
-      const audit = manager.getRepository(NgEdgeIngestAudit);
-      const existing = await repo.findOne({
-        where: { circleId: payload.circleId, eventId: payload.eventId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!existing) {
-        const created = repo.create({
-          circleId: payload.circleId,
-          eventId: payload.eventId,
-          edgeInstanceId: payload.edgeInstanceId,
-          threatState: payload.threatState,
-          triggerReason: (payload as any).triggerReason ?? null,
-          edgeUpdatedAt: incomingUpdatedAt,
-          lastSequence: String(incomingSeq),
-          summaryJson: payload,
-          lastPayloadHash: payloadHash,
-        });
-        await repo.save(created);
-        await audit.insert({
-          circleId: payload.circleId,
-          eventId: payload.eventId,
-          edgeInstanceId: payload.edgeInstanceId,
-          sequence: String(incomingSeq),
-          payloadHash,
-          applied: true,
-          reason: 'applied',
-          schemaVersion: payload.schemaVersion,
-          messageType: 'event_summary_upsert',
-        });
-        return { applied: true, reason: 'applied' };
-      }
-
-      const storedSeq = Number(existing.lastSequence ?? '0');
-
-      // Step 3: strong retry-dedup for same-sequence identical payload.
-      if (incomingSeq === storedSeq && existing.lastPayloadHash && existing.lastPayloadHash === payloadHash) {
-        await audit.insert({
-          circleId: payload.circleId,
-          eventId: payload.eventId,
-          edgeInstanceId: payload.edgeInstanceId,
-          sequence: String(incomingSeq),
-          payloadHash,
-          applied: false,
-          reason: 'duplicate_payload',
-          schemaVersion: payload.schemaVersion,
-          messageType: 'event_summary_upsert',
-        });
-        return { applied: false, reason: 'duplicate_payload' };
-      }
-
-      if (incomingSeq < storedSeq) {
-        await audit.insert({
-          circleId: payload.circleId,
-          eventId: payload.eventId,
-          edgeInstanceId: payload.edgeInstanceId,
-          sequence: String(incomingSeq),
-          payloadHash,
-          applied: false,
-          reason: 'stale_sequence',
-          schemaVersion: payload.schemaVersion,
-          messageType: 'event_summary_upsert',
-        });
-        return { applied: false, reason: 'stale_sequence' };
-      }
-
-      if (incomingSeq === storedSeq) {
-        if (incomingUpdatedAt.getTime() <= existing.edgeUpdatedAt.getTime()) {
-          await audit.insert({
-            circleId: payload.circleId,
-            eventId: payload.eventId,
-            edgeInstanceId: payload.edgeInstanceId,
-            sequence: String(incomingSeq),
-            payloadHash,
-            applied: false,
-            reason: 'stale_timestamp',
-            schemaVersion: payload.schemaVersion,
-            messageType: 'event_summary_upsert',
-          });
-          return { applied: false, reason: 'stale_timestamp' };
-        }
-      }
-
-      // Apply update.
-      existing.edgeInstanceId = payload.edgeInstanceId;
-      existing.threatState = payload.threatState;
-      existing.triggerReason = (payload as any).triggerReason ?? null;
-      existing.edgeUpdatedAt = incomingUpdatedAt;
-      existing.lastSequence = String(incomingSeq);
-      existing.summaryJson = payload;
-      existing.lastPayloadHash = payloadHash;
-      await repo.save(existing);
-
-      await audit.insert({
-        circleId: payload.circleId,
-        eventId: payload.eventId,
-        edgeInstanceId: payload.edgeInstanceId,
-        sequence: String(incomingSeq),
-        payloadHash,
-        applied: true,
-        reason: 'applied',
-        schemaVersion: payload.schemaVersion,
-        messageType: 'event_summary_upsert',
-      });
-
-      return { applied: true, reason: 'applied' };
-    });
-
-    // 事件应用成功后，检查是否需要触发通知
-    if (result.applied) {
-      await this.maybeCreateNotification(payload);
+    // 2) 处理副作用：调度通知
+    for (const notif of notifications) {
+      await this.dispatchNotification(notif);
     }
 
     return result;
   }
 
   /**
-   * 检查是否需要为该事件创建通知
-   * 
-   * 当前支持：
-   * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
+   * 调度通知 - 处理 UseCase 返回的通知请求
+   *
+   * 将通知调度逻辑从主业务流程中分离，便于：
+   * 1. 未来替换为异步队列
+   * 2. 添加重试机制
+   * 3. 测试时 mock
    */
-  private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
-    const workflowClass = (payload as any).workflowClass;
-    const triggerReason = payload.triggerReason;
+  private async dispatchNotification(notif: {
+    type: string;
+    circleId: string;
+    eventId: string;
+    edgeInstanceId: string;
+    entryPointId?: string;
+  }): Promise<void> {
+    const logCtx = {
+      circleId: notif.circleId,
+      eventId: notif.eventId,
+      deviceId: notif.edgeInstanceId,
+    };
 
-    // 只处理 LOGISTICS 快递事件
-    if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
-      try {
-        // 获取 Circle owner
-        const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
-        if (!ownerUserId) {
-          console.log(`[EdgeEvents] No owner found for circle ${payload.circleId}, skipping notification`);
-          return;
-        }
+    if (notif.type !== 'PARCEL_DETECTED') {
+      this.logger.warn('Unknown notification type, skipping', { ...logCtx, type: notif.type });
+      return;
+    }
 
-        // 创建快递到达通知
-        await this.notificationsService.createParcelNotification({
-          userId: ownerUserId,
-          circleId: payload.circleId,
-          eventId: payload.eventId,
-          edgeInstanceId: payload.edgeInstanceId,
-          entryPointId: (payload as any).entryPointId,
-        });
-
-        console.log(`[EdgeEvents] Created parcel notification for event ${payload.eventId}`);
-      } catch (error) {
-        // 通知创建失败不应影响事件处理
-        console.error(`[EdgeEvents] Failed to create notification:`, error);
+    try {
+      // 获取 Circle owner
+      const ownerUserId = await this.circlesService.getCircleOwner(notif.circleId);
+      if (!ownerUserId) {
+        this.logger.log('No owner found for circle, skipping notification', logCtx);
+        return;
       }
+
+      // 创建快递到达通知
+      await this.notificationsService.createParcelNotification({
+        userId: ownerUserId,
+        circleId: notif.circleId,
+        eventId: notif.eventId,
+        edgeInstanceId: notif.edgeInstanceId,
+        entryPointId: notif.entryPointId,
+      });
+
+      this.logger.log('Parcel notification created', logCtx);
+    } catch (error) {
+      // 通知创建失败不应影响事件处理
+      // 未来可改为写入 outbox 重试
+      this.logger.error('Failed to create notification', String(error), logCtx);
     }
   }
-}
-
-function sha256Hex(input: string): string {
-  return crypto.createHash('sha256').update(input).digest('hex');
 }
