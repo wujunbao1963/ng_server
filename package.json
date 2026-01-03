@@ -8,13 +8,13 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
     "db:migrate": "typeorm-ts-node-commonjs -d src/db/data-source.ts migration:run",
     "db:migrate:revert": "typeorm-ts-node-commonjs -d src/db/data-source.ts migration:revert",
-    "db:migration:create": "typeorm-ts-node-commonjs migration:create src/migrations/NewMigration",
-    "db:migration:generate": "typeorm-ts-node-commonjs -d src/db/data-source.ts migration:generate src/migrations/AutoMigration",
+    "migration:run": "typeorm migration:run -d dist/db/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/db/data-source.js",
     "test": "jest",
-    "test:e2e": "npm run db:migrate && jest --config ./test/jest-e2e.json",
-    "start:prod": "node dist/main.js"
+    "test:e2e": "npm run db:migrate && jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -32,7 +32,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
-    "firebase-admin": "^13.6.0",
+    "firebase-admin": "^13.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.12.0",
