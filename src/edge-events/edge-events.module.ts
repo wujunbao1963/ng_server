@@ -12,10 +12,27 @@ import { NgIncidentManifestRaw } from './ng-incident-manifest-raw.entity';
 import { EdgeEventsController } from './edge-events.controller';
 import { EdgeEventsService } from './edge-events.service';
 import { IncidentManifestsService } from './incident-manifests.service';
+import { IngestEdgeEventUseCase } from '../application/usecases';
 
 @Module({
-  imports: [DeviceAuthModule, CirclesModule, NotificationsModule, TypeOrmModule.forFeature([NgEdgeEventSummaryRaw, NgEdgeEvent, NgEdgeIngestAudit, NgIncidentManifestRaw, NgIncidentManifest])],
+  imports: [
+    DeviceAuthModule,
+    CirclesModule,
+    NotificationsModule,
+    TypeOrmModule.forFeature([
+      NgEdgeEventSummaryRaw,
+      NgEdgeEvent,
+      NgEdgeIngestAudit,
+      NgIncidentManifestRaw,
+      NgIncidentManifest,
+    ]),
+  ],
   controllers: [EdgeEventsController],
-  providers: [EdgeEventsService, IncidentManifestsService, ContractsValidatorService],
+  providers: [
+    EdgeEventsService,
+    IncidentManifestsService,
+    ContractsValidatorService,
+    IngestEdgeEventUseCase,
+  ],
 })
 export class EdgeEventsModule {}

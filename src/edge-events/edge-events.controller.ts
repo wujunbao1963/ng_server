@@ -7,6 +7,7 @@ import { EdgeEventsService, EdgeEventSummaryUpsertV77 } from './edge-events.serv
 import { IncidentManifestsService, EdgeIncidentManifestUpsertV77 } from './incident-manifests.service';
 import { CirclesService } from '../circles/circles.service';
 import { JwtUser } from '../auth/auth.types';
+import { IngestEdgeEventUseCase } from '../application/usecases';
 
 @Controller('/api/circles/:circleId/edge/events')
 export class EdgeEventsController {
@@ -15,6 +16,7 @@ export class EdgeEventsController {
     private readonly svc: EdgeEventsService,
     private readonly manifests: IncidentManifestsService,
     private readonly circles: CirclesService,
+    private readonly ingestEdgeEventUseCase: IngestEdgeEventUseCase,
   ) {}
 
   /**
@@ -101,12 +103,17 @@ export class EdgeEventsController {
     return result;
   }
 
+  /**
+   * Edge device reports event summary (device auth)
+   * POST /api/circles/:circleId/edge/events/summary-upsert
+   */
   @Post('summary-upsert')
   @UseGuards(DeviceKeyAuthGuard)
   async summaryUpsert(
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
     @Body() body: unknown,
   ) {
+    // 1. Contract validation (Controller responsibility)
     const validation = this.contracts.validateEdgeEventSummaryUpsertRequest(body);
     if (!validation.ok) {
       throw makeValidationError(validation.errors);
@@ -114,7 +121,7 @@ export class EdgeEventsController {
 
     const typed = body as EdgeEventSummaryUpsertV77;
 
-    // Contract requires circleId; also ensure it matches path.
+    // 2. Path parameter validation (Controller responsibility)
     if (typed.circleId !== circleId) {
       throw makeValidationError([
         {
@@ -127,16 +134,14 @@ export class EdgeEventsController {
       ]);
     }
 
-    const upsert = await this.svc.storeSummaryUpsert(typed);
-
-    return {
-      ok: true,
-      applied: upsert.applied,
-      reason: upsert.reason,
-      serverReceivedAt: new Date().toISOString(),
-    };
+    // 3. Delegate to UseCase for business logic
+    return this.ingestEdgeEventUseCase.execute({ payload: typed });
   }
 
+  /**
+   * Edge device reports incident manifest (device auth)
+   * POST /api/circles/:circleId/edge/events/:eventId/incident/manifest-upsert
+   */
   @Post(':eventId/incident/manifest-upsert')
   @UseGuards(DeviceKeyAuthGuard)
   async manifestUpsert(
