@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NgNotification, NotificationType } from './ng-notification.entity';
@@ -7,6 +7,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectRepository(NgNotification)
     private readonly notificationsRepo: Repository<NgNotification>,
@@ -171,7 +173,7 @@ export class NotificationsService {
       .getOne();
 
     if (existing) {
-      console.log(`[Notifications] Skipping duplicate parcel notification: eventId=${args.eventId}`);
+      this.logger.log(`Skipping duplicate parcel notification: eventId=${args.eventId}`);
       return existing;
     }
 
@@ -199,7 +201,7 @@ export class NotificationsService {
     });
 
     await this.notificationsRepo.save(notification);
-    console.log(`[Notifications] Created parcel notification: ${notification.id} for eventId=${args.eventId}`);
+    this.logger.log(`Created parcel notification: ${notification.id} for eventId=${args.eventId}`);
 
     // TODO: 触发推送（Phase 2）
     // await this.sendPushNotification(notification);

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { DataSource, Repository } from 'typeorm';
@@ -25,6 +25,8 @@ export type IncidentManifestUpsertResult = {
 
 @Injectable()
 export class IncidentManifestsService {
+  private readonly logger = new Logger(IncidentManifestsService.name);
+
   constructor(
     @InjectRepository(NgIncidentManifestRaw)
     private readonly rawRepo: Repository<NgIncidentManifestRaw>,
@@ -155,7 +157,7 @@ export class IncidentManifestsService {
       }
       
       // 日志：显示合并结果
-      console.log(`[ManifestUpsert] eventId=${payload.eventId}: merged ${oldItems.length} old + ${newItems.length} new → ${mergedItems.length} items`);
+      this.logger.log(`eventId=${payload.eventId}: merged ${oldItems.length} old + ${newItems.length} new → ${mergedItems.length} items`);
       
       // 构建合并后的 payload
       const mergedPayload = {

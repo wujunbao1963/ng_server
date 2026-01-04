@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -28,6 +28,8 @@ export type EdgeSummaryUpsertResult = {
 
 @Injectable()
 export class EdgeEventsService {
+  private readonly logger = new Logger(EdgeEventsService.name);
+
   constructor(
     @InjectRepository(NgEdgeEventSummaryRaw)
     private readonly rawRepo: Repository<NgEdgeEventSummaryRaw>,
@@ -310,7 +312,7 @@ export class EdgeEventsService {
         // 获取 Circle owner
         const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
         if (!ownerUserId) {
-          console.log(`[EdgeEvents] No owner found for circle ${payload.circleId}, skipping notification`);
+          this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
           return;
         }
 
@@ -323,10 +325,10 @@ export class EdgeEventsService {
           entryPointId: (payload as any).entryPointId,
         });
 
-        console.log(`[EdgeEvents] Created parcel notification for event ${payload.eventId}`);
+        this.logger.log(`Created parcel notification for event ${payload.eventId}`);
       } catch (error) {
         // 通知创建失败不应影响事件处理
-        console.error(`[EdgeEvents] Failed to create notification:`, error);
+        this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
       }
     }
   }
