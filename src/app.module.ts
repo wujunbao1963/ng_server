@@ -1,6 +1,6 @@
 import { TopoMapModule } from './topomap/topomap.module';
 import { Module, ValidationPipe } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthModule } from './health/health.module';
@@ -18,9 +18,15 @@ import { EvidenceTicketsModule } from './evidence-tickets/evidence-tickets.modul
 import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
+import { InfraModule } from './infra/infra.module';
+import { RequestIdInterceptor } from './infra/interceptors/request-id.interceptor';
 
 @Module({
-  imports: [TopoMapModule, 
+  imports: [
+    // Infrastructure (global - provides ClockPort, PushProviderPort)
+    InfraModule,
+    
+    TopoMapModule, 
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env'],
@@ -70,6 +76,9 @@ import { NgExceptionFilter } from './common/errors/ng-exception.filter';
     NotificationsModule,
   ],
   providers: [
+    // Global interceptor for request tracking
+    { provide: APP_INTERCEPTOR, useClass: RequestIdInterceptor },
+    
     // Ensure contract-aligned error envelope and request validation are active
     // in BOTH normal bootstrap (main.ts) and e2e tests (which don't run main.ts).
     { provide: APP_FILTER, useClass: NgExceptionFilter },
