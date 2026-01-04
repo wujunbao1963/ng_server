@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { NgHttpError, NgErrorCodes } from '../common/errors/ng-http-error';
 import { NgEdgeDevice } from '../edge-devices/ng-edge-device.entity';
 import { NgEvent } from '../events-ingest/ng-event.entity';
@@ -27,6 +27,7 @@ function sha256Hex(input: string): string {
 @Injectable()
 export class EvidenceService {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(NgEvent) private readonly eventsRepo: Repository<NgEvent>,
     @InjectRepository(NgEvidenceSession) private readonly sessionsRepo: Repository<NgEvidenceSession>,
     @InjectRepository(NgEvidenceItem) private readonly itemsRepo: Repository<NgEvidenceItem>,
@@ -45,54 +46,59 @@ export class EvidenceService {
     // manifest is missing) to stay compatible with persistent schemas.
     const manifestHash = sha256Hex(stableStringify(manifest ?? {}));
 
-    const session = this.sessionsRepo.create({
-      id: sessionId,
-      circleId,
-      eventId,
-      edgeDeviceId: device.id,
-      status: 'OPEN',
-      evidenceId: null,
-      manifestHash,
-      createdAt: now,
-      completedAt: null,
-    });
-    await this.sessionsRepo.save(session);
-
-    const items = (manifest?.items ?? []) as any[];
-    for (const it of items) {
-      const startAt = new Date(it.timeRange?.startAt);
-      const endAt = new Date(it.timeRange?.endAt);
-
-      const deviceKind = String(it.deviceRef?.kind ?? 'other');
-      const deviceId = String(it.deviceRef?.id ?? 'unknown');
-      const deviceDisplayName = it.deviceRef?.displayName ? String(it.deviceRef.displayName) : null;
-
-      // Keep object key consistent with EvidenceStorageService.
-      const objectKey = `circles/${circleId}/events/${eventId}/${it.sha256}`;
-
-      const row = this.itemsRepo.create({
-        id: crypto.randomUUID(),
-        sessionId,
+    // Use transaction to ensure session and items are created atomically
+    await this.dataSource.transaction(async (trx) => {
+      const session = trx.getRepository(NgEvidenceSession).create({
+        id: sessionId,
         circleId,
         eventId,
-        sha256: it.sha256,
-        type: it.type,
-        contentType: it.contentType,
-        size: String(it.size),
-        timeRangeStartAt: startAt,
-        timeRangeEndAt: endAt,
-        deviceRefKind: deviceKind,
-        deviceRefId: deviceId,
-        deviceRefDisplayName: deviceDisplayName,
-        objectKey,
-        // legacy jsonb
-        timeRange: it.timeRange,
-        deviceRef: it.deviceRef,
+        edgeDeviceId: device.id,
+        status: 'OPEN',
+        evidenceId: null,
+        manifestHash,
         createdAt: now,
+        completedAt: null,
       });
-      await this.itemsRepo.save(row);
-    }
+      await trx.getRepository(NgEvidenceSession).save(session);
 
+      const items = (manifest?.items ?? []) as any[];
+      for (const it of items) {
+        const startAt = new Date(it.timeRange?.startAt);
+        const endAt = new Date(it.timeRange?.endAt);
+
+        const deviceKind = String(it.deviceRef?.kind ?? 'other');
+        const deviceId = String(it.deviceRef?.id ?? 'unknown');
+        const deviceDisplayName = it.deviceRef?.displayName ? String(it.deviceRef.displayName) : null;
+
+        // Keep object key consistent with EvidenceStorageService.
+        const objectKey = `circles/${circleId}/events/${eventId}/${it.sha256}`;
+
+        const row = trx.getRepository(NgEvidenceItem).create({
+          id: crypto.randomUUID(),
+          sessionId,
+          circleId,
+          eventId,
+          sha256: it.sha256,
+          type: it.type,
+          contentType: it.contentType,
+          size: String(it.size),
+          timeRangeStartAt: startAt,
+          timeRangeEndAt: endAt,
+          deviceRefKind: deviceKind,
+          deviceRefId: deviceId,
+          deviceRefDisplayName: deviceDisplayName,
+          objectKey,
+          // legacy jsonb
+          timeRange: it.timeRange,
+          deviceRef: it.deviceRef,
+          createdAt: now,
+        });
+        await trx.getRepository(NgEvidenceItem).save(row);
+      }
+    });
+
+    // Generate presigned URLs outside transaction (external service call)
+    const items = (manifest?.items ?? []) as any[];
     const uploadUrls: Array<{ sha256: string; url: string }> = [];
     for (const it of items) {
       const presigned = await this.storage.presignUploadUrl({
@@ -179,26 +185,34 @@ export class EvidenceService {
     }
 
     const evidenceId = crypto.randomUUID();
-    const evidence = this.evidenceRepo.create({
-      id: evidenceId,
-      circleId,
-      eventId,
-      sessionId,
-      evidenceStatus: 'ARCHIVED',
-      completedAt: now,
-      archivedAt: now,
-      manifest: req.manifest,
-      reportPackage,
-      warnings: warnings.length ? warnings : null,
-      createdAt: now,
+
+    // FIX: Use transaction to ensure evidence and session are saved atomically
+    // This prevents data inconsistency if one save succeeds but the other fails
+    const evidence = await this.dataSource.transaction(async (trx) => {
+      const evidenceEntity = trx.getRepository(NgEventEvidence).create({
+        id: evidenceId,
+        circleId,
+        eventId,
+        sessionId,
+        evidenceStatus: 'ARCHIVED',
+        completedAt: now,
+        archivedAt: now,
+        manifest: req.manifest,
+        reportPackage,
+        warnings: warnings.length ? warnings : null,
+        createdAt: now,
+      });
+
+      await trx.getRepository(NgEventEvidence).save(evidenceEntity);
+
+      // Update session within the same transaction
+      session.status = 'COMPLETED';
+      session.completedAt = now;
+      session.evidenceId = evidenceId;
+      await trx.getRepository(NgEvidenceSession).save(session);
+
+      return evidenceEntity;
     });
-
-    await this.evidenceRepo.save(evidence);
-
-    session.status = 'COMPLETED';
-    session.completedAt = now;
-    session.evidenceId = evidenceId;
-    await this.sessionsRepo.save(session);
 
     return this.toCompleteResponse(evidence, false);
   }
