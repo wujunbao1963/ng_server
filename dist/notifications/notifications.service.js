@@ -120,6 +120,78 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
         }
         return { ackedAt: notification.ackedAt.toISOString() };
     }
+    async createSecurityNotification(args) {
+        const existing = await this.notificationsRepo
+            .createQueryBuilder('n')
+            .where('n.userId = :userId', { userId: args.userId })
+            .andWhere('n.type = :type', { type: 'SECURITY_ALERT' })
+            .andWhere("n.eventRef->>'eventId' = :eventId", { eventId: args.eventId })
+            .getOne();
+        if (existing) {
+            this.logger.log(`Skipping duplicate security notification: eventId=${args.eventId}`);
+            return existing;
+        }
+        return this.dataSource.transaction(async (manager) => {
+            return this.createSecurityNotificationWithOutbox(manager, args);
+        });
+    }
+    async createSecurityNotificationWithOutbox(manager, args) {
+        const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
+        const severityMap = {
+            'TRIGGERED': { severity: 'critical', emoji: '🚨', label: '入侵警报' },
+            'PENDING': { severity: 'warning', emoji: '⚠️', label: '安全警报' },
+            'PRE_L3': { severity: 'warning', emoji: '⚠️', label: '高度可疑' },
+            'PRE_L2': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+            'PRE_L1': { severity: 'info', emoji: '👀', label: '轻微异常' },
+            'PRE': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+        };
+        const info = severityMap[args.alarmState || 'PENDING'] || severityMap['PENDING'];
+        const title = args.title || `${info.emoji} ${info.label}`;
+        const body = args.entryPointId
+            ? `在 ${args.entryPointId} 检测到异常活动`
+            : '检测到安全事件，请立即查看';
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+        const notification = notificationsRepo.create({
+            userId: args.userId,
+            circleId: args.circleId,
+            type: 'SECURITY_ALERT',
+            severity: info.severity,
+            title,
+            body,
+            deeplinkRoute: 'event_detail',
+            deeplinkParams: { eventId: args.eventId },
+            eventRef: {
+                eventId: args.eventId,
+                workflowClass: 'SECURITY',
+                deviceId: args.edgeInstanceId,
+                alarmState: args.alarmState,
+            },
+            deliveredPush: false,
+            deliveredInApp: true,
+            expiresAt,
+        });
+        await notificationsRepo.save(notification);
+        await this.outboxService.enqueue({
+            messageType: outbox_1.OutboxMessageType.PUSH_NOTIFICATION,
+            payload: {
+                notificationId: notification.id,
+                userId: notification.userId,
+                title: notification.title,
+                body: notification.body,
+                data: {
+                    route: notification.deeplinkRoute,
+                    eventId: args.eventId,
+                    priority: 'high',
+                },
+            },
+            aggregateId: notification.id,
+            aggregateType: 'Notification',
+            idempotencyKey: `push:${notification.id}`,
+        }, manager);
+        this.logger.log(`Created security notification with push: ${notification.id} for eventId=${args.eventId} alarmState=${args.alarmState}`);
+        return notification;
+    }
     async createParcelNotification(args) {
         const existing = await this.notificationsRepo
             .createQueryBuilder('n')

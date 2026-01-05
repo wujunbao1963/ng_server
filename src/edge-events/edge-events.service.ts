@@ -301,22 +301,23 @@ export class EdgeEventsService {
    * 
    * 当前支持：
    * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
+   * - SECURITY 工作流或有 alarmState 的事件 → 安全警报通知
    */
   private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
     const workflowClass = (payload as any).workflowClass;
     const triggerReason = payload.triggerReason;
+    const alarmState = (payload as any).alarmState;
 
-    // 只处理 LOGISTICS 快递事件
-    if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
-      try {
-        // 获取 Circle owner
-        const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
-        if (!ownerUserId) {
-          this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
-          return;
-        }
+    try {
+      // 获取 Circle owner
+      const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
+      if (!ownerUserId) {
+        this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
+        return;
+      }
 
-        // 创建快递到达通知
+      // 1. 处理 LOGISTICS 快递事件
+      if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
         await this.notificationsService.createParcelNotification({
           userId: ownerUserId,
           circleId: payload.circleId,
@@ -324,12 +325,31 @@ export class EdgeEventsService {
           edgeInstanceId: payload.edgeInstanceId,
           entryPointId: (payload as any).entryPointId,
         });
-
         this.logger.log(`Created parcel notification for event ${payload.eventId}`);
-      } catch (error) {
-        // 通知创建失败不应影响事件处理
-        this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
+        return;
       }
+
+      // 2. 处理 SECURITY 安全事件
+      if (workflowClass === 'SECURITY' || alarmState) {
+        const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
+        if (alarmState && notifiableStates.includes(alarmState)) {
+          await this.notificationsService.createSecurityNotification({
+            userId: ownerUserId,
+            circleId: payload.circleId,
+            eventId: payload.eventId,
+            edgeInstanceId: payload.edgeInstanceId,
+            entryPointId: (payload as any).entryPointId,
+            alarmState: alarmState,
+            title: (payload as any).title,
+          });
+          this.logger.log(`Created security notification for event ${payload.eventId} alarmState=${alarmState}`);
+          return;
+        }
+      }
+
+    } catch (error) {
+      // 通知创建失败不应影响事件处理
+      this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
     }
   }
 }

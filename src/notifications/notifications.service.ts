@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
-import { NgNotification, NotificationType } from './ng-notification.entity';
+import { NgNotification, NotificationType, NotificationSeverity } from './ng-notification.entity';
 import { NgPushDevice } from './ng-push-device.entity';
 import { OutboxService, OutboxMessageType } from '../common/outbox';
 import * as crypto from 'crypto';
@@ -99,7 +99,6 @@ export class NotificationsService {
       .take(limit + 1);
 
     if (cursor) {
-      // cursor 是上一页最后一条的 createdAt ISO 字符串
       qb.andWhere('n.createdAt < :cursor', { cursor: new Date(cursor) });
     }
 
@@ -155,13 +154,121 @@ export class NotificationsService {
   // =========================================================================
 
   /**
+   * 创建安全警报通知（带推送）
+   */
+  async createSecurityNotification(args: {
+    userId: string;
+    circleId: string;
+    eventId: string;
+    edgeInstanceId?: string;
+    entryPointId?: string;
+    alarmState?: string;
+    title?: string;
+  }): Promise<NgNotification | null> {
+    // 去重检查
+    const existing = await this.notificationsRepo
+      .createQueryBuilder('n')
+      .where('n.userId = :userId', { userId: args.userId })
+      .andWhere('n.type = :type', { type: 'SECURITY_ALERT' })
+      .andWhere("n.eventRef->>'eventId' = :eventId", { eventId: args.eventId })
+      .getOne();
+
+    if (existing) {
+      this.logger.log(`Skipping duplicate security notification: eventId=${args.eventId}`);
+      return existing;
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      return this.createSecurityNotificationWithOutbox(manager, args);
+    });
+  }
+
+  private async createSecurityNotificationWithOutbox(
+    manager: EntityManager,
+    args: {
+      userId: string;
+      circleId: string;
+      eventId: string;
+      edgeInstanceId?: string;
+      entryPointId?: string;
+      alarmState?: string;
+      title?: string;
+    },
+  ): Promise<NgNotification> {
+    const notificationsRepo = manager.getRepository(NgNotification);
+
+    // 根据 alarmState 确定严重程度和标题 - 只使用 info/warning/critical
+    const severityMap: Record<string, { severity: NotificationSeverity; emoji: string; label: string }> = {
+      'TRIGGERED': { severity: 'critical', emoji: '🚨', label: '入侵警报' },
+      'PENDING': { severity: 'warning', emoji: '⚠️', label: '安全警报' },
+      'PRE_L3': { severity: 'warning', emoji: '⚠️', label: '高度可疑' },
+      'PRE_L2': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+      'PRE_L1': { severity: 'info', emoji: '👀', label: '轻微异常' },
+      'PRE': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+    };
+
+    const info = severityMap[args.alarmState || 'PENDING'] || severityMap['PENDING'];
+    const title = args.title || `${info.emoji} ${info.label}`;
+    const body = args.entryPointId 
+      ? `在 ${args.entryPointId} 检测到异常活动` 
+      : '检测到安全事件，请立即查看';
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const notification = notificationsRepo.create({
+      userId: args.userId,
+      circleId: args.circleId,
+      type: 'SECURITY_ALERT' as NotificationType,
+      severity: info.severity,
+      title,
+      body,
+      deeplinkRoute: 'event_detail',
+      deeplinkParams: { eventId: args.eventId },
+      eventRef: {
+        eventId: args.eventId,
+        workflowClass: 'SECURITY',
+        deviceId: args.edgeInstanceId,
+        alarmState: args.alarmState,
+      },
+      deliveredPush: false,
+      deliveredInApp: true,
+      expiresAt,
+    });
+
+    await notificationsRepo.save(notification);
+
+    // 入队推送消息
+    await this.outboxService.enqueue(
+      {
+        messageType: OutboxMessageType.PUSH_NOTIFICATION,
+        payload: {
+          notificationId: notification.id,
+          userId: notification.userId,
+          title: notification.title,
+          body: notification.body,
+          data: {
+            route: notification.deeplinkRoute,
+            eventId: args.eventId,
+            priority: 'high',
+          },
+        },
+        aggregateId: notification.id,
+        aggregateType: 'Notification',
+        idempotencyKey: `push:${notification.id}`,
+      },
+      manager,
+    );
+
+    this.logger.log(
+      `Created security notification with push: ${notification.id} for eventId=${args.eventId} alarmState=${args.alarmState}`,
+    );
+
+    return notification;
+  }
+
+  /**
    * 创建快递到达通知（带推送）
-   * 
-   * 去重规则：同一 (userId, eventId, type) 只创建一条
-   * 
-   * 使用 Outbox 模式保证：
-   * 1. 通知创建和推送入队的原子性
-   * 2. 推送失败可重试
    */
   async createParcelNotification(args: {
     userId: string;
@@ -170,7 +277,6 @@ export class NotificationsService {
     edgeInstanceId?: string;
     entryPointId?: string;
   }): Promise<NgNotification | null> {
-    // 检查是否已存在（去重）- 在事务外检查避免长事务
     const existing = await this.notificationsRepo
       .createQueryBuilder('n')
       .where('n.userId = :userId', { userId: args.userId })
@@ -183,15 +289,11 @@ export class NotificationsService {
       return existing;
     }
 
-    // 在事务中同时创建通知和入队推送消息
     return this.dataSource.transaction(async (manager) => {
       return this.createNotificationWithOutbox(manager, args);
     });
   }
 
-  /**
-   * 在事务内创建通知并入队推送
-   */
   private async createNotificationWithOutbox(
     manager: EntityManager,
     args: {
@@ -204,7 +306,6 @@ export class NotificationsService {
   ): Promise<NgNotification> {
     const notificationsRepo = manager.getRepository(NgNotification);
 
-    // 创建通知
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -212,7 +313,7 @@ export class NotificationsService {
       userId: args.userId,
       circleId: args.circleId,
       type: 'LOGISTICS_PARCEL_DELIVERED' as NotificationType,
-      severity: 'info',
+      severity: 'info' as NotificationSeverity,
       title: '📦 快递到达',
       body: args.entryPointId ? `在 ${args.entryPointId} 检测到快递` : '检测到快递到达',
       deeplinkRoute: 'event_detail',
@@ -229,7 +330,6 @@ export class NotificationsService {
 
     await notificationsRepo.save(notification);
 
-    // 入队推送消息（同一事务）
     await this.outboxService.enqueue(
       {
         messageType: OutboxMessageType.PUSH_NOTIFICATION,

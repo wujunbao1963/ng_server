@@ -241,13 +241,14 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
     async maybeCreateNotification(payload) {
         const workflowClass = payload.workflowClass;
         const triggerReason = payload.triggerReason;
-        if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
-            try {
-                const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
-                if (!ownerUserId) {
-                    this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
-                    return;
-                }
+        const alarmState = payload.alarmState;
+        try {
+            const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
+            if (!ownerUserId) {
+                this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
+                return;
+            }
+            if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
                 await this.notificationsService.createParcelNotification({
                     userId: ownerUserId,
                     circleId: payload.circleId,
@@ -256,10 +257,27 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                     entryPointId: payload.entryPointId,
                 });
                 this.logger.log(`Created parcel notification for event ${payload.eventId}`);
+                return;
             }
-            catch (error) {
-                this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
+            if (workflowClass === 'SECURITY' || alarmState) {
+                const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
+                if (alarmState && notifiableStates.includes(alarmState)) {
+                    await this.notificationsService.createSecurityNotification({
+                        userId: ownerUserId,
+                        circleId: payload.circleId,
+                        eventId: payload.eventId,
+                        edgeInstanceId: payload.edgeInstanceId,
+                        entryPointId: payload.entryPointId,
+                        alarmState: alarmState,
+                        title: payload.title,
+                    });
+                    this.logger.log(`Created security notification for event ${payload.eventId} alarmState=${alarmState}`);
+                    return;
+                }
             }
+        }
+        catch (error) {
+            this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
         }
     }
 };

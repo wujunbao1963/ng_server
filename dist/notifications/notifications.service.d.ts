@@ -36,6 +36,16 @@ export declare class NotificationsService {
     markAcked(userId: string, notificationId: string): Promise<{
         ackedAt: string;
     } | null>;
+    createSecurityNotification(args: {
+        userId: string;
+        circleId: string;
+        eventId: string;
+        edgeInstanceId?: string;
+        entryPointId?: string;
+        alarmState?: string;
+        title?: string;
+    }): Promise<NgNotification | null>;
+    private createSecurityNotificationWithOutbox;
     createParcelNotification(args: {
         userId: string;
         circleId: string;

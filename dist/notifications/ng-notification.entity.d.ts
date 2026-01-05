@@ -1,10 +1,11 @@
-export type NotificationType = 'LOGISTICS_PARCEL_DELIVERED';
+export type NotificationType = 'LOGISTICS_PARCEL_DELIVERED' | 'SECURITY_ALERT';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
 export interface EventRef {
     eventId: string;
     workflowClass?: string;
     siteId?: string;
     deviceId?: string;
+    alarmState?: string;
 }
 export interface DeeplinkParams {
     eventId?: string;
@@ -31,7 +32,7 @@ export declare class NgNotification {
         notificationId: string;
         userId: string;
         circleId: string;
-        type: "LOGISTICS_PARCEL_DELIVERED";
+        type: NotificationType;
         severity: NotificationSeverity;
         title: string;
         body: string | null;

@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export type NotificationType = 'LOGISTICS_PARCEL_DELIVERED';
+export type NotificationType = 'LOGISTICS_PARCEL_DELIVERED' | 'SECURITY_ALERT';
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
 
 export interface EventRef {
@@ -8,6 +8,7 @@ export interface EventRef {
   workflowClass?: string;
   siteId?: string;
   deviceId?: string;
+  alarmState?: string;
 }
 
 export interface DeeplinkParams {

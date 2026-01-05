@@ -32,7 +32,7 @@ export declare class NotificationsController {
             notificationId: string;
             userId: string;
             circleId: string;
-            type: "LOGISTICS_PARCEL_DELIVERED";
+            type: import("./ng-notification.entity").NotificationType;
             severity: import("./ng-notification.entity").NotificationSeverity;
             title: string;
             body: string | null;
