@@ -10,6 +10,7 @@ exports.InfraModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const web_push_provider_1 = require("./ports/web-push-provider");
+const push_provider_port_1 = require("./ports/push-provider.port");
 let InfraModule = class InfraModule {
 };
 exports.InfraModule = InfraModule;
@@ -19,12 +20,12 @@ exports.InfraModule = InfraModule = __decorate([
         imports: [config_1.ConfigModule],
         providers: [
             {
-                provide: 'PushProvider',
+                provide: push_provider_port_1.PUSH_PROVIDER_PORT,
                 useClass: web_push_provider_1.WebPushProvider,
             },
             web_push_provider_1.WebPushProvider,
         ],
-        exports: ['PushProvider', web_push_provider_1.WebPushProvider],
+        exports: [push_provider_port_1.PUSH_PROVIDER_PORT, web_push_provider_1.WebPushProvider],
     })
 ], InfraModule);
 //# sourceMappingURL=infra.module.js.map
