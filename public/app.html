@@ -626,7 +626,8 @@
     <div class="header">
       <h1>🏠 NeighborGuard</h1>
       <div class="header-right">
-        <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
+                <button class="btn-icon" onclick="enablePushByUser()" title="开启通知">🔔</button>
+<button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
         <button class="btn-icon" onclick="logout()" title="登出">👤</button>
       </div>
     </div>
@@ -1636,8 +1637,7 @@ if (state.jwt && state.circleId) {
   setInterval(loadModeStatus, 30000);
   
   // 请求通知权限
-  requestPushPermission();
-  
+  // requestPushPermission(); // iOS 需要用户点击触发
   // 页面可见性控制：用户返回页面时立即刷新
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -1649,6 +1649,29 @@ if (state.jwt && state.circleId) {
 } else {
   showPage('login');
 }
+// iOS Safari Web Push: 必须从主屏幕(standalone)打开，并由用户点击触发权限弹窗
+function isStandalone() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+         window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+async function enablePushByUser() {
+  try {
+    if (isIOS() && !isStandalone()) {
+      showToast('iPhone/iPad 上请先“添加到主屏幕”，再从桌面图标打开后开启通知');
+      return;
+    }
+    const ok = await initPushNotifications();
+    if (ok) showToast('✅ 推送已连接');
+  } catch (e) {
+    showToast('开启通知失败: ' + (e && e.message ? e.message : e));
+  }
+}
+
 </script>
 
 </body>
