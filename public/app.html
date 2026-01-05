@@ -926,26 +926,37 @@ function isIOS() {
 async function enablePushByUser() {
   console.log('[Push] enablePushByUser called, isIOS:', isIOS(), 'isStandalone:', isStandalone());
   
+  // iOS 必须从主屏幕启动
   if (isIOS() && !isStandalone()) {
     showToast('📱 请先"添加到主屏幕"，再从桌面图标打开');
     return false;
   }
   
+  // 基本检查（同步，不影响用户手势）
+  if (!('Notification' in window)) { showToast('❌ 此浏览器不支持通知'); return false; }
   if (!('serviceWorker' in navigator)) { showToast('❌ 此浏览器不支持 Service Worker'); return false; }
-  if (!('PushManager' in window)) { showToast('❌ 此浏览器不支持推送通知'); return false; }
+  if (!('PushManager' in window)) { showToast('❌ 此浏览器不支持推送'); return false; }
   
   try {
+    // ⚡ iOS 关键：requestPermission 必须是第一个 await
+    // 用户手势上下文在第一个 await 后可能丢失
+    console.log('[Push] Requesting permission (FIRST await)...');
+    const permission = await Notification.requestPermission();
+    console.log('[Push] Permission result:', permission);
+    
+    if (permission !== 'granted') { 
+      showToast('❌ 通知权限被拒绝'); 
+      return false; 
+    }
+    
+    // 权限已获得，现在可以做其他异步操作
+    console.log('[Push] Permission granted, registering SW...');
     if (!swRegistration) {
       swRegistration = await registerServiceWorker();
       if (!swRegistration) { showToast('❌ Service Worker 注册失败'); return false; }
     }
     
-    console.log('[Push] Requesting permission...');
-    const permission = await Notification.requestPermission();
-    console.log('[Push] Permission:', permission);
-    
-    if (permission !== 'granted') { showToast('❌ 通知权限被拒绝'); return false; }
-    
+    // 获取现有订阅或创建新订阅
     pushSubscription = await swRegistration.pushManager.getSubscription();
     console.log('[Push] Existing subscription:', !!pushSubscription);
     
@@ -965,7 +976,11 @@ async function enablePushByUser() {
     showToast('✅ 推送已启用');
     updatePushButton(true);
     return true;
-  } catch (err) { console.error('[Push] Error:', err); showToast('❌ 启用失败: ' + err.message); return false; }
+  } catch (err) { 
+    console.error('[Push] Error:', err); 
+    showToast('❌ 启用失败: ' + err.message); 
+    return false; 
+  }
 }
 
 async function syncSubscriptionWithServer(subscription) {
