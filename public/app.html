@@ -1665,6 +1665,27 @@ async function enablePushByUser() {
       showToast('iPhone/iPad 上请先“添加到主屏幕”，再从桌面图标打开后开启通知');
       return;
     }
+
+    // 你的代码里实际实现推送初始化的是 requestPushPermission()
+    if (typeof requestPushPermission === 'function') {
+      const ok = await requestPushPermission();
+      if (ok) showToast('✅ 推送已连接');
+      return;
+    }
+
+    // 兼容其它版本实现
+    if (typeof initPushNotifications === 'function') {
+      const ok = await initPushNotifications();
+      if (ok) showToast('✅ 推送已连接');
+      return;
+    }
+
+    showToast('开启通知失败: 未找到推送初始化函数');
+  } catch (e) {
+    showToast('开启通知失败: ' + (e && e.message ? e.message : e));
+  }
+}
+
     const ok = await initPushNotifications();
     if (ok) showToast('✅ 推送已连接');
   } catch (e) {
