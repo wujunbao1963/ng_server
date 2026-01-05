@@ -1,8 +1,14 @@
+import { ConfigService } from '@nestjs/config';
 import { JwtUser } from '../auth/auth.types';
 import { NotificationsService } from './notifications.service';
 export declare class NotificationsController {
     private readonly svc;
-    constructor(svc: NotificationsService);
+    private readonly config;
+    constructor(svc: NotificationsService, config: ConfigService);
+    getVapidPublicKey(): Promise<{
+        vapidPublicKey: string;
+        pushEnabled: boolean;
+    }>;
     registerPushDevice(req: {
         user: JwtUser;
     }, body: any): Promise<{

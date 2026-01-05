@@ -12,13 +12,45 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { JwtUser } from '../auth/auth.types';
 import { NgHttpError, NgErrorCodes } from '../common/errors/ng-http-error';
 import { NotificationsService } from './notifications.service';
 
 @Controller('/v1')
 export class NotificationsController {
-  constructor(private readonly svc: NotificationsService) {}
+  constructor(
+    private readonly svc: NotificationsService,
+    private readonly config: ConfigService,
+  ) {}
+
+  // =========================================================================
+  // Web Push Configuration Endpoint
+  // =========================================================================
+
+  /**
+   * Get VAPID Public Key for Web Push subscription
+   * GET /v1/push/vapid-public-key
+   */
+  @Get('push/vapid-public-key')
+  async getVapidPublicKey() {
+    const publicKey = this.config.get<string>('VAPID_PUBLIC_KEY');
+    
+    if (!publicKey) {
+      throw new NgHttpError({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        code: NgErrorCodes.SERVICE_UNAVAILABLE,
+        message: 'Web Push not configured on this server.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return { 
+      vapidPublicKey: publicKey,
+      pushEnabled: true,
+    };
+  }
 
   // =========================================================================
   // Push Device Endpoints
@@ -152,7 +184,6 @@ export class NotificationsController {
     @Body() body: { read?: boolean },
   ) {
     if (body.read === false) {
-      // 不支持取消已读
       return { ok: true, status: { readAt: null } };
     }
 
@@ -183,7 +214,6 @@ export class NotificationsController {
     @Body() body: { ack?: boolean },
   ) {
     if (body.ack === false) {
-      // 不支持取消确认
       return { ok: true, status: { ackedAt: null } };
     }
 

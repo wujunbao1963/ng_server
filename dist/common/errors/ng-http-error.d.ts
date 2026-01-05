@@ -21,6 +21,7 @@ export declare const NgErrorCodes: {
     readonly IDEMPOTENCY_CONFLICT: "IDEMPOTENCY_CONFLICT";
     readonly EVENT_CONFLICT: "EVENT_CONFLICT";
     readonly INTERNAL: "INTERNAL";
+    readonly SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE";
 };
 export declare function makeValidationError(details: unknown): NgHttpError;
 export declare function makeNotFoundError(message?: string, details?: unknown): NgHttpError;

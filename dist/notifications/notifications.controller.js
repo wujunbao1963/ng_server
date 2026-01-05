@@ -15,11 +15,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
+const config_1 = require("@nestjs/config");
 const ng_http_error_1 = require("../common/errors/ng-http-error");
 const notifications_service_1 = require("./notifications.service");
 let NotificationsController = class NotificationsController {
-    constructor(svc) {
+    constructor(svc, config) {
         this.svc = svc;
+        this.config = config;
+    }
+    async getVapidPublicKey() {
+        const publicKey = this.config.get('VAPID_PUBLIC_KEY');
+        if (!publicKey) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 503,
+                error: 'Service Unavailable',
+                code: ng_http_error_1.NgErrorCodes.SERVICE_UNAVAILABLE,
+                message: 'Web Push not configured on this server.',
+                timestamp: new Date().toISOString(),
+            });
+        }
+        return {
+            vapidPublicKey: publicKey,
+            pushEnabled: true,
+        };
     }
     async registerPushDevice(req, body) {
         const { platform, token, deviceId, appVersion, locale, timezone } = body;
@@ -121,6 +139,12 @@ let NotificationsController = class NotificationsController {
 };
 exports.NotificationsController = NotificationsController;
 __decorate([
+    (0, common_1.Get)('push/vapid-public-key'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], NotificationsController.prototype, "getVapidPublicKey", null);
+__decorate([
     (0, common_1.Post)('push/devices'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
@@ -179,6 +203,7 @@ __decorate([
 ], NotificationsController.prototype, "acknowledgeNotification", null);
 exports.NotificationsController = NotificationsController = __decorate([
     (0, common_1.Controller)('/v1'),
-    __metadata("design:paramtypes", [notifications_service_1.NotificationsService])
+    __metadata("design:paramtypes", [notifications_service_1.NotificationsService,
+        config_1.ConfigService])
 ], NotificationsController);
 //# sourceMappingURL=notifications.controller.js.map

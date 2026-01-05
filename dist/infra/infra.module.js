@@ -8,24 +8,23 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InfraModule = void 0;
 const common_1 = require("@nestjs/common");
-const ports_1 = require("./ports");
+const config_1 = require("@nestjs/config");
+const web_push_provider_1 = require("./ports/web-push-provider");
 let InfraModule = class InfraModule {
 };
 exports.InfraModule = InfraModule;
 exports.InfraModule = InfraModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
+        imports: [config_1.ConfigModule],
         providers: [
             {
-                provide: ports_1.CLOCK_PORT,
-                useClass: ports_1.SystemClock,
+                provide: 'PushProvider',
+                useClass: web_push_provider_1.WebPushProvider,
             },
-            {
-                provide: ports_1.PUSH_PROVIDER_PORT,
-                useClass: ports_1.MockPushProvider,
-            },
+            web_push_provider_1.WebPushProvider,
         ],
-        exports: [ports_1.CLOCK_PORT, ports_1.PUSH_PROVIDER_PORT],
+        exports: ['PushProvider', web_push_provider_1.WebPushProvider],
     })
 ], InfraModule);
 //# sourceMappingURL=infra.module.js.map

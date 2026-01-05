@@ -31,6 +31,7 @@ export const NgErrorCodes = {
   IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
   EVENT_CONFLICT: 'EVENT_CONFLICT',
   INTERNAL: 'INTERNAL',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
 } as const;
 
 export function makeValidationError(details: unknown): NgHttpError {
