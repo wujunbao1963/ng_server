@@ -3,25 +3,25 @@
 
 const CACHE_NAME = 'ng-cache-v1';
 
-// 安装时预缓存关键资源
+// 安装事件
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing...');
   self.skipWaiting();
 });
 
-// 激活时清理旧缓存
+// 激活事件
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating...');
+  console.log('[SW] Activated');
   event.waitUntil(clients.claim());
 });
 
-// 处理推送通知
+// 推送事件 - 接收服务器推送的通知
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
+  console.log('[SW] Push received');
   
   let data = {
     title: 'NeighborGuard',
-    body: '新的安全事件',
+    body: '您有新的安全通知',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     data: {}
@@ -30,13 +30,7 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const payload = event.data.json();
-      data = {
-        title: payload.title || data.title,
-        body: payload.body || data.body,
-        icon: payload.icon || data.icon,
-        badge: payload.badge || data.badge,
-        data: payload.data || {}
-      };
+      data = { ...data, ...payload };
     } catch (e) {
       console.error('[SW] Failed to parse push data:', e);
       data.body = event.data.text();
@@ -45,16 +39,17 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: data.body,
-    icon: data.icon,
-    badge: data.badge,
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
     vibrate: [200, 100, 200],
-    data: data.data,
-    actions: [
-      { action: 'view', title: '查看' },
+    tag: data.tag || 'ng-notification',
+    renotify: true,
+    requireInteraction: data.requireInteraction || false,
+    data: data.data || {},
+    actions: data.actions || [
+      { action: 'view', title: '查看详情' },
       { action: 'dismiss', title: '忽略' }
-    ],
-    requireInteraction: true,
-    tag: data.data.eventId || 'ng-notification'
+    ]
   };
   
   event.waitUntil(
@@ -62,51 +57,81 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// 处理通知点击
+// 通知点击事件
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event);
-  
+  console.log('[SW] Notification clicked:', event.action);
   event.notification.close();
   
+  const data = event.notification.data || {};
+  
+  // 处理不同的动作
   if (event.action === 'dismiss') {
     return;
   }
   
-  // 打开或聚焦应用
-  const urlToOpen = event.notification.data?.route === 'event_detail' && event.notification.data?.eventId
-    ? `/app.html?event=${event.notification.data.eventId}`
-    : '/app.html';
-  
+  // 打开应用或聚焦到已打开的窗口
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // 查找已打开的窗口
-      for (const client of windowClients) {
-        if (client.url.includes('/app.html') && 'focus' in client) {
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            data: event.notification.data
-          });
-          return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // 查找已打开的窗口
+        for (const client of clientList) {
+          if (client.url.includes('/app') && 'focus' in client) {
+            // 发送消息给页面
+            client.postMessage({
+              type: 'NOTIFICATION_CLICK',
+              action: event.action,
+              data: data
+            });
+            return client.focus();
+          }
         }
-      }
-      // 没有打开的窗口，打开新窗口
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
+        
+        // 没有找到已打开的窗口，打开新窗口
+        let url = '/app.html';
+        if (data.eventId) {
+          url += `?event=${data.eventId}`;
+        }
+        
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
   );
 });
 
-// 处理通知关闭
+// 通知关闭事件
 self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] Notification closed:', event);
+  console.log('[SW] Notification closed');
 });
 
-// 处理来自主线程的消息
-self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
-  
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+// Fetch 事件 - 可选的离线缓存
+self.addEventListener('fetch', (event) => {
+  // 只缓存 GET 请求
+  if (event.request.method !== 'GET') {
+    return;
   }
+  
+  // 对于 API 请求，不使用缓存
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+  
+  // 网络优先策略
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // 可选：缓存响应
+        // const responseClone = response.clone();
+        // caches.open(CACHE_NAME).then((cache) => {
+        //   cache.put(event.request, responseClone);
+        // });
+        return response;
+      })
+      .catch(() => {
+        // 网络失败时尝试从缓存获取
+        return caches.match(event.request);
+      })
+  );
 });
+
+console.log('[SW] Service Worker loaded');
