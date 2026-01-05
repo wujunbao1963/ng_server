@@ -887,6 +887,20 @@ async function loadEvents() {
     const data = await api(`/api/circles/${state.circleId}/edge/events`);
     // API 返回 { items: [...], nextCursor: ... }
     state.events = data.items || data.events || (Array.isArray(data) ? data : []);
+    
+    // 合并：检测新事件并发送通知（原 checkForNewEvents 逻辑）
+    if (state.events.length > 0) {
+      const latestEvent = state.events[0];
+      if (lastEventId && latestEvent.eventId !== lastEventId) {
+        showNotification(
+          '🚨 安全警报',
+          `${latestEvent.title || '检测到异常'} - ${latestEvent.entryPointId || '未知位置'}`,
+          { tag: latestEvent.eventId }
+        );
+      }
+      lastEventId = latestEvent.eventId;
+    }
+    
     renderEvents();
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   } catch (e) {
@@ -1576,7 +1590,7 @@ function showToast(message) {
 
 function startRefresh() {
   stopRefresh();
-  state.refreshTimer = setInterval(loadEvents, 10000); // 每 10 秒刷新
+  state.refreshTimer = setInterval(loadEvents, 30000); // 每 30 秒刷新（优化：原 10 秒）
 }
 
 function stopRefresh() {
@@ -1617,13 +1631,19 @@ if (state.jwt && state.circleId) {
   
   // 加载模式状态
   loadModeStatus();
-  // 定期刷新模式状态（每 10 秒）
-  setInterval(loadModeStatus, 10000);
+  // 定期刷新模式状态（每 30 秒，优化：原 10 秒）
+  setInterval(loadModeStatus, 30000);
   
   // 请求通知权限
   requestPushPermission();
-  // 定期检查新事件（每 15 秒）
-  setInterval(checkForNewEvents, 15000);
+  
+  // 页面可见性控制：用户返回页面时立即刷新
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadEvents();
+      loadModeStatus();
+    }
+  });
   
 } else {
   showPage('login');
