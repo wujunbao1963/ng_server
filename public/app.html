@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
   <title>NeighborGuard</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
   <style>
@@ -39,11 +40,9 @@
       min-height: 100vh;
     }
     
-    /* Pages */
     .page { display: none; min-height: 100vh; }
     .page.active { display: flex; flex-direction: column; }
     
-    /* Header */
     .header {
       background: white;
       padding: 16px;
@@ -66,7 +65,6 @@
     }
     .header-right { display: flex; gap: 8px; align-items: center; }
     
-    /* Login Page */
     .login-page {
       justify-content: center;
       align-items: center;
@@ -81,32 +79,12 @@
       max-width: 360px;
       box-shadow: var(--shadow-lg);
     }
-    .login-logo {
-      text-align: center;
-      font-size: 48px;
-      margin-bottom: 8px;
-    }
-    .login-title {
-      text-align: center;
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .login-subtitle {
-      text-align: center;
-      color: var(--gray-500);
-      margin-bottom: 24px;
-    }
+    .login-logo { text-align: center; font-size: 48px; margin-bottom: 8px; }
+    .login-title { text-align: center; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .login-subtitle { text-align: center; color: var(--gray-500); margin-bottom: 24px; }
     
-    /* Form */
     .form-group { margin-bottom: 16px; }
-    .form-label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--gray-700);
-      margin-bottom: 6px;
-    }
+    .form-label { display: block; font-size: 14px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; }
     .form-input {
       width: 100%;
       padding: 12px 14px;
@@ -121,7 +99,6 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     
-    /* Buttons */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -136,39 +113,15 @@
       transition: all 0.15s;
       width: 100%;
     }
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
+    .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-dark); }
     .btn-primary:disabled { background: var(--gray-300); cursor: not-allowed; }
-    .btn-danger {
-      background: var(--danger);
-      color: white;
-    }
-    .btn-success {
-      background: var(--success);
-      color: white;
-    }
-    .btn-outline {
-      background: white;
-      border: 1px solid var(--gray-300);
-      color: var(--gray-700);
-    }
-    .btn-sm {
-      padding: 8px 16px;
-      font-size: 14px;
-      width: auto;
-    }
-    .btn-icon {
-      padding: 8px;
-      width: auto;
-      background: none;
-      border: none;
-      font-size: 20px;
-    }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-outline { background: white; border: 1px solid var(--gray-300); color: var(--gray-700); }
+    .btn-sm { padding: 8px 16px; font-size: 14px; width: auto; }
+    .btn-icon { padding: 8px; width: auto; background: none; border: none; font-size: 20px; cursor: pointer; }
     
-    /* Events List */
     .events-page { background: var(--gray-50); }
     .events-container { flex: 1; padding: 16px; }
     .events-status {
@@ -204,20 +157,12 @@
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s;
     }
-    .event-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
+    .event-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     .event-card.alert { border-left: 4px solid var(--danger); }
     .event-card.resolved { border-left: 4px solid var(--success); }
     .event-card.pending { border-left: 4px solid var(--warning); }
     
-    .event-header {
-      padding: 16px;
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
+    .event-header { padding: 16px; display: flex; align-items: flex-start; gap: 12px; }
     .event-icon {
       width: 48px;
       height: 48px;
@@ -233,37 +178,10 @@
     .event-icon.pending { background: var(--warning-bg); }
     
     .event-info { flex: 1; min-width: 0; }
-    .event-title {
-      font-weight: 600;
-      font-size: 16px;
-      margin-bottom: 4px;
-    }
-    .event-meta {
-      font-size: 13px;
-      color: var(--gray-500);
-    }
-    .event-time {
-      font-size: 12px;
-      color: var(--gray-500);
-      white-space: nowrap;
-    }
+    .event-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+    .event-meta { font-size: 13px; color: var(--gray-500); }
+    .event-time { font-size: 12px; color: var(--gray-500); white-space: nowrap; }
     
-    .event-thumb {
-      height: 120px;
-      background: var(--gray-200);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--gray-500);
-      font-size: 14px;
-    }
-    .event-thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    /* Badge */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -276,7 +194,6 @@
     .badge-success { background: var(--success-bg); color: var(--success); }
     .badge-warning { background: var(--warning-bg); color: var(--warning); }
     
-    /* Event Detail Page */
     .detail-page { background: var(--gray-50); }
     .detail-container { flex: 1; overflow-y: auto; }
     
@@ -288,306 +205,82 @@
       justify-content: center;
       position: relative;
     }
-    .detail-media img, .detail-media video {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-    .detail-media .placeholder {
-      color: white;
-      font-size: 14px;
-    }
-    .media-nav {
-      position: absolute;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 8px;
-    }
-    .media-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.5);
-      cursor: pointer;
-    }
+    .detail-media img, .detail-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .detail-media .placeholder { color: white; font-size: 14px; }
+    .media-nav { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+    .media-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; }
     .media-dot.active { background: white; }
     
     .detail-content { padding: 20px; }
-    
-    .detail-section {
-      background: white;
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .detail-section h3 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--gray-500);
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--gray-100);
-    }
+    .detail-section { background: white; border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+    .detail-section h3 { font-size: 14px; font-weight: 600; color: var(--gray-500); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
     .detail-row:last-child { border-bottom: none; }
     .detail-label { color: var(--gray-500); font-size: 14px; }
     .detail-value { font-weight: 500; font-size: 14px; }
     
     .evidence-list { display: flex; flex-direction: column; gap: 8px; }
-    
-    /* Live View 实时流样式 */
-    .live-view-container {
-      background: #1a1a2e;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-top: 8px;
-    }
-    .live-view-tabs {
-      display: flex;
-      gap: 4px;
-      padding: 8px;
-      background: #16213e;
-      overflow-x: auto;
-    }
-    .live-view-tab {
-      padding: 8px 16px;
-      background: #0f3460;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .live-view-tab.active {
-      background: #00adb5;
-    }
-    .live-view-frame {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16/9;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .live-view-frame img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-    .live-view-placeholder {
-      color: #666;
-      font-size: 14px;
-    }
-    .live-view-status {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: #16213e;
-      color: #888;
-      font-size: 12px;
-    }
-    .live-view-status.connected { color: #00ff88; }
-    .live-view-status.error { color: #ff4444; }
-    
-    /* Mode Control 模式控制 */
-    .mode-control {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .mode-control-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .mode-control-title {
-      color: white;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .mode-control-status {
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 12px;
-    }
-    .mode-control-status.armed { background: #ff4444; color: white; }
-    .mode-control-status.disarmed { background: #00aa55; color: white; }
-    .mode-control-status.home { background: #ff9500; color: white; }
-    .mode-buttons {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    .mode-btn {
-      padding: 12px 8px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      background: transparent;
-      color: white;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-    .mode-btn:hover { border-color: rgba(255,255,255,0.5); }
-    .mode-btn.active { border-color: var(--primary); background: rgba(59,130,246,0.2); }
-    .mode-btn .mode-icon { font-size: 20px; }
-    .mode-btn .mode-label { font-size: 11px; opacity: 0.8; }
-    
-    /* Alert Actions 报警操作 */
-    .alert-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-    }
-    .alert-btn {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      font-size: 12px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    .alert-btn.siren {
-      background: #ff4444;
-      color: white;
-    }
-    .alert-btn.silence {
-      background: #666;
-      color: white;
-    }
-    .alert-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    .evidence-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: var(--gray-50);
-      border-radius: 8px;
-      cursor: pointer;
-    }
+    .evidence-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px; cursor: pointer; }
     .evidence-item:hover { background: var(--gray-100); }
     .evidence-icon { font-size: 24px; }
     .evidence-info { flex: 1; }
     .evidence-name { font-weight: 500; font-size: 14px; }
     .evidence-size { font-size: 12px; color: var(--gray-500); }
     
-    /* Action Buttons */
-    .action-bar {
-      padding: 16px;
-      background: white;
-      border-top: 1px solid var(--gray-200);
-      display: flex;
-      gap: 12px;
-    }
+    .live-view-container { background: #1a1a2e; border-radius: 12px; overflow: hidden; margin-top: 8px; }
+    .live-view-tabs { display: flex; gap: 4px; padding: 8px; background: #16213e; overflow-x: auto; }
+    .live-view-tab { padding: 8px 16px; background: #0f3460; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    .live-view-tab.active { background: #00adb5; }
+    .live-view-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+    .live-view-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .live-view-placeholder { color: #666; font-size: 14px; }
+    .live-view-status { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #16213e; color: #888; font-size: 12px; }
+    .live-view-status.connected { color: #00ff88; }
+    .live-view-status.error { color: #ff4444; }
+    
+    .mode-control { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+    .mode-control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .mode-control-title { color: white; font-size: 14px; font-weight: 500; }
+    .mode-control-status { font-size: 12px; padding: 4px 8px; border-radius: 12px; }
+    .mode-control-status.armed { background: #ff4444; color: white; }
+    .mode-control-status.disarmed { background: #00aa55; color: white; }
+    .mode-control-status.home { background: #ff9500; color: white; }
+    .mode-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .mode-btn { padding: 12px 8px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; background: transparent; color: white; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .mode-btn:hover { border-color: rgba(255,255,255,0.5); }
+    .mode-btn.active { border-color: var(--primary); background: rgba(59,130,246,0.2); }
+    .mode-btn .mode-icon { font-size: 20px; }
+    .mode-btn .mode-label { font-size: 11px; opacity: 0.8; }
+    
+    .alert-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .alert-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .alert-btn.siren { background: #ff4444; color: white; }
+    .alert-btn.silence { background: #666; color: white; }
+    .alert-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .action-bar { padding: 16px; background: white; border-top: 1px solid var(--gray-200); display: flex; gap: 12px; }
     .action-bar .btn { flex: 1; }
     
-    /* Empty State */
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--gray-500);
-    }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-500); }
     .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
     .empty-state-title { font-size: 18px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; }
     
-    /* Loading */
-    .loading {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-    }
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--gray-200);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--gray-900);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      z-index: 1000;
-      animation: slideUp 0.3s;
-    }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
+    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--gray-900); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: slideUp 0.3s; }
+    @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     
-    /* Modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      padding: 20px;
-    }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
     .modal-overlay.active { display: flex; }
-    .modal {
-      background: white;
-      border-radius: var(--radius);
-      width: 100%;
-      max-width: 400px;
-      overflow: hidden;
-    }
-    .modal-header {
-      padding: 20px;
-      border-bottom: 1px solid var(--gray-200);
-    }
+    .modal { background: white; border-radius: var(--radius); width: 100%; max-width: 400px; overflow: hidden; }
+    .modal-header { padding: 20px; border-bottom: 1px solid var(--gray-200); }
     .modal-header h2 { font-size: 18px; }
     .modal-body { padding: 20px; }
-    .modal-footer {
-      padding: 16px 20px;
-      border-top: 1px solid var(--gray-200);
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-    }
+    .modal-footer { padding: 16px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 12px; justify-content: flex-end; }
     .modal-footer .btn { width: auto; }
     
-    /* Responsive */
     @media (min-width: 768px) {
       .events-container { max-width: 600px; margin: 0 auto; }
       .detail-container { max-width: 800px; margin: 0 auto; }
@@ -596,13 +289,11 @@
 </head>
 <body>
   
-  <!-- Login Page -->
   <div id="loginPage" class="page login-page active">
     <div class="login-card">
       <div class="login-logo">🏠</div>
       <h1 class="login-title">NeighborGuard</h1>
       <p class="login-subtitle">智能家居安防系统</p>
-      
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label">邮箱</label>
@@ -614,25 +305,21 @@
         </div>
         <button type="submit" class="btn btn-primary">登录</button>
       </form>
-      
-      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">
-        v7.7 测试版
-      </p>
+      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">v7.7 测试版</p>
     </div>
   </div>
   
-  <!-- Events Page -->
   <div id="eventsPage" class="page events-page">
     <div class="header">
       <h1>🏠 NeighborGuard</h1>
       <div class="header-right">
+        <button class="btn-icon" id="pushToggleBtn" onclick="enablePushByUser()" title="开启推送通知">🔕</button>
         <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
         <button class="btn-icon" onclick="logout()" title="登出">👤</button>
       </div>
     </div>
     
     <div class="events-container">
-      <!-- Mode Control 模式控制 -->
       <div class="mode-control" id="modeControl">
         <div class="mode-control-header">
           <span class="mode-control-title">🛡️ 安防模式</span>
@@ -653,13 +340,8 @@
           </button>
         </div>
         <div class="alert-actions" id="alertActions" style="display: none;">
-          <button class="alert-btn siren" id="sirenBtn" onclick="triggerSiren()">
-            🔊 触发警报
-          </button>
-          <button class="alert-btn silence" id="silenceBtn" onclick="silenceAlarm()">
-            🔇 静音
-          </button>
-          <button class="btn-icon" onclick="enablePushByUser()" title="开启通知">🔔</button>
+          <button class="alert-btn siren" id="sirenBtn" onclick="triggerSiren()">🔊 触发警报</button>
+          <button class="alert-btn silence" id="silenceBtn" onclick="silenceAlarm()">🔇 静音</button>
         </div>
       </div>
       
@@ -675,7 +357,6 @@
     </div>
   </div>
   
-  <!-- Event Detail Page -->
   <div id="detailPage" class="page detail-page">
     <div class="header">
       <button class="header-back" onclick="showPage('events')">←</button>
@@ -693,26 +374,11 @@
       <div class="detail-content">
         <div class="detail-section">
           <h3>事件信息</h3>
-          <div class="detail-row">
-            <span class="detail-label">事件 ID</span>
-            <span class="detail-value" id="detailEventId">-</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">位置</span>
-            <span class="detail-value" id="detailLocation">-</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">触发原因</span>
-            <span class="detail-value" id="detailReason">-</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">时间</span>
-            <span class="detail-value" id="detailTime">-</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">状态</span>
-            <span class="detail-value" id="detailStatus">-</span>
-          </div>
+          <div class="detail-row"><span class="detail-label">事件 ID</span><span class="detail-value" id="detailEventId">-</span></div>
+          <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value" id="detailLocation">-</span></div>
+          <div class="detail-row"><span class="detail-label">触发原因</span><span class="detail-value" id="detailReason">-</span></div>
+          <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value" id="detailTime">-</span></div>
+          <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value" id="detailStatus">-</span></div>
         </div>
         
         <div class="detail-section">
@@ -722,16 +388,13 @@
           </div>
         </div>
         
-        <!-- 实时查看区域 -->
         <div class="detail-section" id="liveViewSection" style="display: none;">
           <h3>📹 实时画面</h3>
           <div class="live-view-container">
             <div class="live-view-tabs" id="liveViewTabs"></div>
             <div class="live-view-frame" id="liveViewFrame">
               <img id="liveViewImg" alt="实时画面" style="display: none;">
-              <div class="live-view-placeholder" id="liveViewPlaceholder">
-                <span>点击上方按钮查看实时画面</span>
-              </div>
+              <div class="live-view-placeholder" id="liveViewPlaceholder"><span>点击上方按钮查看实时画面</span></div>
             </div>
             <div class="live-view-status" id="liveViewStatus">
               <span id="liveViewStatusText">未连接</span>
@@ -749,15 +412,10 @@
     </div>
   </div>
   
-  <!-- Confirm Modal -->
   <div id="confirmModal" class="modal-overlay">
     <div class="modal">
-      <div class="modal-header">
-        <h2 id="modalTitle">确认操作</h2>
-      </div>
-      <div class="modal-body">
-        <p id="modalMessage">确定要执行此操作吗？</p>
-      </div>
+      <div class="modal-header"><h2 id="modalTitle">确认操作</h2></div>
+      <div class="modal-body"><p id="modalMessage">确定要执行此操作吗？</p></div>
       <div class="modal-footer">
         <button class="btn btn-outline btn-sm" onclick="closeModal()">取消</button>
         <button id="modalConfirmBtn" class="btn btn-primary btn-sm" onclick="doConfirm()">确认</button>
@@ -765,14 +423,9 @@
     </div>
   </div>
   
-  <!-- Toast -->
   <div id="toast" class="toast" style="display: none;"></div>
 
 <script>
-// =============================================================================
-// State
-// =============================================================================
-
 const state = {
   jwt: localStorage.getItem('ng_jwt') || '',
   circleId: localStorage.getItem('ng_circleId') || '',
@@ -781,13 +434,14 @@ const state = {
   currentManifest: null,
   refreshTimer: null,
   pendingAction: null,
-  // 模式控制
   currentMode: 'disarm',
   alarmActive: false,
   sirenActive: false,
 };
 
+const API_BASE = window.location.origin;
 const BASE_URL = window.location.origin;
+const EDGE_URL = 'https://evidence.neighbor-guard.com';
 
 // =============================================================================
 // API
@@ -795,14 +449,8 @@ const BASE_URL = window.location.origin;
 
 async function api(path, options = {}) {
   const url = BASE_URL + path;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  
-  if (state.jwt && !options.noAuth) {
-    headers['Authorization'] = `Bearer ${state.jwt}`;
-  }
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (state.jwt && !options.noAuth) headers['Authorization'] = `Bearer ${state.jwt}`;
   
   const res = await fetch(url, {
     method: options.method || 'GET',
@@ -812,16 +460,8 @@ async function api(path, options = {}) {
   
   const text = await res.text();
   let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
-  }
-  
-  if (!res.ok) {
-    throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  }
-  
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
   return data;
 }
 
@@ -830,41 +470,24 @@ async function api(path, options = {}) {
 // =============================================================================
 
 async function login(email, circleId) {
-  // Dev login
-  const data = await api('/api/auth/dev/login', {
-    method: 'POST',
-    body: { email },
-    noAuth: true,
-  });
-  
+  const data = await api('/api/auth/dev/login', { method: 'POST', body: { email }, noAuth: true });
   state.jwt = data.token || data.jwt || data.accessToken;
   localStorage.setItem('ng_jwt', state.jwt);
   
-  // 如果没有指定 circleId，尝试获取或创建
   if (!circleId) {
     try {
-      // 尝试获取用户的 circles
       const circles = await api('/api/circles');
-      if (circles && circles.length > 0) {
-        circleId = circles[0].id || circles[0].circleId;
-      }
-    } catch (e) {
-      console.log('No existing circles, will create one');
-    }
+      if (circles && circles.length > 0) circleId = circles[0].id || circles[0].circleId;
+    } catch (e) { console.log('No existing circles'); }
     
     if (!circleId) {
-      // 创建新 circle
-      const newCircle = await api('/api/circles', {
-        method: 'POST',
-        body: { name: 'Home' },
-      });
+      const newCircle = await api('/api/circles', { method: 'POST', body: { name: 'Home' } });
       circleId = newCircle.id || newCircle.circleId;
     }
   }
   
   state.circleId = circleId;
   localStorage.setItem('ng_circleId', circleId);
-  
   return { jwt: state.jwt, circleId: state.circleId };
 }
 
@@ -884,31 +507,13 @@ function logout() {
 
 async function loadEvents() {
   try {
-    // 查询 edge events (v7.7 新端点)
     const data = await api(`/api/circles/${state.circleId}/edge/events`);
-    // API 返回 { items: [...], nextCursor: ... }
     state.events = data.items || data.events || (Array.isArray(data) ? data : []);
-    
-    // 合并：检测新事件并发送通知（原 checkForNewEvents 逻辑）
-    if (state.events.length > 0) {
-      const latestEvent = state.events[0];
-      if (lastEventId && latestEvent.eventId !== lastEventId) {
-        showNotification(
-          '🚨 安全警报',
-          `${latestEvent.title || '检测到异常'} - ${latestEvent.entryPointId || '未知位置'}`,
-          { tag: latestEvent.eventId }
-        );
-      }
-      lastEventId = latestEvent.eventId;
-    }
-    
     renderEvents();
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   } catch (e) {
     console.error('Load events error:', e);
-    if (e.message.includes('401') || e.message.includes('Unauthorized')) {
-      logout();
-    }
+    if (e.message.includes('401') || e.message.includes('Unauthorized')) logout();
   }
 }
 
@@ -916,62 +521,30 @@ function renderEvents() {
   const container = document.getElementById('eventsList');
   
   if (state.events.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">✅</div>
-        <div class="empty-state-title">一切正常</div>
-        <p>暂无安全事件</p>
-      </div>
-    `;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">一切正常</div><p>暂无安全事件</p></div>`;
     return;
   }
   
   container.innerHTML = state.events.map(event => {
-    // status: OPEN, ACKED, RESOLVED
-    // alarmState: TRIGGERED, PENDING, PRE 等
     const status = event.status || 'OPEN';
     const alarmState = event.alarmState || event.threatState || '';
-    
     const isAlert = status === 'OPEN' && (alarmState === 'TRIGGERED' || event.severity === 'CRITICAL');
     const isResolved = status === 'RESOLVED';
-    const isPending = status === 'ACKED' || (status === 'OPEN' && alarmState !== 'TRIGGERED');
-    
     const statusClass = isAlert ? 'alert' : (isResolved ? 'resolved' : 'pending');
     const icon = isAlert ? '🚨' : (isResolved ? '✅' : '⚠️');
-    
     const time = event.occurredAt || event.updatedAt || event.createdAt;
     const timeStr = time ? formatTime(time) : '-';
-    
     const zone = event.entryPointId || event.zoneId || '未知位置';
     const title = event.title || getStatusLabel(status, alarmState);
     
-    return `
-      <div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')">
-        <div class="event-header">
-          <div class="event-icon ${statusClass}">${icon}</div>
-          <div class="event-info">
-            <div class="event-title">${title}</div>
-            <div class="event-meta">${zone}</div>
-          </div>
-          <div class="event-time">${timeStr}</div>
-        </div>
-      </div>
-    `;
+    return `<div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')"><div class="event-header"><div class="event-icon ${statusClass}">${icon}</div><div class="event-info"><div class="event-title">${title}</div><div class="event-meta">${zone}</div></div><div class="event-time">${timeStr}</div></div></div>`;
   }).join('');
 }
 
 function getStatusLabel(status, alarmState) {
   if (status === 'RESOLVED') return '已解决';
   if (status === 'ACKED') return '已确认';
-  
-  const alarmLabels = {
-    'TRIGGERED': '安全警报',
-    'PENDING': '待确认',
-    'PRE': '可疑活动',
-    'PRE_L1': '轻微异常',
-    'PRE_L2': '可疑活动',
-    'PRE_L3': '高度可疑',
-  };
+  const alarmLabels = { 'TRIGGERED': '安全警报', 'PENDING': '待确认', 'PRE': '可疑活动', 'PRE_L1': '轻微异常', 'PRE_L2': '可疑活动', 'PRE_L3': '高度可疑' };
   return alarmLabels[alarmState] || '安全事件';
 }
 
@@ -980,15 +553,11 @@ function formatTime(isoStr) {
     const date = new Date(isoStr);
     const now = new Date();
     const diff = now - date;
-    
     if (diff < 60000) return '刚刚';
     if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
     if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
-    
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return isoStr;
-  }
+  } catch { return isoStr; }
 }
 
 // =============================================================================
@@ -997,15 +566,11 @@ function formatTime(isoStr) {
 
 async function showEventDetail(eventId) {
   const event = state.events.find(e => e.eventId === eventId);
-  if (!event) {
-    showToast('事件未找到');
-    return;
-  }
+  if (!event) { showToast('事件未找到'); return; }
   
   state.currentEvent = event;
   state.currentManifest = null;
   
-  // 渲染基本信息
   document.getElementById('detailEventId').textContent = eventId.substring(0, 8) + '...';
   document.getElementById('detailLocation').textContent = event.entryPointId || event.zoneId || '-';
   document.getElementById('detailReason').textContent = event.title || '-';
@@ -1021,17 +586,12 @@ async function showEventDetail(eventId) {
   badge.textContent = getStatusLabel(status, alarmState);
   badge.className = 'badge ' + (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning'));
   
-  // 显示/隐藏操作按钮 (只有 OPEN 状态才显示)
-  const actionBar = document.getElementById('actionBar');
-  actionBar.style.display = (status === 'OPEN') ? 'flex' : 'none';
-  
-  // 清空媒体和证据
+  document.getElementById('actionBar').style.display = (status === 'OPEN') ? 'flex' : 'none';
   document.getElementById('detailMedia').innerHTML = '<span class="placeholder">加载中...</span>';
   document.getElementById('evidenceList').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   
   showPage('detail');
   
-  // 加载 manifest
   try {
     const manifest = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/manifest`);
     state.currentManifest = manifest;
@@ -1053,25 +613,13 @@ async function renderEvidence(manifest) {
     return;
   }
   
-  // 渲染证据列表
   evidenceList.innerHTML = items.map((item, idx) => {
     const icon = item.type === 'clip' || item.kind === 'clip' ? '🎬' : '📸';
     const name = item.type === 'clip' || item.kind === 'clip' ? '视频片段' : '截图';
     const size = item.sizeBytesApprox ? formatSize(item.sizeBytesApprox) : '-';
-    
-    return `
-      <div class="evidence-item" onclick="playEvidence(${idx})">
-        <span class="evidence-icon">${icon}</span>
-        <div class="evidence-info">
-          <div class="evidence-name">${name}</div>
-          <div class="evidence-size">${size}</div>
-        </div>
-        <span style="color: var(--gray-400);">▶</span>
-      </div>
-    `;
+    return `<div class="evidence-item" onclick="playEvidence(${idx})"><span class="evidence-icon">${icon}</span><div class="evidence-info"><div class="evidence-name">${name}</div><div class="evidence-size">${size}</div></div><span style="color: var(--gray-400);">▶</span></div>`;
   }).join('');
   
-  // 显示第一个媒体
   await playEvidence(0);
 }
 
@@ -1081,41 +629,26 @@ async function playEvidence(idx) {
   
   const item = items[idx];
   const mediaContainer = document.getElementById('detailMedia');
-  
   mediaContainer.innerHTML = '<span class="placeholder">加载中...</span>';
   
   try {
-    // 创建 ticket
     const eventId = state.currentEvent.eventId;
     const evidenceKey = item.evidenceKey;
-    
-    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/evidence/tickets`, {
-      method: 'POST',
-      body: { evidenceKey, ttlSec: 600 },
-    });
-    
+    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/evidence/tickets`, { method: 'POST', body: { evidenceKey, ttlSec: 600 } });
     const ticketId = ticketRes.ticketId || ticketRes.id;
     const downloadUrl = `${BASE_URL}/api/evidence/tickets/${ticketId}/download`;
-    
     const isVideo = item.type === 'clip' || item.kind === 'clip';
     
     if (isVideo) {
-      mediaContainer.innerHTML = `
-        <video controls autoplay playsinline style="max-width: 100%; max-height: 100%;">
-          <source src="${downloadUrl}" type="video/mp4">
-          您的浏览器不支持视频播放
-        </video>
-      `;
+      mediaContainer.innerHTML = `<video controls autoplay playsinline style="max-width: 100%; max-height: 100%;"><source src="${downloadUrl}" type="video/mp4">您的浏览器不支持视频播放</video>`;
     } else {
       mediaContainer.innerHTML = `<img src="${downloadUrl}" alt="证据图片">`;
     }
     
-    // 添加导航点
     if (items.length > 1) {
       const dots = items.map((_, i) => `<span class="media-dot ${i === idx ? 'active' : ''}" onclick="playEvidence(${i})"></span>`).join('');
       mediaContainer.innerHTML += `<div class="media-nav">${dots}</div>`;
     }
-    
   } catch (e) {
     console.error('Play evidence error:', e);
     mediaContainer.innerHTML = `<span class="placeholder">加载失败: ${e.message}</span>`;
@@ -1134,7 +667,6 @@ function formatSize(bytes) {
 
 function confirmEvent(action) {
   state.pendingAction = action;
-  
   const modal = document.getElementById('confirmModal');
   const title = document.getElementById('modalTitle');
   const message = document.getElementById('modalMessage');
@@ -1151,7 +683,6 @@ function confirmEvent(action) {
     btn.className = 'btn btn-danger btn-sm';
     btn.textContent = '确认报警';
   }
-  
   modal.classList.add('active');
 }
 
@@ -1162,7 +693,6 @@ function closeModal() {
 
 async function doConfirm() {
   closeModal();
-  
   if (!state.currentEvent || !state.pendingAction) return;
   
   const eventId = state.currentEvent.eventId || state.currentEvent.id;
@@ -1170,22 +700,13 @@ async function doConfirm() {
   const note = state.pendingAction === 'safe' ? '用户确认安全' : '用户触发报警';
   
   try {
-    // 使用正确的 API: PATCH /api/circles/:cid/events/:eid/status
     await api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
       method: 'PATCH',
-      body: { 
-        status: newStatus, 
-        note: note,
-        clientRequestId: `web-${Date.now()}`
-      },
+      body: { status: newStatus, note: note, clientRequestId: `web-${Date.now()}` },
     });
-    
     showToast(state.pendingAction === 'safe' ? '已标记为安全' : '已确认警报');
-    
-    // 刷新事件列表
     await loadEvents();
     showPage('events');
-    
   } catch (e) {
     console.error('Confirm error:', e);
     showToast('操作失败: ' + e.message);
@@ -1193,41 +714,28 @@ async function doConfirm() {
 }
 
 // =============================================================================
-// Live Stream Verification
+// Live Stream
 // =============================================================================
 
-// Edge 服务器地址 (通过 Cloudflare Tunnel)
-// 证据 + 实时流使用同一地址
-const EDGE_URL = 'https://evidence.neighbor-guard.com';
-
-// Live Stream 使用同一地址 (同端口不同路径)
-const LIVE_STREAM_URL = EDGE_URL;
-
-// 实时流状态
 let liveStreamActive = false;
 let liveStreamCamera = null;
 let liveStreamInterval = null;
 
 async function startVerification() {
-  // 显示实时查看区域
-  const section = document.getElementById('liveViewSection');
-  section.style.display = 'block';
+  document.getElementById('liveViewSection').style.display = 'block';
   
-  // 获取摄像头列表
   try {
-    const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras`);
+    const res = await fetch(`${EDGE_URL}/api/live/cameras`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    
     const tabs = document.getElementById('liveViewTabs');
     tabs.innerHTML = '';
     
     if (!data.cameras || data.cameras.length === 0) {
-      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头 (请检查 Edge 配置)</span>';
+      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头</span>';
       return;
     }
     
-    // 创建摄像头按钮
     data.cameras.forEach((cam, idx) => {
       const btn = document.createElement('button');
       btn.className = 'live-view-tab' + (idx === 0 ? ' active' : '');
@@ -1236,96 +744,58 @@ async function startVerification() {
       tabs.appendChild(btn);
     });
     
-    // 自动启动第一个摄像头
-    if (data.cameras.length > 0) {
-      switchLiveCamera(data.cameras[0].cameraId);
-    }
-    
+    if (data.cameras.length > 0) switchLiveCamera(data.cameras[0].cameraId);
   } catch (e) {
     console.error('Failed to load cameras:', e);
-    document.getElementById('liveViewTabs').innerHTML = `
-      <span style="color: #ff4444; padding: 8px;">
-        无法连接实时流服务 (${e.message})
-      </span>
-    `;
+    document.getElementById('liveViewTabs').innerHTML = `<span style="color: #ff4444; padding: 8px;">无法连接 (${e.message})</span>`;
   }
 }
 
 async function switchLiveCamera(cameraId) {
-  // 停止当前流
   stopLiveView();
-  
-  // 更新 tab 样式
-  document.querySelectorAll('.live-view-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.textContent.includes(cameraId));
-  });
+  document.querySelectorAll('.live-view-tab').forEach(tab => { tab.classList.toggle('active', tab.textContent.includes(cameraId)); });
   
   liveStreamCamera = cameraId;
   liveStreamActive = true;
   
-  const img = document.getElementById('liveViewImg');
-  const placeholder = document.getElementById('liveViewPlaceholder');
-  const status = document.getElementById('liveViewStatus');
-  const statusText = document.getElementById('liveViewStatusText');
-  const stopBtn = document.getElementById('liveViewStopBtn');
-  
-  placeholder.innerHTML = '<div class="spinner"></div>';
-  statusText.textContent = '连接中...';
+  document.getElementById('liveViewPlaceholder').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('liveViewStatusText').textContent = '连接中...';
   
   try {
-    // 先检查摄像头是否可用
-    const checkRes = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}`);
-    if (!checkRes.ok) {
-      throw new Error('Camera not available');
-    }
-    
-    // 直接使用快照轮询模式 (每次新连接，避免延迟累积)
+    const checkRes = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}`);
+    if (!checkRes.ok) throw new Error('Camera not available');
     startSnapshotPolling(cameraId);
-    
   } catch (e) {
     console.error('Live view error:', e);
-    statusText.textContent = '连接失败';
-    status.className = 'live-view-status error';
-    placeholder.innerHTML = `<span style="color: #ff4444;">${e.message}</span>`;
-    placeholder.style.display = 'block';
-    img.style.display = 'none';
+    document.getElementById('liveViewStatusText').textContent = '连接失败';
+    document.getElementById('liveViewStatus').className = 'live-view-status error';
+    document.getElementById('liveViewPlaceholder').innerHTML = `<span style="color: #ff4444;">${e.message}</span>`;
   }
 }
 
 function startSnapshotPolling(cameraId) {
-  // 快照轮询模式: 每次请求都是新连接，确保实时
   const img = document.getElementById('liveViewImg');
   const placeholder = document.getElementById('liveViewPlaceholder');
   const statusText = document.getElementById('liveViewStatusText');
   const status = document.getElementById('liveViewStatus');
   const stopBtn = document.getElementById('liveViewStopBtn');
   
-  let frameCount = 0;
-  let lastFetchTime = 0;
-  
   async function fetchSnapshot() {
     if (!liveStreamActive) return;
-    
     const fetchStart = Date.now();
-    
     try {
-      const res = await fetch(`${LIVE_STREAM_URL}/api/live/cameras/${cameraId}/snapshot?t=${Date.now()}`);
+      const res = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}/snapshot?t=${Date.now()}`);
       if (!res.ok) throw new Error('Snapshot failed');
-      
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      
       img.onload = () => URL.revokeObjectURL(url);
       img.src = url;
       img.style.display = 'block';
       placeholder.style.display = 'none';
-      
-      frameCount++;
       const latency = Date.now() - fetchStart;
       statusText.textContent = `● 实时 (${latency}ms)`;
       status.className = 'live-view-status connected';
       stopBtn.style.display = 'inline-block';
-      
     } catch (e) {
       console.error('Snapshot error:', e);
       statusText.textContent = '连接中断...';
@@ -1333,237 +803,229 @@ function startSnapshotPolling(cameraId) {
   }
   
   fetchSnapshot();
-  // 每 2 秒刷新一次 (ffmpeg 每次需要 1-2 秒)
   liveStreamInterval = setInterval(fetchSnapshot, 2000);
 }
 
 function stopLiveView() {
   liveStreamActive = false;
   liveStreamCamera = null;
+  if (liveStreamInterval) { clearInterval(liveStreamInterval); liveStreamInterval = null; }
   
-  if (liveStreamInterval) {
-    clearInterval(liveStreamInterval);
-    liveStreamInterval = null;
-  }
-  
-  const img = document.getElementById('liveViewImg');
-  const placeholder = document.getElementById('liveViewPlaceholder');
-  const statusText = document.getElementById('liveViewStatusText');
-  const status = document.getElementById('liveViewStatus');
-  const stopBtn = document.getElementById('liveViewStopBtn');
-  
-  img.src = '';
-  img.style.display = 'none';
-  placeholder.style.display = 'block';
-  placeholder.innerHTML = '<span>点击上方按钮查看实时画面</span>';
-  statusText.textContent = '已停止';
-  status.className = 'live-view-status';
-  stopBtn.style.display = 'none';
+  document.getElementById('liveViewImg').src = '';
+  document.getElementById('liveViewImg').style.display = 'none';
+  document.getElementById('liveViewPlaceholder').style.display = 'block';
+  document.getElementById('liveViewPlaceholder').innerHTML = '<span>点击上方按钮查看实时画面</span>';
+  document.getElementById('liveViewStatusText').textContent = '已停止';
+  document.getElementById('liveViewStatus').className = 'live-view-status';
+  document.getElementById('liveViewStopBtn').style.display = 'none';
 }
 
 // =============================================================================
-// Mode Control 模式控制
+// Mode Control
 // =============================================================================
 
 async function loadModeStatus() {
+  const statusEl = document.getElementById('modeStatus');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  
   try {
-    const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
-    if (!res.ok) throw new Error('Failed to load status');
-    
+    const res = await fetch(`${EDGE_URL}/api/pipeline/status`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error('Failed');
     const data = await res.json();
-    
-    // 更新状态
     state.currentMode = data.mode || 'disarm';
     state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
     state.sirenActive = data.deterrent_active || false;
-    
     updateModeUI();
-    
   } catch (e) {
+    clearTimeout(timeoutId);
     console.error('Load mode status error:', e);
+    if (statusEl) { statusEl.textContent = 'Edge 离线'; statusEl.className = 'mode-control-status'; }
   }
 }
 
 function updateModeUI() {
-  // 更新模式按钮
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === state.currentMode);
-  });
+  document.querySelectorAll('.mode-btn').forEach(btn => { btn.classList.toggle('active', btn.dataset.mode === state.currentMode); });
   
-  // 更新状态标签
   const statusEl = document.getElementById('modeStatus');
   if (statusEl) {
-    const modeMap = {
-      'disarm': { text: '已撤防', class: 'disarmed' },
-      'home': { text: '在家模式', class: 'home' },
-      'away': { text: '离家模式', class: 'armed' },
-    };
+    const modeMap = { 'disarm': { text: '已撤防', class: 'disarmed' }, 'home': { text: '在家模式', class: 'home' }, 'away': { text: '离家模式', class: 'armed' } };
     const mode = modeMap[state.currentMode] || modeMap['disarm'];
     statusEl.textContent = mode.text;
     statusEl.className = 'mode-control-status ' + mode.class;
   }
   
-  // 显示/隐藏报警操作按钮
   const alertActions = document.getElementById('alertActions');
-  if (alertActions) {
-    // 只有在非撤防模式下显示报警按钮
-    alertActions.style.display = state.currentMode !== 'disarm' ? 'flex' : 'none';
-  }
+  if (alertActions) alertActions.style.display = state.currentMode !== 'disarm' ? 'flex' : 'none';
   
-  // 更新警报按钮状态
   const sirenBtn = document.getElementById('sirenBtn');
   const silenceBtn = document.getElementById('silenceBtn');
-  if (sirenBtn && silenceBtn) {
-    sirenBtn.disabled = state.sirenActive;
-    silenceBtn.disabled = !state.sirenActive;
-  }
+  if (sirenBtn && silenceBtn) { sirenBtn.disabled = state.sirenActive; silenceBtn.disabled = !state.sirenActive; }
 }
 
 async function setMode(mode) {
   try {
-    // 撤防需要验证 PIN
     if (mode === 'disarm' && state.currentMode !== 'disarm') {
       const pin = prompt('请输入安全密码:');
       if (!pin) return;
-      
-      const res = await fetch(`${EDGE_URL}/api/pipeline/disarm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      });
-      
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.detail || '密码错误');
-        return;
-      }
+      const res = await fetch(`${EDGE_URL}/api/pipeline/disarm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+      if (!res.ok) { const data = await res.json(); showToast(data.detail || '密码错误'); return; }
     } else if (mode !== 'disarm') {
-      // 设置 Home/Away 模式
-      const res = await fetch(`${EDGE_URL}/api/pipeline/mode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
-      });
-      
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.detail || '设置失败');
-        return;
-      }
+      const res = await fetch(`${EDGE_URL}/api/pipeline/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
+      if (!res.ok) { const data = await res.json(); showToast(data.detail || '设置失败'); return; }
     }
-    
     state.currentMode = mode;
     updateModeUI();
     showToast(`已切换到${mode === 'disarm' ? '撤防' : mode === 'home' ? '在家' : '离家'}模式`);
-    
-  } catch (e) {
-    console.error('Set mode error:', e);
-    showToast('设置失败: ' + e.message);
-  }
+  } catch (e) { console.error('Set mode error:', e); showToast('设置失败: ' + e.message); }
 }
 
 async function triggerSiren() {
   try {
-    // 直接触发摄像头警报
-    const res = await fetch(`${EDGE_URL}/api/camera/deterrent/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        siren: true, 
-        spotlight: true,
-        duration: 30 
-      }),
-    });
-    
-    if (res.ok) {
-      state.sirenActive = true;
-      updateModeUI();
-      showToast('🔊 警报已触发');
-    } else {
-      showToast('触发失败');
-    }
-  } catch (e) {
-    console.error('Trigger siren error:', e);
-    showToast('触发失败: ' + e.message);
-  }
+    const res = await fetch(`${EDGE_URL}/api/camera/deterrent/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siren: true, spotlight: true, duration: 30 }) });
+    if (res.ok) { state.sirenActive = true; updateModeUI(); showToast('🔊 警报已触发'); }
+    else showToast('触发失败');
+  } catch (e) { console.error('Trigger siren error:', e); showToast('触发失败: ' + e.message); }
 }
 
 async function silenceAlarm() {
   try {
-    const res = await fetch(`${EDGE_URL}/api/pipeline/silence`, {
-      method: 'POST',
-    });
-    
-    if (res.ok) {
-      state.sirenActive = false;
-      updateModeUI();
-      showToast('🔇 已静音');
-    } else {
-      showToast('静音失败');
-    }
-  } catch (e) {
-    console.error('Silence alarm error:', e);
-    showToast('静音失败: ' + e.message);
-  }
+    const res = await fetch(`${EDGE_URL}/api/pipeline/silence`, { method: 'POST' });
+    if (res.ok) { state.sirenActive = false; updateModeUI(); showToast('🔇 已静音'); }
+    else showToast('静音失败');
+  } catch (e) { console.error('Silence alarm error:', e); showToast('静音失败: ' + e.message); }
 }
 
 // =============================================================================
 // Web Push Notifications
 // =============================================================================
 
-async function requestPushPermission() {
-  if (!('Notification' in window)) {
-    console.log('This browser does not support notifications');
+let pushSubscription = null;
+let swRegistration = null;
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) { console.log('[Push] SW not supported'); return null; }
+  try {
+    swRegistration = await navigator.serviceWorker.register('/sw.js');
+    console.log('[Push] SW registered:', swRegistration.scope);
+    await navigator.serviceWorker.ready;
+    console.log('[Push] SW ready');
+    return swRegistration;
+  } catch (err) { console.error('[Push] SW registration failed:', err); return null; }
+}
+
+function isStandalone() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+async function enablePushByUser() {
+  console.log('[Push] enablePushByUser called, isIOS:', isIOS(), 'isStandalone:', isStandalone());
+  
+  if (isIOS() && !isStandalone()) {
+    showToast('📱 请先"添加到主屏幕"，再从桌面图标打开');
     return false;
   }
   
-  const permission = await Notification.requestPermission();
-  if (permission === 'granted') {
-    console.log('Notification permission granted');
-    return true;
-  }
-  return false;
-}
-
-function showNotification(title, body, options = {}) {
-  if (Notification.permission === 'granted') {
-    const notification = new Notification(title, {
-      body,
-      icon: '🏠',
-      badge: '🚨',
-      vibrate: [200, 100, 200],
-      ...options,
-    });
-    
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
-    
-    return notification;
-  }
-}
-
-// 定期检查新事件并发送通知
-let lastEventId = null;
-async function checkForNewEvents() {
+  if (!('serviceWorker' in navigator)) { showToast('❌ 此浏览器不支持 Service Worker'); return false; }
+  if (!('PushManager' in window)) { showToast('❌ 此浏览器不支持推送通知'); return false; }
+  
   try {
-    const data = await api(`/api/circles/${state.circleId}/edge/events`);
-    if (data.items && data.items.length > 0) {
-      const latestEvent = data.items[0];
-      if (lastEventId && latestEvent.eventId !== lastEventId) {
-        // 新事件！发送通知
-        showNotification(
-          '🚨 安全警报',
-          `${latestEvent.title || '检测到异常'} - ${latestEvent.entryPointId || '未知位置'}`,
-          { tag: latestEvent.eventId }
-        );
-      }
-      lastEventId = latestEvent.eventId;
+    if (!swRegistration) {
+      swRegistration = await registerServiceWorker();
+      if (!swRegistration) { showToast('❌ Service Worker 注册失败'); return false; }
     }
-  } catch (e) {
-    console.error('Check events error:', e);
-  }
+    
+    console.log('[Push] Requesting permission...');
+    const permission = await Notification.requestPermission();
+    console.log('[Push] Permission:', permission);
+    
+    if (permission !== 'granted') { showToast('❌ 通知权限被拒绝'); return false; }
+    
+    pushSubscription = await swRegistration.pushManager.getSubscription();
+    console.log('[Push] Existing subscription:', !!pushSubscription);
+    
+    if (!pushSubscription) {
+      console.log('[Push] Fetching VAPID key...');
+      const vapidResponse = await fetch(API_BASE + '/v1/push/vapid-public-key');
+      if (!vapidResponse.ok) { showToast('❌ 服务器未配置推送'); return false; }
+      const { vapidPublicKey } = await vapidResponse.json();
+      console.log('[Push] Got VAPID key');
+      
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      pushSubscription = await swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+      console.log('[Push] New subscription created');
+    }
+    
+    await syncSubscriptionWithServer(pushSubscription);
+    showToast('✅ 推送已启用');
+    updatePushButton(true);
+    return true;
+  } catch (err) { console.error('[Push] Error:', err); showToast('❌ 启用失败: ' + err.message); return false; }
+}
+
+async function syncSubscriptionWithServer(subscription) {
+  if (!state.jwt) { console.log('[Push] Not logged in'); return; }
+  try {
+    const response = await fetch(API_BASE + '/v1/push/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.jwt },
+      body: JSON.stringify({
+        platform: 'web',
+        token: JSON.stringify(subscription.toJSON()),
+        deviceId: getDeviceId(),
+        appVersion: '1.0.0',
+        locale: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+    if (response.ok) console.log('[Push] Subscription synced');
+    else console.error('[Push] Sync failed:', response.status);
+  } catch (err) { console.error('[Push] Sync error:', err); }
+}
+
+function getDeviceId() {
+  let id = localStorage.getItem('ng_device_id');
+  if (!id) { id = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now(); localStorage.setItem('ng_device_id', id); }
+  return id;
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function updatePushButton(enabled) {
+  const btn = document.getElementById('pushToggleBtn');
+  if (btn) { btn.textContent = enabled ? '🔔' : '🔕'; btn.title = enabled ? '推送已启用' : '点击启用推送'; }
+}
+
+async function checkPushStatus() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    updatePushButton(!!subscription);
+    return !!subscription;
+  } catch (err) { console.error('[Push] Check error:', err); return false; }
+}
+
+if ('serviceWorker' in navigator) {
+  registerServiceWorker().then(() => checkPushStatus());
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    console.log('[Main] SW message:', event.data);
+    if (event.data && event.data.type === 'NOTIFICATION_CLICK' && event.data.data?.eventId) {
+      showEventDetail(event.data.data.eventId);
+    }
+  });
 }
 
 // =============================================================================
@@ -1573,13 +1035,7 @@ async function checkForNewEvents() {
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(page + 'Page').classList.add('active');
-  
-  if (page === 'events') {
-    loadEvents();
-    startRefresh();
-  } else {
-    stopRefresh();
-  }
+  if (page === 'events') { loadEvents(); startRefresh(); } else stopRefresh();
 }
 
 function showToast(message) {
@@ -1589,17 +1045,8 @@ function showToast(message) {
   setTimeout(() => { toast.style.display = 'none'; }, 3000);
 }
 
-function startRefresh() {
-  stopRefresh();
-  state.refreshTimer = setInterval(loadEvents, 30000); // 每 30 秒刷新（优化：原 10 秒）
-}
-
-function stopRefresh() {
-  if (state.refreshTimer) {
-    clearInterval(state.refreshTimer);
-    state.refreshTimer = null;
-  }
-}
+function startRefresh() { stopRefresh(); state.refreshTimer = setInterval(loadEvents, 30000); }
+function stopRefresh() { if (state.refreshTimer) { clearInterval(state.refreshTimer); state.refreshTimer = null; } }
 
 // =============================================================================
 // Init
@@ -1607,86 +1054,25 @@ function stopRefresh() {
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
   const email = document.getElementById('loginEmail').value;
   const circleId = document.getElementById('loginCircleId').value;
   const btn = e.target.querySelector('button');
-  
-  btn.disabled = true;
-  btn.textContent = '登录中...';
-  
-  try {
-    await login(email, circleId);
-    showPage('events');
-  } catch (err) {
-    showToast('登录失败: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '登录';
-  }
+  btn.disabled = true; btn.textContent = '登录中...';
+  try { await login(email, circleId); showPage('events'); }
+  catch (err) { showToast('登录失败: ' + err.message); }
+  finally { btn.disabled = false; btn.textContent = '登录'; }
 });
 
-// Check saved login
 if (state.jwt && state.circleId) {
   showPage('events');
-  
-  // 加载模式状态
   loadModeStatus();
-  // 定期刷新模式状态（每 30 秒，优化：原 10 秒）
   setInterval(loadModeStatus, 30000);
-  
-  // 请求通知权限
-  // requestPushPermission(); // iOS 需要用户点击触发
-// 页面可见性控制：用户返回页面时立即刷新
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      loadEvents();
-      loadModeStatus();
-    }
+    if (document.visibilityState === 'visible') { loadEvents(); loadModeStatus(); }
   });
-  
 } else {
   showPage('login');
 }
-// iOS Safari Web Push: 必须从主屏幕(standalone)打开，并由用户点击触发权限弹窗
-function isStandalone() {
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-         window.navigator.standalone === true;
-}
-
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-// 用户点击🔔后调用：触发系统“允许通知”弹窗（iOS 需要用户手势）
-async function enablePushByUser() {
-  try {
-    if (isIOS() && !isStandalone()) {
-      showToast('iPhone/iPad 上请先“添加到主屏幕”，再从桌面图标打开后开启通知');
-      return;
-    }
-
-    // 你项目里实际存在的推送入口（优先使用）
-    if (typeof requestPushPermission === 'function') {
-      const ok = await requestPushPermission();
-      if (ok) showToast('✅ 推送已连接');
-      return;
-    }
-
-    // 兼容其它版本实现
-    if (typeof initPushNotifications === 'function') {
-      const ok = await initPushNotifications();
-      if (ok) showToast('✅ 推送已连接');
-      return;
-    }
-
-    showToast('开启通知失败: 未找到推送初始化函数');
-  } catch (e) {
-    showToast('开启通知失败: ' + (e && e.message ? e.message : e));
-  }
-}
-
 </script>
-
 </body>
 </html>
