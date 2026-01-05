@@ -626,8 +626,7 @@
     <div class="header">
       <h1>🏠 NeighborGuard</h1>
       <div class="header-right">
-                <button class="btn-icon" onclick="enablePushByUser()" title="开启通知">🔔</button>
-<button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
+        <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
         <button class="btn-icon" onclick="logout()" title="登出">👤</button>
       </div>
     </div>
@@ -1638,7 +1637,7 @@ if (state.jwt && state.circleId) {
   
   // 请求通知权限
   // requestPushPermission(); // iOS 需要用户点击触发
-  // 页面可见性控制：用户返回页面时立即刷新
+// 页面可见性控制：用户返回页面时立即刷新
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       loadEvents();
@@ -1659,6 +1658,7 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
+// 用户点击🔔后调用：触发系统“允许通知”弹窗（iOS 需要用户手势）
 async function enablePushByUser() {
   try {
     if (isIOS() && !isStandalone()) {
@@ -1666,7 +1666,7 @@ async function enablePushByUser() {
       return;
     }
 
-    // 你的代码里实际实现推送初始化的是 requestPushPermission()
+    // 你项目里实际存在的推送入口（优先使用）
     if (typeof requestPushPermission === 'function') {
       const ok = await requestPushPermission();
       if (ok) showToast('✅ 推送已连接');
@@ -1681,13 +1681,6 @@ async function enablePushByUser() {
     }
 
     showToast('开启通知失败: 未找到推送初始化函数');
-  } catch (e) {
-    showToast('开启通知失败: ' + (e && e.message ? e.message : e));
-  }
-}
-
-    const ok = await initPushNotifications();
-    if (ok) showToast('✅ 推送已连接');
   } catch (e) {
     showToast('开启通知失败: ' + (e && e.message ? e.message : e));
   }
