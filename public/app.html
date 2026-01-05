@@ -678,8 +678,10 @@
   <div id="detailPage" class="page detail-page">
     <div class="header">
       <button class="header-back" onclick="showPage('events')">←</button>
-      <h1>事件详情</h1>
-      <div class="header-right">
+<h1 style="display:flex; align-items:center; gap:8px;">
+  Events
+  <button class="btn-icon" onclick="enablePushByUser()" title="开启通知">🔔</button>
+</h1>      <div class="header-right">
         <span id="detailBadge" class="badge badge-danger">警报</span>
       </div>
     </div>
