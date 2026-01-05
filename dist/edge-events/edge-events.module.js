@@ -21,14 +21,31 @@ const ng_incident_manifest_raw_entity_1 = require("./ng-incident-manifest-raw.en
 const edge_events_controller_1 = require("./edge-events.controller");
 const edge_events_service_1 = require("./edge-events.service");
 const incident_manifests_service_1 = require("./incident-manifests.service");
+const usecases_1 = require("../application/usecases");
 let EdgeEventsModule = class EdgeEventsModule {
 };
 exports.EdgeEventsModule = EdgeEventsModule;
 exports.EdgeEventsModule = EdgeEventsModule = __decorate([
     (0, common_1.Module)({
-        imports: [device_auth_module_1.DeviceAuthModule, circles_module_1.CirclesModule, notifications_module_1.NotificationsModule, typeorm_1.TypeOrmModule.forFeature([ng_edge_event_summary_raw_entity_1.NgEdgeEventSummaryRaw, ng_edge_event_entity_1.NgEdgeEvent, ng_edge_ingest_audit_entity_1.NgEdgeIngestAudit, ng_incident_manifest_raw_entity_1.NgIncidentManifestRaw, ng_incident_manifest_entity_1.NgIncidentManifest])],
+        imports: [
+            device_auth_module_1.DeviceAuthModule,
+            circles_module_1.CirclesModule,
+            notifications_module_1.NotificationsModule,
+            typeorm_1.TypeOrmModule.forFeature([
+                ng_edge_event_summary_raw_entity_1.NgEdgeEventSummaryRaw,
+                ng_edge_event_entity_1.NgEdgeEvent,
+                ng_edge_ingest_audit_entity_1.NgEdgeIngestAudit,
+                ng_incident_manifest_raw_entity_1.NgIncidentManifestRaw,
+                ng_incident_manifest_entity_1.NgIncidentManifest,
+            ]),
+        ],
         controllers: [edge_events_controller_1.EdgeEventsController],
-        providers: [edge_events_service_1.EdgeEventsService, incident_manifests_service_1.IncidentManifestsService, contracts_validator_service_1.ContractsValidatorService],
+        providers: [
+            edge_events_service_1.EdgeEventsService,
+            incident_manifests_service_1.IncidentManifestsService,
+            contracts_validator_service_1.ContractsValidatorService,
+            usecases_1.IngestEdgeEventUseCase,
+        ],
     })
 ], EdgeEventsModule);
 //# sourceMappingURL=edge-events.module.js.map

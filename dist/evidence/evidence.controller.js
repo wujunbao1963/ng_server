@@ -22,11 +22,14 @@ const contracts_validator_service_1 = require("../common/contracts/contracts-val
 const ng_http_error_1 = require("../common/errors/ng-http-error");
 const evidence_service_1 = require("./evidence.service");
 const circles_service_1 = require("../circles/circles.service");
+const usecases_1 = require("../application/usecases");
+const request_id_interceptor_1 = require("../infra/interceptors/request-id.interceptor");
 let EvidenceController = class EvidenceController {
-    constructor(contracts, svc, circles) {
+    constructor(contracts, svc, circles, completeEvidenceUseCase) {
         this.contracts = contracts;
         this.svc = svc;
         this.circles = circles;
+        this.completeEvidenceUseCase = completeEvidenceUseCase;
     }
     async createUploadSession(circleId, eventId, device, body) {
         const vr = this.contracts.validateEvidenceUploadSessionRequest(body);
@@ -38,11 +41,20 @@ let EvidenceController = class EvidenceController {
             throw (0, ng_http_error_1.makeValidationError)(out.errors);
         return resp;
     }
-    async complete(circleId, eventId, device, body) {
+    async complete(req, circleId, eventId, device, body) {
         const vr = this.contracts.validateEvidenceCompleteRequest(body);
         if (!vr.ok)
             throw (0, ng_http_error_1.makeValidationError)(vr.errors);
-        const resp = await this.svc.completeEvidence(device, circleId, eventId, body);
+        const typed = body;
+        const resp = await this.completeEvidenceUseCase.execute({
+            device,
+            circleId,
+            eventId,
+            sessionId: typed.sessionId,
+            manifest: typed.manifest,
+            reportPackage: typed.reportPackage,
+            requestId: (0, request_id_interceptor_1.getRequestId)(req),
+        });
         const out = this.contracts.validateEvidenceCompleteResponse(resp);
         if (!out.ok)
             throw (0, ng_http_error_1.makeValidationError)(out.errors);
@@ -80,12 +92,13 @@ __decorate([
 __decorate([
     (0, common_1.Post)('complete'),
     (0, common_1.UseGuards)(device_key_auth_guard_1.DeviceKeyAuthGuard),
-    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __param(1, (0, common_1.Param)('eventId', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __param(2, (0, ng_device_decorator_1.NgDevice)()),
-    __param(3, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Param)('eventId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(3, (0, ng_device_decorator_1.NgDevice)()),
+    __param(4, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, ng_edge_device_entity_1.NgEdgeDevice, Object]),
+    __metadata("design:paramtypes", [Object, String, String, ng_edge_device_entity_1.NgEdgeDevice, Object]),
     __metadata("design:returntype", Promise)
 ], EvidenceController.prototype, "complete", null);
 __decorate([
@@ -113,6 +126,7 @@ exports.EvidenceController = EvidenceController = __decorate([
     (0, common_1.Controller)('/api/circles/:circleId/events/:eventId/evidence'),
     __metadata("design:paramtypes", [contracts_validator_service_1.ContractsValidatorService,
         evidence_service_1.EvidenceService,
-        circles_service_1.CirclesService])
+        circles_service_1.CirclesService,
+        usecases_1.CompleteEvidenceUseCase])
 ], EvidenceController);
 //# sourceMappingURL=evidence.controller.js.map

@@ -19,6 +19,7 @@ const ng_evidence_item_entity_1 = require("./ng-evidence-item.entity");
 const ng_evidence_session_entity_1 = require("./ng-evidence-session.entity");
 const ng_event_evidence_entity_1 = require("./ng-event-evidence.entity");
 const circles_module_1 = require("../circles/circles.module");
+const usecases_1 = require("../application/usecases");
 let EvidenceModule = class EvidenceModule {
 };
 exports.EvidenceModule = EvidenceModule;
@@ -31,7 +32,11 @@ exports.EvidenceModule = EvidenceModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([ng_event_entity_1.NgEvent, ng_evidence_session_entity_1.NgEvidenceSession, ng_evidence_item_entity_1.NgEvidenceItem, ng_event_evidence_entity_1.NgEventEvidence]),
         ],
         controllers: [evidence_controller_1.EvidenceController],
-        providers: [evidence_service_1.EvidenceService, evidence_storage_service_1.EvidenceStorageService],
+        providers: [
+            evidence_service_1.EvidenceService,
+            evidence_storage_service_1.EvidenceStorageService,
+            usecases_1.CompleteEvidenceUseCase,
+        ],
     })
 ], EvidenceModule);
 //# sourceMappingURL=evidence.module.js.map

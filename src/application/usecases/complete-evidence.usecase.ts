@@ -1,16 +1,14 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { EvidenceService } from '../../evidence/evidence.service';
+import { Injectable, Logger } from '@nestjs/common';
 import { NgEdgeDevice } from '../../edge-devices/ng-edge-device.entity';
-import { ClockPort, CLOCK_PORT } from '../../infra/ports';
+import { EvidenceService } from '../../evidence/evidence.service';
 
 /**
- * UseCase: 完成证据上传
+ * UseCase: 完成 Evidence 上传会话
  * 
  * 职责：
- * 1. 接收已验证的证据完成请求
- * 2. 记录操作日志和耗时
- * 3. 调用 Service 执行业务逻辑
- * 4. 返回标准化结果
+ * 1. 接收已验证的完成请求
+ * 2. 调用 Service 执行业务逻辑（在事务内）
+ * 3. 返回标准化结果
  * 
  * 不负责：
  * - HTTP 层面的参数验证（Controller 职责）
@@ -21,43 +19,20 @@ export interface CompleteEvidenceInput {
   circleId: string;
   eventId: string;
   sessionId: string;
-  manifest: {
-    items: Array<{
-      sha256: string;
-      contentType: string;
-      sizeBytes: number;
-      capturedAt: string;
-      mediaType: string;
-      cameraId?: string;
-    }>;
-  };
-  reportPackage?: {
-    included: boolean;
-    type?: string;
-    sha256?: string;
-  };
+  manifest: { items: any[] };
+  reportPackage?: { included: boolean; type?: string; sha256?: string };
   /** 用于日志追踪的请求 ID */
   requestId?: string;
 }
 
 export interface CompleteEvidenceOutput {
   evidenceId: string;
-  evidenceStatus: string;
+  status: string;
   completedAt: string;
-  deduplicated: boolean;
-  manifest: {
-    itemCount: number;
-    items: Array<{
-      sha256: string;
-      contentType: string;
-      status: string;
-    }>;
-  };
-  reportPackage: {
-    included: boolean;
-    status: string;
-  };
-  warnings: string[];
+  manifest: any;
+  reportPackage: any;
+  warnings?: string[];
+  deduplicated?: boolean;
 }
 
 @Injectable()
@@ -66,30 +41,27 @@ export class CompleteEvidenceUseCase {
 
   constructor(
     private readonly evidenceService: EvidenceService,
-    @Inject(CLOCK_PORT) private readonly clock: ClockPort,
   ) {}
 
   async execute(input: CompleteEvidenceInput): Promise<CompleteEvidenceOutput> {
-    const { device, circleId, eventId, sessionId, requestId } = input;
-    const startTime = this.clock.timestamp();
+    const { device, circleId, eventId, sessionId, manifest, reportPackage, requestId } = input;
+    const startTime = Date.now();
 
     this.logger.log(
-      `Processing evidence completion: eventId=${eventId}, sessionId=${sessionId}, ` +
-      `deviceId=${device.id}, itemCount=${input.manifest.items.length}` +
+      `Completing evidence: sessionId=${sessionId}, eventId=${eventId}, circleId=${circleId}` +
       (requestId ? `, requestId=${requestId}` : '')
     );
 
-    const result = await this.evidenceService.completeEvidence(device, circleId, eventId, {
-      sessionId: input.sessionId,
-      manifest: input.manifest,
-      reportPackage: input.reportPackage,
-    });
+    const result = await this.evidenceService.completeEvidence(
+      device,
+      circleId,
+      eventId,
+      { sessionId, manifest, reportPackage },
+    );
 
-    const duration = this.clock.timestamp() - startTime;
+    const duration = Date.now() - startTime;
     this.logger.log(
-      `Evidence completed: evidenceId=${result.evidenceId}, ` +
-      `status=${result.evidenceStatus}, deduplicated=${result.deduplicated}, ` +
-      `duration=${duration}ms`
+      `Evidence completed: evidenceId=${result.evidenceId}, deduplicated=${result.deduplicated ?? false}, duration=${duration}ms`
     );
 
     return result;

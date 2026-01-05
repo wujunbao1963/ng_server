@@ -1,11 +1,14 @@
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { NgNotification } from './ng-notification.entity';
 import { NgPushDevice } from './ng-push-device.entity';
+import { OutboxService } from '../common/outbox';
 export declare class NotificationsService {
     private readonly notificationsRepo;
     private readonly pushDevicesRepo;
+    private readonly outboxService;
+    private readonly dataSource;
     private readonly logger;
-    constructor(notificationsRepo: Repository<NgNotification>, pushDevicesRepo: Repository<NgPushDevice>);
+    constructor(notificationsRepo: Repository<NgNotification>, pushDevicesRepo: Repository<NgPushDevice>, outboxService: OutboxService, dataSource: DataSource);
     registerPushDevice(args: {
         userId: string;
         platform: string;
@@ -40,5 +43,6 @@ export declare class NotificationsService {
         edgeInstanceId?: string;
         entryPointId?: string;
     }): Promise<NgNotification | null>;
+    private createNotificationWithOutbox;
     private hashToken;
 }

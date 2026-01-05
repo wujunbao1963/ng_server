@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { NgNotification, NotificationType } from './ng-notification.entity';
 import { NgPushDevice } from './ng-push-device.entity';
+import { OutboxService, OutboxMessageType } from '../common/outbox';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -14,6 +15,8 @@ export class NotificationsService {
     private readonly notificationsRepo: Repository<NgNotification>,
     @InjectRepository(NgPushDevice)
     private readonly pushDevicesRepo: Repository<NgPushDevice>,
+    private readonly outboxService: OutboxService,
+    private readonly dataSource: DataSource,
   ) {}
 
   // =========================================================================
@@ -152,9 +155,13 @@ export class NotificationsService {
   // =========================================================================
 
   /**
-   * 创建快递到达通知
+   * 创建快递到达通知（带推送）
    * 
    * 去重规则：同一 (userId, eventId, type) 只创建一条
+   * 
+   * 使用 Outbox 模式保证：
+   * 1. 通知创建和推送入队的原子性
+   * 2. 推送失败可重试
    */
   async createParcelNotification(args: {
     userId: string;
@@ -163,8 +170,7 @@ export class NotificationsService {
     edgeInstanceId?: string;
     entryPointId?: string;
   }): Promise<NgNotification | null> {
-    // 检查是否已存在（去重）
-    // 注意：JSONB 查询需要使用数据库列名 event_ref，普通列使用 Entity 属性名
+    // 检查是否已存在（去重）- 在事务外检查避免长事务
     const existing = await this.notificationsRepo
       .createQueryBuilder('n')
       .where('n.userId = :userId', { userId: args.userId })
@@ -177,11 +183,32 @@ export class NotificationsService {
       return existing;
     }
 
-    // 创建新通知
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
+    // 在事务中同时创建通知和入队推送消息
+    return this.dataSource.transaction(async (manager) => {
+      return this.createNotificationWithOutbox(manager, args);
+    });
+  }
 
-    const notification = this.notificationsRepo.create({
+  /**
+   * 在事务内创建通知并入队推送
+   */
+  private async createNotificationWithOutbox(
+    manager: EntityManager,
+    args: {
+      userId: string;
+      circleId: string;
+      eventId: string;
+      edgeInstanceId?: string;
+      entryPointId?: string;
+    },
+  ): Promise<NgNotification> {
+    const notificationsRepo = manager.getRepository(NgNotification);
+
+    // 创建通知
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const notification = notificationsRepo.create({
       userId: args.userId,
       circleId: args.circleId,
       type: 'LOGISTICS_PARCEL_DELIVERED' as NotificationType,
@@ -200,11 +227,32 @@ export class NotificationsService {
       expiresAt,
     });
 
-    await this.notificationsRepo.save(notification);
-    this.logger.log(`Created parcel notification: ${notification.id} for eventId=${args.eventId}`);
+    await notificationsRepo.save(notification);
 
-    // TODO: 触发推送（Phase 2）
-    // await this.sendPushNotification(notification);
+    // 入队推送消息（同一事务）
+    await this.outboxService.enqueue(
+      {
+        messageType: OutboxMessageType.PUSH_NOTIFICATION,
+        payload: {
+          notificationId: notification.id,
+          userId: notification.userId,
+          title: notification.title,
+          body: notification.body,
+          data: {
+            route: notification.deeplinkRoute,
+            eventId: args.eventId,
+          },
+        },
+        aggregateId: notification.id,
+        aggregateType: 'Notification',
+        idempotencyKey: `push:${notification.id}`,
+      },
+      manager,
+    );
+
+    this.logger.log(
+      `Created parcel notification with push: ${notification.id} for eventId=${args.eventId}`,
+    );
 
     return notification;
   }

@@ -19,11 +19,14 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const ng_notification_entity_1 = require("./ng-notification.entity");
 const ng_push_device_entity_1 = require("./ng-push-device.entity");
+const outbox_1 = require("../common/outbox");
 const crypto = require("crypto");
 let NotificationsService = NotificationsService_1 = class NotificationsService {
-    constructor(notificationsRepo, pushDevicesRepo) {
+    constructor(notificationsRepo, pushDevicesRepo, outboxService, dataSource) {
         this.notificationsRepo = notificationsRepo;
         this.pushDevicesRepo = pushDevicesRepo;
+        this.outboxService = outboxService;
+        this.dataSource = dataSource;
         this.logger = new common_1.Logger(NotificationsService_1.name);
     }
     async registerPushDevice(args) {
@@ -128,9 +131,15 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             this.logger.log(`Skipping duplicate parcel notification: eventId=${args.eventId}`);
             return existing;
         }
+        return this.dataSource.transaction(async (manager) => {
+            return this.createNotificationWithOutbox(manager, args);
+        });
+    }
+    async createNotificationWithOutbox(manager, args) {
+        const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
-        const notification = this.notificationsRepo.create({
+        const notification = notificationsRepo.create({
             userId: args.userId,
             circleId: args.circleId,
             type: 'LOGISTICS_PARCEL_DELIVERED',
@@ -148,8 +157,24 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             deliveredInApp: true,
             expiresAt,
         });
-        await this.notificationsRepo.save(notification);
-        this.logger.log(`Created parcel notification: ${notification.id} for eventId=${args.eventId}`);
+        await notificationsRepo.save(notification);
+        await this.outboxService.enqueue({
+            messageType: outbox_1.OutboxMessageType.PUSH_NOTIFICATION,
+            payload: {
+                notificationId: notification.id,
+                userId: notification.userId,
+                title: notification.title,
+                body: notification.body,
+                data: {
+                    route: notification.deeplinkRoute,
+                    eventId: args.eventId,
+                },
+            },
+            aggregateId: notification.id,
+            aggregateType: 'Notification',
+            idempotencyKey: `push:${notification.id}`,
+        }, manager);
+        this.logger.log(`Created parcel notification with push: ${notification.id} for eventId=${args.eventId}`);
         return notification;
     }
     hashToken(token) {
@@ -162,6 +187,8 @@ exports.NotificationsService = NotificationsService = NotificationsService_1 = _
     __param(0, (0, typeorm_1.InjectRepository)(ng_notification_entity_1.NgNotification)),
     __param(1, (0, typeorm_1.InjectRepository)(ng_push_device_entity_1.NgPushDevice)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        outbox_1.OutboxService,
+        typeorm_2.DataSource])
 ], NotificationsService);
 //# sourceMappingURL=notifications.service.js.map

@@ -27,12 +27,18 @@ const evidence_tickets_module_1 = require("./evidence-tickets/evidence-tickets.m
 const admin_module_1 = require("./admin/admin.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const ng_exception_filter_1 = require("./common/errors/ng-exception.filter");
+const infra_module_1 = require("./infra/infra.module");
+const outbox_1 = require("./common/outbox");
+const request_id_interceptor_1 = require("./infra/interceptors/request-id.interceptor");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [topomap_module_1.TopoMapModule,
+        imports: [
+            infra_module_1.InfraModule,
+            outbox_1.OutboxModule,
+            topomap_module_1.TopoMapModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 envFilePath: ['.env'],
@@ -70,8 +76,10 @@ exports.AppModule = AppModule = __decorate([
             evidence_tickets_module_1.EvidenceTicketsModule,
             admin_module_1.AdminModule,
             evidence_module_1.EvidenceModule,
-            notifications_module_1.NotificationsModule,],
+            notifications_module_1.NotificationsModule,
+        ],
         providers: [
+            { provide: core_1.APP_INTERCEPTOR, useClass: request_id_interceptor_1.RequestIdInterceptor },
             { provide: core_1.APP_FILTER, useClass: ng_exception_filter_1.NgExceptionFilter },
             {
                 provide: core_1.APP_PIPE,

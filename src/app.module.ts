@@ -19,12 +19,16 @@ import { AdminModule } from './admin/admin.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
 import { InfraModule } from './infra/infra.module';
+import { OutboxModule } from './common/outbox';
 import { RequestIdInterceptor } from './infra/interceptors/request-id.interceptor';
 
 @Module({
   imports: [
     // Infrastructure (global - provides ClockPort, PushProviderPort)
     InfraModule,
+    
+    // Outbox (global - provides OutboxService for reliable message delivery)
+    OutboxModule,
     
     TopoMapModule, 
     ConfigModule.forRoot({

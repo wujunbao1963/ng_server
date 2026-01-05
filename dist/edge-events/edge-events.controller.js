@@ -21,12 +21,14 @@ const device_key_auth_guard_1 = require("../device-auth/device-key-auth.guard");
 const edge_events_service_1 = require("./edge-events.service");
 const incident_manifests_service_1 = require("./incident-manifests.service");
 const circles_service_1 = require("../circles/circles.service");
+const usecases_1 = require("../application/usecases");
 let EdgeEventsController = class EdgeEventsController {
-    constructor(contracts, svc, manifests, circles) {
+    constructor(contracts, svc, manifests, circles, ingestEdgeEventUseCase) {
         this.contracts = contracts;
         this.svc = svc;
         this.manifests = manifests;
         this.circles = circles;
+        this.ingestEdgeEventUseCase = ingestEdgeEventUseCase;
     }
     async listEvents(req, circleId, limitStr) {
         await this.circles.mustBeMember(req.user.userId, circleId);
@@ -93,13 +95,7 @@ let EdgeEventsController = class EdgeEventsController {
                 },
             ]);
         }
-        const upsert = await this.svc.storeSummaryUpsert(typed);
-        return {
-            ok: true,
-            applied: upsert.applied,
-            reason: upsert.reason,
-            serverReceivedAt: new Date().toISOString(),
-        };
+        return this.ingestEdgeEventUseCase.execute({ payload: typed });
     }
     async manifestUpsert(circleId, eventId, body) {
         const validation = this.contracts.validateEdgeIncidentManifestUpsertRequest(body);
@@ -194,6 +190,7 @@ exports.EdgeEventsController = EdgeEventsController = __decorate([
     __metadata("design:paramtypes", [contracts_validator_service_1.ContractsValidatorService,
         edge_events_service_1.EdgeEventsService,
         incident_manifests_service_1.IncidentManifestsService,
-        circles_service_1.CirclesService])
+        circles_service_1.CirclesService,
+        usecases_1.IngestEdgeEventUseCase])
 ], EdgeEventsController);
 //# sourceMappingURL=edge-events.controller.js.map
