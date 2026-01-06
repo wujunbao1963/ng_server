@@ -129,7 +129,7 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
 
       // 获取待处理消息
       const messages = await this.outboxService.fetchPendingMessages(this.batchSize);
-
+      this.logger.log(`[POLL] fetched ${messages.length} messages`);
       if (messages.length === 0) {
         return;
       }
