@@ -91,8 +91,8 @@ export class OutboxService {
     const qb = this.outboxRepo
       .createQueryBuilder('outbox')
       .where('outbox.status = :pendingStatus', { pendingStatus: OutboxStatus.PENDING })
-      .andWhere('outbox.scheduled_at <= :now', { now })
-      .orderBy('outbox.scheduled_at', 'ASC')
+      .andWhere('outbox.scheduledAt <= :now', { now })
+      .orderBy('outbox.scheduledAt', 'ASC')
       .limit(batchSize)
       .setLock('pessimistic_write_or_fail'); // FOR UPDATE SKIP LOCKED
 
@@ -126,7 +126,7 @@ export class OutboxService {
       return messages;
     } catch (error) {
       // SKIP LOCKED 时可能无消息可锁定
-      this.logger.debug('No pending messages available or lock conflict');
+      this.logger.log('No pending messages available or lock conflict');
       return [];
     }
   }
