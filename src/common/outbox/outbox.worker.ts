@@ -115,9 +115,11 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
    * 轮询并处理消息
    */
   private async poll() {
-    if (this.isRunning) {
-      return; // 上一轮还没完成
-    }
+  this.logger.log('[POLL] poll() called');
+  if (this.isRunning) {
+    this.logger.log('[POLL] skipped - already running');
+    return;
+  }
 
     this.isRunning = true;
 
