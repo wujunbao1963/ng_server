@@ -301,12 +301,17 @@ export class EdgeEventsService {
    * 
    * 当前支持：
    * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
-   * - SECURITY 工作流或有 alarmState 的事件 → 安全警报通知
+   * - SECURITY/SECURITY_HEAVY 工作流或有 threatState 的事件 → 安全警报通知
    */
   private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
-    const workflowClass = (payload as any).workflowClass;
+    const workflowClass = (payload as any).workflowClass as string | undefined;
     const triggerReason = payload.triggerReason;
-    const alarmState = (payload as any).alarmState;
+    // 修复：使用 threatState 而不是 alarmState
+    const threatState = payload.threatState;
+
+    this.logger.debug(
+      `maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`
+    );
 
     try {
       // 获取 Circle owner
@@ -330,22 +335,27 @@ export class EdgeEventsService {
       }
 
       // 2. 处理 SECURITY 安全事件
-      if (workflowClass === 'SECURITY' || alarmState) {
-        const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
-        if (alarmState && notifiableStates.includes(alarmState)) {
+      // 修复：匹配 'SECURITY' 或 'SECURITY_HEAVY' 等以 SECURITY 开头的工作流
+      const isSecurityWorkflow = workflowClass?.startsWith('SECURITY');
+      const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
+      
+      if (isSecurityWorkflow || (threatState && notifiableStates.includes(threatState))) {
+        if (threatState && notifiableStates.includes(threatState)) {
           await this.notificationsService.createSecurityNotification({
             userId: ownerUserId,
             circleId: payload.circleId,
             eventId: payload.eventId,
             edgeInstanceId: payload.edgeInstanceId,
             entryPointId: (payload as any).entryPointId,
-            alarmState: alarmState,
+            alarmState: threatState,  // 传给 notifications service 时仍用 alarmState 参数名
             title: (payload as any).title,
           });
-          this.logger.log(`Created security notification for event ${payload.eventId} alarmState=${alarmState}`);
+          this.logger.log(`Created security notification for event ${payload.eventId} threatState=${threatState}`);
           return;
         }
       }
+
+      this.logger.debug(`No notification needed for event ${payload.eventId}`);
 
     } catch (error) {
       // 通知创建失败不应影响事件处理
