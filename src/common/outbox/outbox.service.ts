@@ -94,7 +94,7 @@ export class OutboxService {
       .andWhere('outbox.scheduledAt <= :now', { now })
       .orderBy('outbox.scheduledAt', 'ASC')
       .limit(batchSize)
-      .setLock('pessimistic_write_or_fail'); // FOR UPDATE SKIP LOCKED
+      //.setLock('pessimistic_write_or_fail'); // FOR UPDATE SKIP LOCKED
 
     if (messageTypes && messageTypes.length > 0) {
       qb.andWhere('outbox.message_type IN (:...types)', { types: messageTypes });

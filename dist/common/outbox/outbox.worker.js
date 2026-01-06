@@ -69,13 +69,16 @@ let OutboxWorker = OutboxWorker_1 = class OutboxWorker {
         }, this.pollIntervalMs);
     }
     async poll() {
+        this.logger.log('[POLL] poll() called');
         if (this.isRunning) {
+            this.logger.log('[POLL] skipped - already running');
             return;
         }
         this.isRunning = true;
         try {
             await this.outboxService.resetFailedMessages();
             const messages = await this.outboxService.fetchPendingMessages(this.batchSize);
+            this.logger.log(`[POLL] fetched ${messages.length} messages`);
             if (messages.length === 0) {
                 return;
             }

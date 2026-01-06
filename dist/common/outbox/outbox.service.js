@@ -53,8 +53,8 @@ let OutboxService = OutboxService_1 = class OutboxService {
         const qb = this.outboxRepo
             .createQueryBuilder('outbox')
             .where('outbox.status = :pendingStatus', { pendingStatus: ng_outbox_entity_1.OutboxStatus.PENDING })
-            .andWhere('outbox.scheduled_at <= :now', { now })
-            .orderBy('outbox.scheduled_at', 'ASC')
+            .andWhere('outbox.scheduledAt <= :now', { now })
+            .orderBy('outbox.scheduledAt', 'ASC')
             .limit(batchSize)
             .setLock('pessimistic_write_or_fail');
         if (messageTypes && messageTypes.length > 0) {
@@ -81,7 +81,7 @@ let OutboxService = OutboxService_1 = class OutboxService {
             return messages;
         }
         catch (error) {
-            this.logger.debug('No pending messages available or lock conflict');
+            this.logger.log('No pending messages available or lock conflict');
             return [];
         }
     }

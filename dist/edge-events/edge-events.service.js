@@ -242,7 +242,7 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         const workflowClass = payload.workflowClass;
         const triggerReason = payload.triggerReason;
         const threatState = payload.threatState;
-        this.logger.debug(`maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`);
+        this.logger.log(`maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`);
         try {
             const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
             if (!ownerUserId) {

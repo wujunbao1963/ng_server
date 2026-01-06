@@ -125,7 +125,7 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             .createQueryBuilder('n')
             .where('n.userId = :userId', { userId: args.userId })
             .andWhere('n.type = :type', { type: 'SECURITY_ALERT' })
-            .andWhere("n.eventRef->>'eventId' = :eventId", { eventId: args.eventId })
+            .andWhere("n.event_ref->>'eventId' = :eventId", { eventId: args.eventId })
             .getOne();
         if (existing) {
             this.logger.log(`Skipping duplicate security notification: eventId=${args.eventId}`);
@@ -197,7 +197,7 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             .createQueryBuilder('n')
             .where('n.userId = :userId', { userId: args.userId })
             .andWhere('n.type = :type', { type: 'LOGISTICS_PARCEL_DELIVERED' })
-            .andWhere("n.eventRef->>'eventId' = :eventId", { eventId: args.eventId })
+            .andWhere("n.event_ref->>'eventId' = :eventId", { eventId: args.eventId })
             .getOne();
         if (existing) {
             this.logger.log(`Skipping duplicate parcel notification: eventId=${args.eventId}`);
