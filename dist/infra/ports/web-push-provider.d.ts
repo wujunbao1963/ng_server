@@ -1,15 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-export interface PushProviderPort {
-    sendBatch(tokens: string[], payload: {
-        title: string;
-        body: string;
-        data?: any;
-    }): Promise<{
-        sent: number;
-        failed: number;
-        invalidTokens: string[];
-    }>;
-}
+import { PushProviderPort, PushPayload, PushResult } from './push-provider.port';
 export declare class WebPushProvider implements PushProviderPort {
     private readonly configService;
     private readonly logger;
@@ -19,13 +9,6 @@ export declare class WebPushProvider implements PushProviderPort {
     constructor(configService: ConfigService);
     getVapidPublicKey(): string | null;
     isConfigured(): boolean;
-    sendBatch(tokens: string[], payload: {
-        title: string;
-        body: string;
-        data?: any;
-    }): Promise<{
-        sent: number;
-        failed: number;
-        invalidTokens: string[];
-    }>;
+    send(token: string, payload: PushPayload): Promise<PushResult>;
+    sendBatch(tokens: string[], payload: PushPayload): Promise<PushResult[]>;
 }

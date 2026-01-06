@@ -35,12 +35,10 @@ let WebPushProvider = WebPushProvider_1 = class WebPushProvider {
     isConfigured() {
         return !!(this.vapidPublicKey && this.vapidPrivateKey);
     }
-    async sendBatch(tokens, payload) {
+    async send(token, payload) {
         if (!this.isConfigured()) {
-            this.logger.warn('Web Push not configured, skipping send');
-            return { sent: 0, failed: tokens.length, invalidTokens: [] };
+            return { success: false, error: 'Web Push not configured' };
         }
-        const results = { sent: 0, failed: 0, invalidTokens: [] };
         const notificationPayload = JSON.stringify({
             title: payload.title,
             body: payload.body,
@@ -48,25 +46,34 @@ let WebPushProvider = WebPushProvider_1 = class WebPushProvider {
             badge: '/icon-192.png',
             data: payload.data || {},
         });
-        for (const token of tokens) {
-            try {
-                const subscription = JSON.parse(token);
-                await webpush.sendNotification(subscription, notificationPayload);
-                results.sent++;
-                this.logger.debug(`Push sent to ${subscription.endpoint.slice(-20)}`);
-            }
-            catch (error) {
-                results.failed++;
-                if (error.statusCode === 410 || error.statusCode === 404) {
-                    results.invalidTokens.push(token);
-                    this.logger.warn(`Subscription expired: ${token.slice(0, 50)}...`);
-                }
-                else {
-                    this.logger.error(`Push failed: ${error.message}`);
-                }
-            }
+        try {
+            const subscription = JSON.parse(token);
+            const response = await webpush.sendNotification(subscription, notificationPayload);
+            this.logger.debug(`Push sent to ${subscription.endpoint.slice(-20)}`);
+            return { success: true, messageId: response.headers?.['message-id'] || 'sent' };
         }
-        this.logger.log(`Push batch complete: sent=${results.sent} failed=${results.failed} invalid=${results.invalidTokens.length}`);
+        catch (error) {
+            if (error.statusCode === 410 || error.statusCode === 404) {
+                this.logger.warn(`Subscription expired: ${token.slice(0, 50)}...`);
+                return { success: false, error: 'Subscription expired', shouldRemoveToken: true };
+            }
+            this.logger.error(`Push failed: ${error.message}`);
+            return { success: false, error: error.message, errorCode: String(error.statusCode) };
+        }
+    }
+    async sendBatch(tokens, payload) {
+        if (!this.isConfigured()) {
+            this.logger.warn('Web Push not configured, skipping send');
+            return tokens.map(() => ({ success: false, error: 'Web Push not configured' }));
+        }
+        const results = [];
+        for (const token of tokens) {
+            const result = await this.send(token, payload);
+            results.push(result);
+        }
+        const sent = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+        this.logger.log(`Push batch complete: sent=${sent} failed=${failed}`);
         return results;
     }
 };

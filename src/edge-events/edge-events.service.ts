@@ -309,7 +309,7 @@ export class EdgeEventsService {
     // 修复：使用 threatState 而不是 alarmState
     const threatState = payload.threatState;
 
-    this.logger.debug(
+  this.logger.log(
       `maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`
     );
 

@@ -241,7 +241,8 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
     async maybeCreateNotification(payload) {
         const workflowClass = payload.workflowClass;
         const triggerReason = payload.triggerReason;
-        const alarmState = payload.alarmState;
+        const threatState = payload.threatState;
+        this.logger.debug(`maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`);
         try {
             const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
             if (!ownerUserId) {
@@ -259,22 +260,24 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                 this.logger.log(`Created parcel notification for event ${payload.eventId}`);
                 return;
             }
-            if (workflowClass === 'SECURITY' || alarmState) {
-                const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
-                if (alarmState && notifiableStates.includes(alarmState)) {
+            const isSecurityWorkflow = workflowClass?.startsWith('SECURITY');
+            const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
+            if (isSecurityWorkflow || (threatState && notifiableStates.includes(threatState))) {
+                if (threatState && notifiableStates.includes(threatState)) {
                     await this.notificationsService.createSecurityNotification({
                         userId: ownerUserId,
                         circleId: payload.circleId,
                         eventId: payload.eventId,
                         edgeInstanceId: payload.edgeInstanceId,
                         entryPointId: payload.entryPointId,
-                        alarmState: alarmState,
+                        alarmState: threatState,
                         title: payload.title,
                     });
-                    this.logger.log(`Created security notification for event ${payload.eventId} alarmState=${alarmState}`);
+                    this.logger.log(`Created security notification for event ${payload.eventId} threatState=${threatState}`);
                     return;
                 }
             }
+            this.logger.debug(`No notification needed for event ${payload.eventId}`);
         }
         catch (error) {
             this.logger.error(`Failed to create notification for event ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
