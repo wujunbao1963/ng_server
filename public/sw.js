@@ -1,18 +1,32 @@
 // NeighborGuard Service Worker
 // 处理 Web Push 通知
 
-const CACHE_NAME = 'ng-cache-v1';
+const CACHE_VERSION = 'v2';  // ← 更新版本号
+const CACHE_NAME = `ng-cache-${CACHE_VERSION}`;
 
-// 安装事件
+// 安装事件 - 强制更新
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing...');
-  self.skipWaiting();
+  console.log('[SW] Installing version:', CACHE_VERSION);
+  self.skipWaiting();  // 立即激活新版本
 });
 
-// 激活事件
+// 激活事件 - 清除旧缓存
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activated');
-  event.waitUntil(clients.claim());
+  console.log('[SW] Activated version:', CACHE_VERSION);
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      return clients.claim();  // 立即控制所有页面
+    })
+  );
 });
 
 // 推送事件 - 接收服务器推送的通知
@@ -104,34 +118,37 @@ self.addEventListener('notificationclose', (event) => {
   console.log('[SW] Notification closed');
 });
 
-// Fetch 事件 - 可选的离线缓存
+// Fetch 事件 - 网络优先，不缓存 HTML/JS
 self.addEventListener('fetch', (event) => {
-  // 只缓存 GET 请求
+  // 只处理 GET 请求
   if (event.request.method !== 'GET') {
     return;
   }
   
-  // 对于 API 请求，不使用缓存
+  // API 请求直接走网络
   if (event.request.url.includes('/api/')) {
     return;
   }
   
-  // 网络优先策略
+  // HTML 和 JS 文件始终从网络获取（不缓存）
+  const url = new URL(event.request.url);
+  if (url.pathname.endsWith('.html') || url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  
+  // 其他资源使用网络优先策略
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // 可选：缓存响应
-        // const responseClone = response.clone();
-        // caches.open(CACHE_NAME).then((cache) => {
-        //   cache.put(event.request, responseClone);
-        // });
         return response;
       })
       .catch(() => {
-        // 网络失败时尝试从缓存获取
         return caches.match(event.request);
       })
   );
 });
 
-console.log('[SW] Service Worker loaded');
+console.log('[SW] Service Worker loaded, version:', CACHE_VERSION);

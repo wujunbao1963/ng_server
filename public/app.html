@@ -1028,6 +1028,23 @@ async function registerServiceWorker() {
   try {
     swRegistration = await navigator.serviceWorker.register('/sw.js');
     console.log('[Push] SW registered:', swRegistration.scope);
+    
+    // 检测 Service Worker 更新
+    swRegistration.addEventListener('updatefound', () => {
+      const newWorker = swRegistration.installing;
+      console.log('[SW] Update found, installing...');
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          console.log('[SW] New version available, refreshing...');
+          // 新版本已安装，刷新页面
+          window.location.reload();
+        }
+      });
+    });
+    
+    // 强制检查更新
+    swRegistration.update();
+    
     await navigator.serviceWorker.ready;
     console.log('[Push] SW ready');
     return swRegistration;
@@ -1159,6 +1176,11 @@ if ('serviceWorker' in navigator) {
     if (event.data && event.data.type === 'NOTIFICATION_CLICK' && event.data.data?.eventId) {
       showEventDetail(event.data.data.eventId);
     }
+  });
+  // 检测 SW 控制器变化（新版本激活时刷新页面）
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('[SW] Controller changed, reloading...');
+    window.location.reload();
   });
 }
 
