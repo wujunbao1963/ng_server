@@ -408,9 +408,16 @@
       
       <!-- 入口点状态区域 -->
       <div class="entry-points-status" id="entryPointsStatus">
-        <div class="entry-points-header">🚪 入口点状态</div>
+        <div class="entry-points-header" onclick="toggleDebugPanel()" style="cursor: pointer;">
+          🚪 入口点状态 <span style="font-size: 10px; color: var(--gray-400);">(点击显示调试)</span>
+        </div>
         <div id="entryPointsList">
           <div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">加载中...</div>
+        </div>
+        <!-- 调试面板 -->
+        <div id="debugPanel" style="display: none; padding: 12px; background: #1a1a2e; border-top: 1px solid #333; font-family: monospace; font-size: 11px; color: #0f0; max-height: 200px; overflow-y: auto;">
+          <div style="margin-bottom: 8px; color: #ff0;">🔧 调试信息 (点击标题关闭)</div>
+          <div id="debugLog"></div>
         </div>
       </div>
       
@@ -892,29 +899,66 @@ async function loadModeStatus() {
   const statusEl = document.getElementById('modeStatus');
   const epListEl = document.getElementById('entryPointsList');
   
-  // PWA 调试信息
+  // PWA 检测
   const isPWA = isStandalone();
-  console.log('[Status] Loading... isPWA:', isPWA);
+  const debugInfo = {
+    isPWA: isPWA,
+    userAgent: navigator.userAgent.slice(0, 50),
+    url: window.location.href.slice(0, 50),
+    time: new Date().toLocaleTimeString()
+  };
+  console.log('[Status] Debug:', JSON.stringify(debugInfo));
+  
+  // 显示加载状态
+  if (epListEl) {
+    epListEl.innerHTML = `<div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">加载中... ${isPWA ? '(PWA)' : '(Safari)'}</div>`;
+  }
   
   try {
-    // 简化 fetch，与 setMode 保持一致（不使用 AbortController 和额外选项）
+    console.log('[Status] Fetching:', `${EDGE_URL}/api/pipeline/status`);
+    const startTime = Date.now();
     const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
-    console.log('[Status] Response:', res.status);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const elapsed = Date.now() - startTime;
+    console.log('[Status] Response:', res.status, 'in', elapsed, 'ms');
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+    
     const data = await res.json();
-    console.log('[Status] Data:', data);
+    console.log('[Status] Data keys:', Object.keys(data).join(', '));
+    console.log('[Status] entry_points:', JSON.stringify(data.entry_points || 'undefined'));
+    
     state.currentMode = data.mode || 'disarm';
     state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
     state.sirenActive = data.deterrent_active || false;
-    state.entryPoints = data.entry_points || {};  // 新增：保存入口点状态
+    state.entryPoints = data.entry_points || {};
+    
     updateModeUI();
-    updateEntryPointsUI();  // 新增：更新入口点显示
+    updateEntryPointsUI();
+    
   } catch (e) {
-    console.error('[Status] Error:', e.message, 'isPWA:', isPWA);
-    if (statusEl) { statusEl.textContent = 'Edge 离线'; statusEl.className = 'mode-control-status'; }
-    // 显示错误状态而不是保持"加载中..."
+    const errorMsg = e.message || e.toString();
+    console.error('[Status] Error:', errorMsg, 'isPWA:', isPWA);
+    console.error('[Status] Error stack:', e.stack);
+    
+    if (statusEl) { 
+      statusEl.textContent = 'Edge 离线'; 
+      statusEl.className = 'mode-control-status'; 
+    }
+    
+    // 显示详细错误信息
     if (epListEl) {
-      epListEl.innerHTML = `<div class="entry-point-item" style="color: var(--danger); font-size: 13px;">⚠️ 连接失败${isPWA ? ' (PWA模式)' : ''}</div>`;
+      epListEl.innerHTML = `
+        <div class="entry-point-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+          <div style="color: var(--danger); font-size: 13px; font-weight: 500;">⚠️ 加载失败</div>
+          <div style="color: var(--gray-500); font-size: 11px; word-break: break-all;">
+            ${isPWA ? '模式: PWA' : '模式: Safari'}<br>
+            错误: ${errorMsg.slice(0, 100)}<br>
+            URL: ${EDGE_URL.slice(0, 30)}...
+          </div>
+        </div>
+      `;
     }
   }
 }
@@ -941,13 +985,26 @@ function updateModeUI() {
 // 入口点状态显示
 function updateEntryPointsUI() {
   const container = document.getElementById('entryPointsList');
-  if (!container) return;
+  if (!container) {
+    console.warn('[EntryPoints] Container not found');
+    return;
+  }
   
   const entryPoints = state.entryPoints || {};
   const epNames = Object.keys(entryPoints);
   
+  console.log('[EntryPoints] Updating UI, count:', epNames.length, 'data:', JSON.stringify(entryPoints));
+  
   if (epNames.length === 0) {
-    container.innerHTML = '<div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">暂无入口点数据</div>';
+    container.innerHTML = `
+      <div class="entry-point-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+        <div style="color: var(--gray-500); font-size: 13px;">暂无入口点数据</div>
+        <div style="color: var(--gray-400); font-size: 11px;">
+          state.entryPoints = ${JSON.stringify(entryPoints)}<br>
+          isPWA: ${isStandalone()}
+        </div>
+      </div>
+    `;
     return;
   }
   
@@ -1057,6 +1114,71 @@ async function registerServiceWorker() {
     console.log('[Push] SW ready');
     return swRegistration;
   } catch (err) { console.error('[Push] SW registration failed:', err); return null; }
+}
+
+// =============================================================================
+// Debug Panel - 可视化调试（iOS PWA 无法打开 console）
+// =============================================================================
+const debugLogs = [];
+const MAX_DEBUG_LOGS = 50;
+
+function toggleDebugPanel() {
+  const panel = document.getElementById('debugPanel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') {
+      renderDebugLogs();
+    }
+  }
+}
+
+function debugLog(type, ...args) {
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const time = new Date().toLocaleTimeString();
+  const color = type === 'error' ? '#f66' : type === 'warn' ? '#ff0' : '#0f0';
+  debugLogs.push({ time, type, msg, color });
+  if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
+  renderDebugLogs();
+}
+
+function renderDebugLogs() {
+  const logEl = document.getElementById('debugLog');
+  if (!logEl) return;
+  logEl.innerHTML = debugLogs.map(l => 
+    `<div style="color: ${l.color}; margin-bottom: 4px;">[${l.time}] ${l.msg}</div>`
+  ).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// 拦截 console 输出到调试面板
+const originalConsole = { log: console.log, error: console.error, warn: console.warn };
+console.log = function(...args) {
+  originalConsole.log.apply(console, args);
+  if (args[0] && String(args[0]).includes('[Status]') || String(args[0]).includes('[EntryPoints]')) {
+    debugLog('log', ...args);
+  }
+};
+console.error = function(...args) {
+  originalConsole.error.apply(console, args);
+  debugLog('error', ...args);
+};
+console.warn = function(...args) {
+  originalConsole.warn.apply(console, args);
+  debugLog('warn', ...args);
+};
+
+// 初始化调试信息
+debugLog('log', '🚀 Debug panel ready');
+debugLog('log', 'UA:', navigator.userAgent.slice(0, 60));
+
+// 测试 localStorage 是否可用
+try {
+  const testKey = '_ng_test_' + Date.now();
+  localStorage.setItem(testKey, 'test');
+  localStorage.removeItem(testKey);
+  debugLog('log', '✅ localStorage OK');
+} catch (e) {
+  debugLog('error', '❌ localStorage FAIL:', e.message);
 }
 
 function isStandalone() {
@@ -1227,8 +1349,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   finally { btn.disabled = false; btn.textContent = '登录'; }
 });
 
+// 页面初始化时记录环境信息
+debugLog('log', '📱 isPWA:', isStandalone(), 'isIOS:', isIOS());
+debugLog('log', '🔗 EDGE_URL:', EDGE_URL);
+debugLog('log', '🔐 hasJWT:', !!state.jwt, 'circleId:', state.circleId ? state.circleId.slice(0,8)+'...' : 'none');
+
 if (state.jwt && state.circleId) {
   showPage('events');
+  debugLog('log', '▶️ Calling loadModeStatus...');
   loadModeStatus();
   setInterval(loadModeStatus, 30000);
   document.addEventListener('visibilitychange', () => {
@@ -1236,6 +1364,7 @@ if (state.jwt && state.circleId) {
   });
 } else {
   showPage('login');
+  debugLog('warn', '⚠️ No JWT/circleId, showing login');
 }
 </script>
 </body>
