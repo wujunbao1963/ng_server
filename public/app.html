@@ -1354,17 +1354,19 @@ debugLog('log', '📱 isPWA:', isStandalone(), 'isIOS:', isIOS());
 debugLog('log', '🔗 EDGE_URL:', EDGE_URL);
 debugLog('log', '🔐 hasJWT:', !!state.jwt, 'circleId:', state.circleId ? state.circleId.slice(0,8)+'...' : 'none');
 
+// loadModeStatus 调用 Edge API，不需要 JWT，始终执行
+debugLog('log', '▶️ Calling loadModeStatus (不需要JWT)...');
+loadModeStatus();
+setInterval(loadModeStatus, 30000);
+
 if (state.jwt && state.circleId) {
   showPage('events');
-  debugLog('log', '▶️ Calling loadModeStatus...');
-  loadModeStatus();
-  setInterval(loadModeStatus, 30000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { loadEvents(); loadModeStatus(); }
   });
 } else {
   showPage('login');
-  debugLog('warn', '⚠️ No JWT/circleId, showing login');
+  debugLog('warn', '⚠️ No JWT/circleId, showing login (但入口点状态仍会加载)');
 }
 </script>
 </body>
