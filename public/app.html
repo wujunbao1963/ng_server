@@ -147,6 +147,61 @@
       50% { opacity: 0.5; }
     }
     
+    /* 入口点状态区域 */
+    .entry-points-status {
+      background: white;
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .entry-points-header {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-700);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .entry-point-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .entry-point-item:last-child { border-bottom: none; }
+    .entry-point-name {
+      font-size: 14px;
+      color: var(--gray-700);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .entry-point-name .ep-icon { font-size: 16px; }
+    .entry-point-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .threat-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    .threat-badge.none { background: var(--success-bg); color: var(--success); }
+    .threat-badge.pre { background: #fff3cd; color: #856404; }
+    .threat-badge.pending { background: var(--warning-bg); color: var(--warning); }
+    .threat-badge.triggered { background: var(--danger-bg); color: var(--danger); animation: blink 1s infinite; }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .entry-delay-countdown {
+      font-size: 12px;
+      color: var(--warning);
+      font-weight: 600;
+    }
+    
     .events-list { display: flex; flex-direction: column; gap: 12px; }
     
     .event-card {
@@ -351,6 +406,14 @@
         <span style="margin-left: auto;" id="lastUpdate">--</span>
       </div>
       
+      <!-- 入口点状态区域 -->
+      <div class="entry-points-status" id="entryPointsStatus">
+        <div class="entry-points-header">🚪 入口点状态</div>
+        <div id="entryPointsList">
+          <div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">加载中...</div>
+        </div>
+      </div>
+      
       <div id="eventsList" class="events-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
@@ -437,6 +500,7 @@ const state = {
   currentMode: 'disarm',
   alarmActive: false,
   sirenActive: false,
+  entryPoints: {},  // 新增：入口点状态
 };
 
 const API_BASE = window.location.origin;
@@ -837,7 +901,9 @@ async function loadModeStatus() {
     state.currentMode = data.mode || 'disarm';
     state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
     state.sirenActive = data.deterrent_active || false;
+    state.entryPoints = data.entry_points || {};  // 新增：保存入口点状态
     updateModeUI();
+    updateEntryPointsUI();  // 新增：更新入口点显示
   } catch (e) {
     clearTimeout(timeoutId);
     console.error('Load mode status error:', e);
@@ -862,6 +928,59 @@ function updateModeUI() {
   const sirenBtn = document.getElementById('sirenBtn');
   const silenceBtn = document.getElementById('silenceBtn');
   if (sirenBtn && silenceBtn) { sirenBtn.disabled = state.sirenActive; silenceBtn.disabled = !state.sirenActive; }
+}
+
+// 入口点状态显示
+function updateEntryPointsUI() {
+  const container = document.getElementById('entryPointsList');
+  if (!container) return;
+  
+  const entryPoints = state.entryPoints || {};
+  const epNames = Object.keys(entryPoints);
+  
+  if (epNames.length === 0) {
+    container.innerHTML = '<div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">暂无入口点数据</div>';
+    return;
+  }
+  
+  // 入口点名称映射
+  const epLabels = {
+    'ep_back': { icon: '🚪', name: '后门' },
+    'ep_front': { icon: '🚪', name: '前门' },
+    'ep_garage': { icon: '🚗', name: '车库' },
+    'ep_side': { icon: '🚪', name: '侧门' },
+  };
+  
+  // 威胁状态映射
+  const threatLabels = {
+    'none': { text: '正常', class: 'none' },
+    'pre_l1': { text: '轻微异常', class: 'pre' },
+    'pre_l2': { text: '可疑活动', class: 'pre' },
+    'pre_l3': { text: '高度可疑', class: 'pre' },
+    'pending': { text: '待确认', class: 'pending' },
+    'triggered': { text: '⚠️ 警报', class: 'triggered' },
+  };
+  
+  let html = '';
+  for (const epId of epNames) {
+    const ep = entryPoints[epId];
+    const label = epLabels[epId] || { icon: '📍', name: epId };
+    const threat = threatLabels[ep.threat_state] || threatLabels['none'];
+    
+    html += `
+      <div class="entry-point-item">
+        <div class="entry-point-name">
+          <span class="ep-icon">${label.icon}</span>
+          <span>${label.name}</span>
+        </div>
+        <div class="entry-point-status">
+          ${ep.entry_delay_remaining > 0 ? `<span class="entry-delay-countdown">⏱️ ${Math.ceil(ep.entry_delay_remaining)}s</span>` : ''}
+          <span class="threat-badge ${threat.class}">${threat.text}</span>
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
 }
 
 async function setMode(mode) {
