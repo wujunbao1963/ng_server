@@ -890,14 +890,19 @@ function stopLiveView() {
 
 async function loadModeStatus() {
   const statusEl = document.getElementById('modeStatus');
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const epListEl = document.getElementById('entryPointsList');
+  
+  // PWA 调试信息
+  const isPWA = isStandalone();
+  console.log('[Status] Loading... isPWA:', isPWA);
   
   try {
-    const res = await fetch(`${EDGE_URL}/api/pipeline/status`, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!res.ok) throw new Error('Failed');
+    // 简化 fetch，与 setMode 保持一致（不使用 AbortController 和额外选项）
+    const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
+    console.log('[Status] Response:', res.status);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    console.log('[Status] Data:', data);
     state.currentMode = data.mode || 'disarm';
     state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
     state.sirenActive = data.deterrent_active || false;
@@ -905,9 +910,12 @@ async function loadModeStatus() {
     updateModeUI();
     updateEntryPointsUI();  // 新增：更新入口点显示
   } catch (e) {
-    clearTimeout(timeoutId);
-    console.error('Load mode status error:', e);
+    console.error('[Status] Error:', e.message, 'isPWA:', isPWA);
     if (statusEl) { statusEl.textContent = 'Edge 离线'; statusEl.className = 'mode-control-status'; }
+    // 显示错误状态而不是保持"加载中..."
+    if (epListEl) {
+      epListEl.innerHTML = `<div class="entry-point-item" style="color: var(--danger); font-size: 13px;">⚠️ 连接失败${isPWA ? ' (PWA模式)' : ''}</div>`;
+    }
   }
 }
 
