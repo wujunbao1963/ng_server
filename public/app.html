@@ -202,6 +202,21 @@
       font-weight: 600;
     }
     
+    /* 解除警报按钮 */
+    .resolve-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: white;
+      background: var(--danger);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .resolve-btn:hover { background: #b91c1c; }
+    .resolve-btn:active { transform: scale(0.95); }
+    
     .events-list { display: flex; flex-direction: column; gap: 12px; }
     
     .event-card {
@@ -1031,6 +1046,7 @@ function updateEntryPointsUI() {
     const ep = entryPoints[epId];
     const label = epLabels[epId] || { icon: '📍', name: epId };
     const threat = threatLabels[ep.threat_state] || threatLabels['none'];
+    const isTriggered = ep.threat_state === 'triggered';
     
     html += `
       <div class="entry-point-item">
@@ -1041,6 +1057,7 @@ function updateEntryPointsUI() {
         <div class="entry-point-status">
           ${ep.entry_delay_remaining > 0 ? `<span class="entry-delay-countdown">⏱️ ${Math.ceil(ep.entry_delay_remaining)}s</span>` : ''}
           <span class="threat-badge ${threat.class}">${threat.text}</span>
+          ${isTriggered ? `<button class="resolve-btn" onclick="resolveTriggered('${epId}')">解除</button>` : ''}
         </div>
       </div>
     `;
@@ -1079,6 +1096,32 @@ async function silenceAlarm() {
     if (res.ok) { state.sirenActive = false; updateModeUI(); showToast('🔇 已静音'); }
     else showToast('静音失败');
   } catch (e) { console.error('Silence alarm error:', e); showToast('静音失败: ' + e.message); }
+}
+
+async function resolveTriggered(entryPointId) {
+  // 解除 TRIGGERED 状态（确认安全）
+  const confirmMsg = entryPointId ? `确认解除 ${entryPointId} 的警报状态？` : '确认解除所有警报状态？';
+  if (!window.confirm(confirmMsg)) return;
+  
+  try {
+    console.log('[Resolve] Resolving:', entryPointId || 'all');
+    const res = await fetch(`${EDGE_URL}/api/pipeline/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entry_point_id: entryPointId })
+    });
+    
+    if (res.ok) {
+      showToast('✅ 已解除警报');
+      loadModeStatus();  // 刷新状态
+    } else {
+      const data = await res.json();
+      showToast('解除失败: ' + (data.detail || '未知错误'));
+    }
+  } catch (e) {
+    console.error('[Resolve] Error:', e);
+    showToast('解除失败: ' + e.message);
+  }
 }
 
 // =============================================================================
