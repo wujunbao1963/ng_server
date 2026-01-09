@@ -55,8 +55,7 @@ let OutboxService = OutboxService_1 = class OutboxService {
             .where('outbox.status = :pendingStatus', { pendingStatus: ng_outbox_entity_1.OutboxStatus.PENDING })
             .andWhere('outbox.scheduledAt <= :now', { now })
             .orderBy('outbox.scheduledAt', 'ASC')
-            .limit(batchSize)
-            .setLock('pessimistic_write_or_fail');
+            .limit(batchSize);
         if (messageTypes && messageTypes.length > 0) {
             qb.andWhere('outbox.message_type IN (:...types)', { types: messageTypes });
         }

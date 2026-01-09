@@ -24,14 +24,16 @@ const ng_edge_ingest_audit_entity_1 = require("./ng-edge-ingest-audit.entity");
 const stable_json_1 = require("../common/utils/stable-json");
 const notifications_service_1 = require("../notifications/notifications.service");
 const circles_service_1 = require("../circles/circles.service");
+const edge_commands_service_1 = require("./edge-commands.service");
 let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
-    constructor(rawRepo, edgeRepo, auditRepo, dataSource, notificationsService, circlesService) {
+    constructor(rawRepo, edgeRepo, auditRepo, dataSource, notificationsService, circlesService, commandsService) {
         this.rawRepo = rawRepo;
         this.edgeRepo = edgeRepo;
         this.auditRepo = auditRepo;
         this.dataSource = dataSource;
         this.notificationsService = notificationsService;
         this.circlesService = circlesService;
+        this.commandsService = commandsService;
         this.logger = new common_1.Logger(EdgeEventsService_1.name);
     }
     async listEvents(circleId, limit = 50) {
@@ -70,7 +72,7 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
             summaryJson: ev.summaryJson,
         };
     }
-    async updateEventStatus(circleId, eventId, status, note) {
+    async updateEventStatus(circleId, eventId, status, note, triggeredByUserId) {
         const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
         if (!ev) {
             return null;
@@ -85,11 +87,34 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                 edgeUpdatedAt: now,
             });
         }
+        let commandId;
+        if (status === 'RESOLVED' && ev.threatState === 'TRIGGERED') {
+            try {
+                const entryPointId = ev.summaryJson?.entryPointId;
+                const command = await this.commandsService.createCommand({
+                    circleId,
+                    edgeInstanceId: ev.edgeInstanceId,
+                    commandType: 'resolve',
+                    commandPayload: {
+                        eventId,
+                        entryPointId,
+                    },
+                    triggeredByUserId,
+                    eventId,
+                });
+                commandId = command.id;
+                this.logger.log(`Created resolve command: ${commandId} for event ${eventId} edge=${ev.edgeInstanceId}`);
+            }
+            catch (error) {
+                this.logger.error(`Failed to create resolve command for event ${eventId}`, error instanceof Error ? error.stack : String(error));
+            }
+        }
         return {
             updated,
             eventId,
             status,
             updatedAt: now.toISOString(),
+            commandId,
         };
     }
     mapThreatStateToStatus(threatState) {
@@ -295,7 +320,8 @@ exports.EdgeEventsService = EdgeEventsService = EdgeEventsService_1 = __decorate
         typeorm_2.Repository,
         typeorm_2.DataSource,
         notifications_service_1.NotificationsService,
-        circles_service_1.CirclesService])
+        circles_service_1.CirclesService,
+        edge_commands_service_1.EdgeCommandsService])
 ], EdgeEventsService);
 function sha256Hex(input) {
     return crypto.createHash('sha256').update(input).digest('hex');

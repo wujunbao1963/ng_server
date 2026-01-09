@@ -30,6 +30,7 @@ export declare class EdgeEventsController {
         eventId: string;
         status: string;
         updatedAt: string;
+        commandId?: string;
     }>;
     summaryUpsert(circleId: string, body: unknown): Promise<import("../application/usecases").IngestEdgeEventOutput>;
     manifestUpsert(circleId: string, eventId: string, body: unknown): Promise<{

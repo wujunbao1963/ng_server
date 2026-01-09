@@ -64,7 +64,7 @@ let EdgeEventsController = class EdgeEventsController {
                 retryable: false,
             });
         }
-        const result = await this.svc.updateEventStatus(circleId, eventId, body.status, body.note);
+        const result = await this.svc.updateEventStatus(circleId, eventId, body.status, body.note, req.user.userId);
         if (!result) {
             throw new ng_http_error_1.NgHttpError({
                 statusCode: 404,

@@ -18,8 +18,11 @@ const ng_edge_ingest_audit_entity_1 = require("./ng-edge-ingest-audit.entity");
 const ng_edge_event_summary_raw_entity_1 = require("./ng-edge-event-summary-raw.entity");
 const ng_incident_manifest_entity_1 = require("./ng-incident-manifest.entity");
 const ng_incident_manifest_raw_entity_1 = require("./ng-incident-manifest-raw.entity");
+const ng_edge_command_entity_1 = require("./ng-edge-command.entity");
 const edge_events_controller_1 = require("./edge-events.controller");
+const edge_commands_controller_1 = require("./edge-commands.controller");
 const edge_events_service_1 = require("./edge-events.service");
+const edge_commands_service_1 = require("./edge-commands.service");
 const incident_manifests_service_1 = require("./incident-manifests.service");
 const usecases_1 = require("../application/usecases");
 let EdgeEventsModule = class EdgeEventsModule {
@@ -37,15 +40,18 @@ exports.EdgeEventsModule = EdgeEventsModule = __decorate([
                 ng_edge_ingest_audit_entity_1.NgEdgeIngestAudit,
                 ng_incident_manifest_raw_entity_1.NgIncidentManifestRaw,
                 ng_incident_manifest_entity_1.NgIncidentManifest,
+                ng_edge_command_entity_1.NgEdgeCommand,
             ]),
         ],
-        controllers: [edge_events_controller_1.EdgeEventsController],
+        controllers: [edge_events_controller_1.EdgeEventsController, edge_commands_controller_1.EdgeCommandsController],
         providers: [
             edge_events_service_1.EdgeEventsService,
+            edge_commands_service_1.EdgeCommandsService,
             incident_manifests_service_1.IncidentManifestsService,
             contracts_validator_service_1.ContractsValidatorService,
             usecases_1.IngestEdgeEventUseCase,
         ],
+        exports: [edge_commands_service_1.EdgeCommandsService],
     })
 ], EdgeEventsModule);
 //# sourceMappingURL=edge-events.module.js.map
