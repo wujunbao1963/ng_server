@@ -1099,26 +1099,25 @@ async function silenceAlarm() {
 }
 
 async function resolveTriggered(entryPointId) {
-  // 解除 TRIGGERED 状态（确认安全）
   const confirmMsg = entryPointId ? `确认解除 ${entryPointId} 的警报状态？` : '确认解除所有警报状态？';
   if (!window.confirm(confirmMsg)) return;
   
   try {
-    console.log('[Resolve] Resolving:', entryPointId || 'all');
+    console.log('[Resolve] Resolving:', entryPointId);
     
-    // 找到该 entryPointId 对应的 TRIGGERED 事件
-    const triggeredEvent = state.events.find(e => 
-      e.summaryJson?.entryPointId === entryPointId && 
-      e.threatState === 'TRIGGERED'
-    );
+    // 从 Entry Points 状态中获取 incident_id
+    const epData = state.entryPoints?.[entryPointId];
+    console.log('[Resolve] Entry point data:', epData);
     
-    if (!triggeredEvent) {
+    if (!epData || !epData.incident_id) {
       showToast('未找到需要解除的警报事件');
       return;
     }
     
-    // 调用 Server API
-    await api(`/api/circles/${state.circleId}/edge/events/${triggeredEvent.eventId}/status`, {
+    const eventId = epData.incident_id;
+    console.log('[Resolve] Using eventId:', eventId);
+    
+    await api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
       method: 'PATCH',
       body: { status: 'RESOLVED', note: '用户远程解除' },
     });
@@ -1132,7 +1131,6 @@ async function resolveTriggered(entryPointId) {
     showToast('解除失败: ' + e.message);
   }
 }
-
 // =============================================================================
 // Web Push Notifications
 // =============================================================================
