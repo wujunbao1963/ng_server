@@ -46,15 +46,48 @@ export class EdgeEventsService {
 
   /**
    * List edge events for a circle (App read API)
+   * 
+   * v7.7.1 Home Mode 静默规则：
+   * - Home 模式下的非强安全事件不在列表中显示
+   * - 强安全事件 = TRIGGERED 状态或 glass_break 触发
+   * - 这些事件仍然记录在数据库中，可通过管理接口查询
    */
   async listEvents(circleId: string, limit: number = 50): Promise<{ items: any[]; nextCursor: string | null }> {
+    // 获取更多事件以补偿过滤后的数量
     const events = await this.edgeRepo.find({
       where: { circleId },
       order: { edgeUpdatedAt: 'DESC' },
-      take: limit,
+      take: limit * 2,  // 获取更多以补偿过滤
     });
 
-    const items = events.map((ev) => ({
+    // ========================================================================
+    // v7.7.1 Home Mode 静默规则：过滤 Home 模式下的非强安全事件
+    // ========================================================================
+    const filteredEvents = events.filter((ev) => {
+      const summary = ev.summaryJson as Record<string, unknown> | null;
+      const mode = (summary?.mode as string)?.toLowerCase();
+      
+      // 非 Home 模式的事件全部显示
+      if (mode !== 'home') {
+        return true;
+      }
+      
+      // Home 模式下，只显示强安全事件
+      const isStrongSecurityEvent = 
+        ev.threatState === 'TRIGGERED' || 
+        ev.triggerReason === 'glass_break';
+      
+      if (!isStrongSecurityEvent) {
+        this.logger.debug(
+          `listEvents: filtering out Home mode event ${ev.eventId} (threatState=${ev.threatState})`
+        );
+      }
+      
+      return isStrongSecurityEvent;
+    });
+    // ========================================================================
+
+    const items = filteredEvents.slice(0, limit).map((ev) => ({
       eventId: ev.eventId,
       edgeInstanceId: ev.edgeInstanceId,
       threatState: ev.threatState,
