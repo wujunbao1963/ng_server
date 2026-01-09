@@ -62,28 +62,36 @@ export class EdgeEventsService {
 
     // ========================================================================
     // v7.7.1 Home Mode 静默规则：过滤 Home 模式下的非强安全事件
+    // 但保留 LOGISTICS 快递事件（用户在家时也想看到快递通知）
     // ========================================================================
     const filteredEvents = events.filter((ev) => {
       const summary = ev.summaryJson as Record<string, unknown> | null;
       const mode = (summary?.mode as string)?.toLowerCase();
+      const workflowClass = summary?.workflowClass as string | undefined;
       
       // 非 Home 模式的事件全部显示
       if (mode !== 'home') {
         return true;
       }
       
-      // Home 模式下，只显示强安全事件
+      // Home 模式下，显示以下事件：
+      // 1. 强安全事件（TRIGGERED, glass_break）
+      // 2. LOGISTICS 快递事件
       const isStrongSecurityEvent = 
         ev.threatState === 'TRIGGERED' || 
         ev.triggerReason === 'glass_break';
       
-      if (!isStrongSecurityEvent) {
+      const isLogisticsEvent = 
+        workflowClass === 'LOGISTICS' && 
+        ev.triggerReason === 'delivery_detected';
+      
+      if (!isStrongSecurityEvent && !isLogisticsEvent) {
         this.logger.debug(
           `listEvents: filtering out Home mode event ${ev.eventId} (threatState=${ev.threatState})`
         );
       }
       
-      return isStrongSecurityEvent;
+      return isStrongSecurityEvent || isLogisticsEvent;
     });
     // ========================================================================
 
@@ -422,17 +430,22 @@ export class EdgeEventsService {
 
       // ========================================================================
       // v7.7.1 Home Mode 静默规则
-      // HOME 模式下只有强安全事件才推送通知，其他事件静默记录
+      // HOME 模式下只有强安全事件和快递事件才推送通知，其他事件静默记录
       // ========================================================================
       if (mode?.toLowerCase() === 'home') {
-        // Home 模式下只有以下情况才推送:
+        // Home 模式下允许推送的情况:
         // 1. TRIGGERED 状态（强安全事件，如入侵警报）
         // 2. glass_break 触发原因（玻璃破碎，强证据）
+        // 3. LOGISTICS 快递事件（用户在家也想收到快递通知）
         const isStrongSecurityEvent = 
           threatState === 'TRIGGERED' || 
           triggerReason === 'glass_break';
         
-        if (!isStrongSecurityEvent) {
+        const isLogisticsEvent = 
+          workflowClass === 'LOGISTICS' && 
+          triggerReason === 'delivery_detected';
+        
+        if (!isStrongSecurityEvent && !isLogisticsEvent) {
           this.logger.log(
             `Home mode: skipping notification for threatState=${threatState} triggerReason=${triggerReason} (silent recording)`
           );
@@ -440,7 +453,7 @@ export class EdgeEventsService {
         }
         
         this.logger.log(
-          `Home mode: allowing notification for strong security event (threatState=${threatState} triggerReason=${triggerReason})`
+          `Home mode: allowing notification (strongSecurity=${isStrongSecurityEvent}, logistics=${isLogisticsEvent})`
         );
       }
       // ========================================================================
