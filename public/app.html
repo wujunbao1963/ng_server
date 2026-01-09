@@ -1105,19 +1105,28 @@ async function resolveTriggered(entryPointId) {
   
   try {
     console.log('[Resolve] Resolving:', entryPointId || 'all');
-    const res = await fetch(`${EDGE_URL}/api/pipeline/resolve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entry_point_id: entryPointId })
+    
+    // 找到该 entryPointId 对应的 TRIGGERED 事件
+    const triggeredEvent = state.events.find(e => 
+      e.summaryJson?.entryPointId === entryPointId && 
+      e.threatState === 'TRIGGERED'
+    );
+    
+    if (!triggeredEvent) {
+      showToast('未找到需要解除的警报事件');
+      return;
+    }
+    
+    // 调用 Server API
+    await api(`/api/circles/${state.circleId}/edge/events/${triggeredEvent.eventId}/status`, {
+      method: 'PATCH',
+      body: { status: 'RESOLVED', note: '用户远程解除' },
     });
     
-    if (res.ok) {
-      showToast('✅ 已解除警报');
-      loadModeStatus();  // 刷新状态
-    } else {
-      const data = await res.json();
-      showToast('解除失败: ' + (data.detail || '未知错误'));
-    }
+    showToast('✅ 已解除警报');
+    loadModeStatus();
+    loadEvents();
+    
   } catch (e) {
     console.error('[Resolve] Error:', e);
     showToast('解除失败: ' + e.message);
