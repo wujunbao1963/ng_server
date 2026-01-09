@@ -363,15 +363,20 @@ export class EdgeEventsService {
    * 当前支持：
    * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
    * - SECURITY/SECURITY_HEAVY 工作流或有 threatState 的事件 → 安全警报通知
+   * 
+   * v7.7.1 Home Mode 静默规则：
+   * - HOME 模式下只有 TRIGGERED 或 glass_break 才推送通知
+   * - PRE_L1/PRE_L2/PENDING/门开关 在 HOME 模式下不推送（避免打扰）
+   * - 所有事件仍然记录到数据库，App 可查询
    */
   private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
     const workflowClass = (payload as any).workflowClass as string | undefined;
     const triggerReason = payload.triggerReason;
-    // 修复：使用 threatState 而不是 alarmState
     const threatState = payload.threatState;
+    const mode = (payload as any).mode as string | undefined;
 
-  this.logger.log(
-      `maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`
+    this.logger.log(
+      `maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} threatState=${threatState} triggerReason=${triggerReason}`
     );
 
     try {
@@ -382,8 +387,34 @@ export class EdgeEventsService {
         return;
       }
 
+      // ========================================================================
+      // v7.7.1 Home Mode 静默规则
+      // HOME 模式下只有强安全事件才推送通知，其他事件静默记录
+      // ========================================================================
+      if (mode?.toLowerCase() === 'home') {
+        // Home 模式下只有以下情况才推送:
+        // 1. TRIGGERED 状态（强安全事件，如入侵警报）
+        // 2. glass_break 触发原因（玻璃破碎，强证据）
+        const isStrongSecurityEvent = 
+          threatState === 'TRIGGERED' || 
+          triggerReason === 'glass_break';
+        
+        if (!isStrongSecurityEvent) {
+          this.logger.log(
+            `Home mode: skipping notification for threatState=${threatState} triggerReason=${triggerReason} (silent recording)`
+          );
+          return;
+        }
+        
+        this.logger.log(
+          `Home mode: allowing notification for strong security event (threatState=${threatState} triggerReason=${triggerReason})`
+        );
+      }
+      // ========================================================================
+
       // 1. 处理 LOGISTICS 快递事件
       if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
+        // Home 模式下快递通知也静默（已在上面处理）
         await this.notificationsService.createParcelNotification({
           userId: ownerUserId,
           circleId: payload.circleId,
@@ -396,7 +427,6 @@ export class EdgeEventsService {
       }
 
       // 2. 处理 SECURITY 安全事件
-      // 修复：匹配 'SECURITY' 或 'SECURITY_HEAVY' 等以 SECURITY 开头的工作流
       const isSecurityWorkflow = workflowClass?.startsWith('SECURITY');
       const notifiableStates = ['TRIGGERED', 'PENDING', 'PRE', 'PRE_L1', 'PRE_L2', 'PRE_L3'];
       
@@ -408,7 +438,7 @@ export class EdgeEventsService {
             eventId: payload.eventId,
             edgeInstanceId: payload.edgeInstanceId,
             entryPointId: (payload as any).entryPointId,
-            alarmState: threatState,  // 传给 notifications service 时仍用 alarmState 参数名
+            alarmState: threatState,
             title: (payload as any).title,
           });
           this.logger.log(`Created security notification for event ${payload.eventId} threatState=${threatState}`);
