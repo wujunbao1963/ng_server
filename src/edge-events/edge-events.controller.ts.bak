@@ -65,8 +65,6 @@ export class EdgeEventsController {
   /**
    * Update edge event status (user auth)
    * PATCH /api/circles/:circleId/edge/events/:eventId/status
-   * 
-   * 当用户标记事件为 RESOLVED 时，会创建一个 Edge 命令
    */
   @Patch(':eventId/status')
   @UseGuards(AuthGuard('jwt'))
@@ -90,13 +88,7 @@ export class EdgeEventsController {
       });
     }
     
-    const result = await this.svc.updateEventStatus(
-      circleId, 
-      eventId, 
-      body.status, 
-      body.note,
-      req.user.userId,  // 传递用户 ID
-    );
+    const result = await this.svc.updateEventStatus(circleId, eventId, body.status, body.note);
     if (!result) {
       throw new NgHttpError({
         statusCode: 404,

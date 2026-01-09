@@ -8,7 +8,6 @@ import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
 import { stableStringify } from '../common/utils/stable-json';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
-import { EdgeCommandsService } from './edge-commands.service';
 
 export type EdgeEventSummaryUpsertV77 = {
   schemaVersion: 'v7.7';
@@ -41,7 +40,6 @@ export class EdgeEventsService {
     private readonly dataSource: DataSource,
     private readonly notificationsService: NotificationsService,
     private readonly circlesService: CirclesService,
-    private readonly commandsService: EdgeCommandsService,
   ) {}
 
   /**
@@ -94,18 +92,13 @@ export class EdgeEventsService {
 
   /**
    * Update edge event status (App collaboration)
-   * 
-   * 当 App 用户将事件标记为 RESOLVED 时：
-   * 1. 更新数据库状态（立即生效，保证 App 显示正确）
-   * 2. 创建 Edge 命令，让 Edge 执行 resolve（异步执行）
    */
   async updateEventStatus(
     circleId: string,
     eventId: string,
     status: 'OPEN' | 'ACKED' | 'RESOLVED',
     note?: string,
-    triggeredByUserId?: string,
-  ): Promise<{ updated: boolean; eventId: string; status: string; updatedAt: string; commandId?: string }> {
+  ): Promise<{ updated: boolean; eventId: string; status: string; updatedAt: string }> {
     const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
     if (!ev) {
       return null as any; // Will be handled by controller
@@ -128,45 +121,11 @@ export class EdgeEventsService {
       );
     }
 
-    let commandId: string | undefined;
-
-    // 当 App 请求 RESOLVED 时，创建 Edge 命令
-    if (status === 'RESOLVED' && ev.threatState === 'TRIGGERED') {
-      try {
-        // 从 summaryJson 中获取 entryPointId
-        const entryPointId = (ev.summaryJson as any)?.entryPointId;
-        
-        const command = await this.commandsService.createCommand({
-          circleId,
-          edgeInstanceId: ev.edgeInstanceId,
-          commandType: 'resolve',
-          commandPayload: {
-            eventId,
-            entryPointId,
-          },
-          triggeredByUserId,
-          eventId,
-        });
-        
-        commandId = command.id;
-        this.logger.log(
-          `Created resolve command: ${commandId} for event ${eventId} edge=${ev.edgeInstanceId}`,
-        );
-      } catch (error) {
-        // 命令创建失败不应影响状态更新
-        this.logger.error(
-          `Failed to create resolve command for event ${eventId}`,
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
-    }
-
     return {
       updated,
       eventId,
       status,
       updatedAt: now.toISOString(),
-      commandId,
     };
   }
 

@@ -9,11 +9,8 @@ import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
 import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
 import { NgIncidentManifest } from './ng-incident-manifest.entity';
 import { NgIncidentManifestRaw } from './ng-incident-manifest-raw.entity';
-import { NgEdgeCommand } from './ng-edge-command.entity';
 import { EdgeEventsController } from './edge-events.controller';
-import { EdgeCommandsController } from './edge-commands.controller';
 import { EdgeEventsService } from './edge-events.service';
-import { EdgeCommandsService } from './edge-commands.service';
 import { IncidentManifestsService } from './incident-manifests.service';
 import { IngestEdgeEventUseCase } from '../application/usecases';
 
@@ -28,17 +25,14 @@ import { IngestEdgeEventUseCase } from '../application/usecases';
       NgEdgeIngestAudit,
       NgIncidentManifestRaw,
       NgIncidentManifest,
-      NgEdgeCommand,
     ]),
   ],
-  controllers: [EdgeEventsController, EdgeCommandsController],
+  controllers: [EdgeEventsController],
   providers: [
     EdgeEventsService,
-    EdgeCommandsService,
     IncidentManifestsService,
     ContractsValidatorService,
     IngestEdgeEventUseCase,
   ],
-  exports: [EdgeCommandsService],
 })
 export class EdgeEventsModule {}
