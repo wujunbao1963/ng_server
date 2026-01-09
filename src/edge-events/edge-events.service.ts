@@ -96,8 +96,20 @@ export class EdgeEventsService {
    * Update edge event status (App collaboration)
    * 
    * 当 App 用户将事件标记为 RESOLVED 时：
-   * 1. 更新数据库状态（立即生效，保证 App 显示正确）
-   * 2. 创建 Edge 命令，让 Edge 执行 resolve（异步执行）
+   * 1. [临时补丁] 更新数据库状态（立即生效，保证 App 显示正确）
+   * 2. [正确流程] 创建 Edge 命令，让 Edge 执行 resolve，Edge 完成后上报 RESOLVED
+   * 
+   * 架构说明：
+   * - 根据 PRD Contract v7.7，threatState 应由 Edge 决定，Server 不应直接修改
+   * - 当前保留补丁是因为命令通道刚实现，需要稳定运行后再移除
+   * - 正确的最终流程：Server 只创建命令 → Edge 执行 → Edge 上报状态
+   * 
+   * TODO [Phase 5d]: 移除 threatState 直接修改补丁
+   * - 前提条件：
+   *   1. Edge 命令通道稳定运行 2+ 周
+   *   2. Edge 已部署 v7.7+ 代码（支持 RESOLVED 上报）
+   *   3. 添加命令超时降级机制（如30秒无响应则降级）
+   * - 移除后 Server 只更新 appStatus，threatState 完全由 Edge 上报
    */
   async updateEventStatus(
     circleId: string,
@@ -111,7 +123,12 @@ export class EdgeEventsService {
       return null as any; // Will be handled by controller
     }
 
-    // Map app status to threatState
+    // ========================================================================
+    // [临时补丁 - TODO Phase 5d 移除]
+    // 直接修改 threatState，违反 "Edge decides state" 原则
+    // 保留原因：提供即时用户反馈，作为命令通道的兜底
+    // 风险：Edge 重发事件可能覆盖此修改（当前可接受）
+    // ========================================================================
     const newThreatState = status === 'RESOLVED' ? 'RESOLVED' : 
                           status === 'ACKED' ? 'PENDING' : ev.threatState;
     
@@ -127,10 +144,13 @@ export class EdgeEventsService {
         }
       );
     }
+    // ========================================================================
+    // [临时补丁结束]
+    // ========================================================================
 
     let commandId: string | undefined;
 
-    // 当 App 请求 RESOLVED 时，创建 Edge 命令
+    // [正确流程] 当 App 请求 RESOLVED 时，创建 Edge 命令
     if (status === 'RESOLVED' && ev.threatState === 'TRIGGERED') {
       try {
         // 从 summaryJson 中获取 entryPointId
