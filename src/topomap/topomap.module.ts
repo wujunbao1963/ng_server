@@ -12,5 +12,6 @@ import { TopoMapService } from './topomap.service';
   imports: [TypeOrmModule.forFeature([NgTopoMap]), DeviceAuthModule, ContractsModule],
   controllers: [TopoMapController],
   providers: [TopoMapService],
+  exports: [TopoMapService],
 })
 export class TopoMapModule {}

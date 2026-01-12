@@ -9,6 +9,7 @@ import { stableStringify } from '../common/utils/stable-json';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
 import { EdgeCommandsService } from './edge-commands.service';
+import { EventViewModelService, EventViewModel } from './event-viewmodel.service';
 
 export type EdgeEventSummaryUpsertV77 = {
   schemaVersion: 'v7.7';
@@ -42,6 +43,7 @@ export class EdgeEventsService {
     private readonly notificationsService: NotificationsService,
     private readonly circlesService: CirclesService,
     private readonly commandsService: EdgeCommandsService,
+    private readonly viewModelService: EventViewModelService,
   ) {}
 
   /**
@@ -51,8 +53,12 @@ export class EdgeEventsService {
    * - Home 模式下的非强安全事件不在列表中显示
    * - 强安全事件 = TRIGGERED 状态或 glass_break 触发
    * - 这些事件仍然记录在数据库中，可通过管理接口查询
+   * 
+   * v7.7.2 ViewModel 格式：
+   * - 返回符合 NG_EVENT_VIEWMODEL_SCHEMA_v7.7 的数据
+   * - 所有文案由后端生成，前端纯渲染
    */
-  async listEvents(circleId: string, limit: number = 50): Promise<{ items: any[]; nextCursor: string | null }> {
+  async listEvents(circleId: string, limit: number = 50): Promise<{ items: EventViewModel[]; nextCursor: string | null }> {
     // 获取更多事件以补偿过滤后的数量
     const events = await this.edgeRepo.find({
       where: { circleId },
@@ -95,42 +101,42 @@ export class EdgeEventsService {
     });
     // ========================================================================
 
-    const items = filteredEvents.slice(0, limit).map((ev) => ({
+    // 转换为 ViewModel 格式
+    const rawEvents = filteredEvents.slice(0, limit).map((ev) => ({
       eventId: ev.eventId,
       edgeInstanceId: ev.edgeInstanceId,
       threatState: ev.threatState,
       triggerReason: ev.triggerReason,
-      occurredAt: ev.edgeUpdatedAt.toISOString(),
-      updatedAt: ev.edgeUpdatedAt.toISOString(),
-      status: this.mapThreatStateToStatus(ev.threatState),
-      title: this.generateTitle(ev),
-      // Include summary fields if available
-      ...(ev.summaryJson && typeof ev.summaryJson === 'object' ? this.extractSummaryFields(ev.summaryJson as Record<string, unknown>) : {}),
+      edgeUpdatedAt: ev.edgeUpdatedAt,
+      summaryJson: ev.summaryJson as Record<string, unknown> | undefined,
     }));
+
+    const items = await this.viewModelService.toViewModelList(rawEvents, circleId);
 
     return { items, nextCursor: null };
   }
 
   /**
-   * Get single edge event
+   * Get single edge event (App read API with ViewModel format)
    */
-  async getEvent(circleId: string, eventId: string): Promise<any> {
+  async getEvent(circleId: string, eventId: string): Promise<EventViewModel | null> {
     const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
     if (!ev) {
       return null;
     }
 
-    return {
-      eventId: ev.eventId,
-      edgeInstanceId: ev.edgeInstanceId,
-      threatState: ev.threatState,
-      triggerReason: ev.triggerReason,
-      occurredAt: ev.edgeUpdatedAt.toISOString(),
-      updatedAt: ev.edgeUpdatedAt.toISOString(),
-      status: this.mapThreatStateToStatus(ev.threatState),
-      title: this.generateTitle(ev),
-      summaryJson: ev.summaryJson,
-    };
+    return this.viewModelService.toViewModel(
+      {
+        eventId: ev.eventId,
+        edgeInstanceId: ev.edgeInstanceId,
+        threatState: ev.threatState,
+        triggerReason: ev.triggerReason,
+        edgeUpdatedAt: ev.edgeUpdatedAt,
+        summaryJson: ev.summaryJson as Record<string, unknown> | undefined,
+      },
+      circleId,
+      { includeDebug: false },
+    );
   }
 
   /**

@@ -462,43 +462,14 @@
       </div>
       
       <div class="detail-content">
-        <div class="detail-section">
-          <h3>事件信息</h3>
-          <div class="detail-row"><span class="detail-label">事件 ID</span><span class="detail-value" id="detailEventId">-</span></div>
-          <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value" id="detailLocation">-</span></div>
-          <div class="detail-row"><span class="detail-label">触发原因</span><span class="detail-value" id="detailReason">-</span></div>
-          <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value" id="detailTime">-</span></div>
-          <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value" id="detailStatus">-</span></div>
-        </div>
-        
-        <div class="detail-section">
-          <h3>证据文件</h3>
-          <div id="evidenceList" class="evidence-list">
-            <div class="loading"><div class="spinner"></div></div>
-          </div>
-        </div>
-        
-        <div class="detail-section" id="liveViewSection" style="display: none;">
-          <h3>📹 实时画面</h3>
-          <div class="live-view-container">
-            <div class="live-view-tabs" id="liveViewTabs"></div>
-            <div class="live-view-frame" id="liveViewFrame">
-              <img id="liveViewImg" alt="实时画面" style="display: none;">
-              <div class="live-view-placeholder" id="liveViewPlaceholder"><span>点击上方按钮查看实时画面</span></div>
-            </div>
-            <div class="live-view-status" id="liveViewStatus">
-              <span id="liveViewStatusText">未连接</span>
-              <button class="btn btn-sm btn-outline" id="liveViewStopBtn" onclick="stopLiveView()" style="display: none;">停止</button>
-            </div>
-          </div>
-        </div>
+        <!-- 内容由 showEventDetail() 动态生成 -->
+        <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
     
     <div class="action-bar" id="actionBar">
       <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
       <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
-      <button class="btn btn-danger" onclick="confirmEvent('alert')">🚨 报警</button>
     </div>
   </div>
   
@@ -616,19 +587,37 @@ function renderEvents() {
     return;
   }
   
+  // 使用 ViewModel 字段渲染（符合 NG_EVENT_VIEWMODEL_SCHEMA_v7.7）
   container.innerHTML = state.events.map(event => {
-    const status = event.status || 'OPEN';
-    const alarmState = event.alarmState || event.threatState || '';
-    const isAlert = status === 'OPEN' && (alarmState === 'TRIGGERED' || event.severity === 'CRITICAL');
-    const isResolved = status === 'RESOLVED';
-    const statusClass = isAlert ? 'alert' : (isResolved ? 'resolved' : 'pending');
-    const icon = isAlert ? '🚨' : (isResolved ? '✅' : '⚠️');
-    const time = event.occurredAt || event.updatedAt || event.createdAt;
-    const timeStr = time ? formatTime(time) : '-';
-    const zone = event.entryPointId || event.zoneId || '未知位置';
-    const title = event.title || getStatusLabel(status, alarmState);
+    const threatState = event.threatState || 'NONE';
+    const isAlert = threatState === 'TRIGGERED';
+    const isResolved = threatState === 'RESOLVED' || threatState === 'CANCELED';
+    const isPending = threatState === 'PENDING';
+    const statusClass = isAlert ? 'alert' : (isResolved ? 'resolved' : (isPending ? 'pending' : ''));
+    const icon = isAlert ? '🚨' : (isResolved ? '✅' : (isPending ? '⏳' : '👁️'));
     
-    return `<div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')"><div class="event-header"><div class="event-icon ${statusClass}">${icon}</div><div class="event-info"><div class="event-title">${title}</div><div class="event-meta">${zone}</div></div><div class="event-time">${timeStr}</div></div></div>`;
+    // 使用 ViewModel 提供的人类可读字段
+    const headline = event.headlineText || '安全事件';
+    const statusLabel = event.statusLabel || '';
+    const timeText = event.timeText || formatTime(event.updatedAt);
+    const locationLabel = event.entryPoint?.label || '入口';
+    
+    // 状态标签样式
+    const badgeClass = isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning');
+    const showBadge = statusLabel && threatState !== 'NONE';
+    
+    return `<div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')">
+      <div class="event-header">
+        <div class="event-icon ${statusClass}">${icon}</div>
+        <div class="event-info">
+          <div class="event-title">${headline}</div>
+          <div class="event-meta">${locationLabel} · ${timeText}</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          ${showBadge ? `<span class="badge ${badgeClass}">${statusLabel}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -662,27 +651,84 @@ async function showEventDetail(eventId) {
   state.currentEvent = event;
   state.currentManifest = null;
   
-  document.getElementById('detailEventId').textContent = eventId.substring(0, 8) + '...';
-  document.getElementById('detailLocation').textContent = event.entryPointId || event.zoneId || '-';
-  document.getElementById('detailReason').textContent = event.title || '-';
-  document.getElementById('detailTime').textContent = event.occurredAt ? new Date(event.occurredAt).toLocaleString('zh-CN') : '-';
+  // 使用 ViewModel 字段（符合 NG_UI_EVENT_LANGUAGE_SPEC_v7.7）
+  // 注意：不显示内部 ID，只显示人类可读标签
+  const locationLabel = event.entryPoint?.label || '入口';
+  const timeText = event.updatedAt ? new Date(event.updatedAt).toLocaleString('zh-CN') : '-';
+  const headline = event.headlineText || '安全事件';
+  const statusLabel = event.statusLabel || '未知';
+  const threatState = event.threatState || 'NONE';
   
-  const status = event.status || 'OPEN';
-  const alarmState = event.alarmState || '';
-  document.getElementById('detailStatus').textContent = getStatusLabel(status, alarmState);
+  // 渲染事实列表（facts）
+  const factsHtml = (event.facts || []).map(f => 
+    `<div class="detail-row"><span class="detail-label">${f.iconKey ? getFactIcon(f.iconKey) : '•'}</span><span class="detail-value">${f.text}</span></div>`
+  ).join('') || `<div class="detail-row"><span class="detail-label">-</span><span class="detail-value">暂无详细信息</span></div>`;
   
+  // 渲染解释（explanations）
+  const explanationsHtml = (event.explanations || []).map(e => 
+    `<div style="padding: 8px 0; color: var(--gray-500); font-size: 13px;">💡 ${e.text}</div>`
+  ).join('');
+  
+  // 更新详情页内容
+  document.querySelector('#detailPage .detail-content').innerHTML = `
+    <div class="detail-section">
+      <h3>📍 事件概要</h3>
+      <div style="font-size: 16px; font-weight: 500; margin-bottom: 12px; line-height: 1.5;">${headline}</div>
+      <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value">${locationLabel}</span></div>
+      <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value">${timeText}</span></div>
+      <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value">${statusLabel}</span></div>
+      ${event.modeLabel ? `<div class="detail-row"><span class="detail-label">模式</span><span class="detail-value">${event.modeLabel}</span></div>` : ''}
+    </div>
+    
+    <div class="detail-section">
+      <h3>📋 发生情况</h3>
+      ${factsHtml}
+    </div>
+    
+    ${explanationsHtml ? `<div class="detail-section"><h3>💡 系统依据</h3>${explanationsHtml}</div>` : ''}
+    
+    <div class="detail-section">
+      <h3>📹 证据文件</h3>
+      <div id="evidenceList" class="evidence-list">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <div class="detail-section" id="liveViewSection" style="display: none;">
+      <h3>📹 实时画面</h3>
+      <div class="live-view-container">
+        <div class="live-view-tabs" id="liveViewTabs"></div>
+        <div class="live-view-frame" id="liveViewFrame">
+          <img id="liveViewImg" alt="实时画面" style="display: none;">
+          <div class="live-view-placeholder" id="liveViewPlaceholder"><span>点击上方按钮查看实时画面</span></div>
+        </div>
+        <div class="live-view-status" id="liveViewStatus">
+          <span id="liveViewStatusText">未连接</span>
+          <button class="btn btn-sm btn-outline" id="liveViewStopBtn" onclick="stopLiveView()" style="display: none;">停止</button>
+        </div>
+      </div>
+    </div>
+    
+    ${event.privacy?.note ? `<div style="padding: 12px; background: var(--gray-50); border-radius: 8px; font-size: 12px; color: var(--gray-500); text-align: center;">🔒 ${event.privacy.note}</div>` : ''}
+  `;
+  
+  // 更新状态标签
   const badge = document.getElementById('detailBadge');
-  const isAlert = status === 'OPEN' && alarmState === 'TRIGGERED';
-  const isResolved = status === 'RESOLVED';
-  badge.textContent = getStatusLabel(status, alarmState);
+  const isAlert = threatState === 'TRIGGERED';
+  const isResolved = threatState === 'RESOLVED' || threatState === 'CANCELED';
+  badge.textContent = statusLabel;
   badge.className = 'badge ' + (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning'));
   
-  document.getElementById('actionBar').style.display = (status === 'OPEN') ? 'flex' : 'none';
-  document.getElementById('detailMedia').innerHTML = '<span class="placeholder">加载中...</span>';
-  document.getElementById('evidenceList').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  // 显示/隐藏操作栏
+  const showActions = threatState === 'PENDING' || threatState === 'TRIGGERED' || threatState === 'PRE';
+  document.getElementById('actionBar').style.display = showActions ? 'flex' : 'none';
+  
+  // 渲染操作按钮（基于 ViewModel 的 nextActions）
+  renderActionBar(event.nextActions || []);
   
   showPage('detail');
   
+  // 加载证据
   try {
     const manifest = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/manifest`);
     state.currentManifest = manifest;
@@ -690,8 +736,86 @@ async function showEventDetail(eventId) {
   } catch (e) {
     console.error('Load manifest error:', e);
     document.getElementById('evidenceList').innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
-    document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
   }
+}
+
+// 辅助函数：获取事实图标
+function getFactIcon(iconKey) {
+  const icons = {
+    door: '🚪',
+    person: '👤',
+    motion: '📡',
+    camera: '📷',
+    alert: '⚠️',
+    package: '📦',
+    timer: '⏱️',
+    shield: '🛡️',
+    heart: '❤️',
+    location: '📍',
+    info: 'ℹ️',
+  };
+  return icons[iconKey] || '•';
+}
+
+// 辅助函数：渲染操作栏
+function renderActionBar(nextActions) {
+  const actionBar = document.getElementById('actionBar');
+  if (!nextActions || nextActions.length === 0) {
+    actionBar.innerHTML = `
+      <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
+      <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
+    `;
+    return;
+  }
+  
+  // 基于 ViewModel nextActions 渲染按钮
+  actionBar.innerHTML = nextActions.map(action => {
+    const styleClass = {
+      primary: 'btn-primary',
+      secondary: 'btn-outline',
+      danger: 'btn-danger',
+      link: 'btn-outline',
+    }[action.style] || 'btn-outline';
+    
+    const onclick = {
+      disarm: "confirmEvent('safe')",
+      cancel: "confirmEvent('safe')",
+      open_live_view: "startVerification()",
+      play_key_clip: "playEvidence(0)",
+      silence: "silenceSiren()",
+      request_help: "requestHelp()",
+      view_details: "",  // 已在详情页
+    }[action.actionId] || "";
+    
+    if (!onclick) return '';
+    return `<button class="btn ${styleClass}" onclick="${onclick}">${action.label}</button>`;
+  }).filter(Boolean).join('');
+  
+  // 如果没有可用按钮，显示默认
+  if (!actionBar.innerHTML.trim()) {
+    actionBar.innerHTML = `
+      <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
+      <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
+    `;
+  }
+}
+
+// 静音警报
+async function silenceSiren() {
+  showToast('正在静音...');
+  try {
+    await fetch(`${EDGE_URL}/api/siren/silence`, { method: 'POST' });
+    showToast('✓ 已静音');
+  } catch (e) {
+    console.error('Silence error:', e);
+    showToast('静音失败');
+  }
+}
+
+// 请求协作人帮助
+function requestHelp() {
+  showToast('此功能即将上线');
+  // TODO: 实现协作人通知
 }
 
 async function renderEvidence(manifest) {
