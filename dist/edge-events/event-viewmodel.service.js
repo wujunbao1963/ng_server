@@ -33,14 +33,14 @@ let EventViewModelService = class EventViewModelService {
         };
         this.statusLabels = {
             NONE: '正常',
-            PRE: '观察中',
-            PRE_L1: '观察中',
-            PRE_L2: '观察中',
-            PRE_L3: '观察中',
+            PRE: '轻度威胁',
+            PRE_L1: '轻度威胁',
+            PRE_L2: '重度威胁',
+            PRE_L3: '重度威胁',
             PENDING: '等待确认',
-            TRIGGERED: '已报警',
-            RESOLVED: '已解决',
-            CANCELED: '已取消',
+            TRIGGERED: '正在报警',
+            RESOLVED: '警报已平息',
+            CANCELED: '已撤防',
         };
         this.triggerReasonLabels = {
             door_open: '门被打开',
@@ -66,7 +66,9 @@ let EventViewModelService = class EventViewModelService {
         const threatState = (raw.threatState ?? 'NONE');
         const statusLabel = this.statusLabels[threatState] ?? threatState;
         const triggerReason = (raw.triggerReason ?? undefined);
+        const triggerReasonLabel = this.resolveTriggerReasonLabel(triggerReason, summary);
         const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
+        const resolution = this.generateResolution(threatState, raw.status);
         const timeText = this.formatTimeText(raw.edgeUpdatedAt);
         const facts = this.generateFacts(raw, entryPointLabel);
         const explanations = this.generateExplanations(threatState, triggerReason);
@@ -88,6 +90,8 @@ let EventViewModelService = class EventViewModelService {
             },
             threatState,
             triggerReason: triggerReason ?? 'none',
+            triggerReasonLabel,
+            resolution,
             status: this.mapThreatStateToStatus(threatState),
             entryPointId: entryPointId,
             title: headlineText,
@@ -124,7 +128,9 @@ let EventViewModelService = class EventViewModelService {
             const threatState = (raw.threatState ?? 'NONE');
             const statusLabel = this.statusLabels[threatState] ?? threatState;
             const triggerReason = (raw.triggerReason ?? undefined);
+            const triggerReasonLabel = this.resolveTriggerReasonLabel(triggerReason, summary);
             const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
+            const resolution = this.generateResolution(threatState, raw.status);
             const timeText = this.formatTimeText(raw.edgeUpdatedAt);
             const facts = this.generateFacts(raw, entryPointLabel);
             const nextActions = this.generateNextActions(threatState);
@@ -144,6 +150,8 @@ let EventViewModelService = class EventViewModelService {
                 },
                 threatState,
                 triggerReason: triggerReason ?? 'none',
+                triggerReasonLabel,
+                resolution,
                 status: this.mapThreatStateToStatus(threatState),
                 entryPointId: entryPointId,
                 title: headlineText,
@@ -182,6 +190,38 @@ let EventViewModelService = class EventViewModelService {
         }
         return '入口';
     }
+    resolveTriggerReasonLabel(triggerReason, summary) {
+        if (triggerReason && this.triggerReasonLabels[triggerReason]) {
+            return this.triggerReasonLabels[triggerReason];
+        }
+        const workflowClass = summary.workflowClass;
+        if (workflowClass === 'LOGISTICS') {
+            return '快递到达';
+        }
+        if (workflowClass === 'SECURITY_HEAVY' || workflowClass === 'SUSPICION_LIGHT') {
+            return '检测到活动';
+        }
+        return '检测到异常';
+    }
+    generateResolution(threatState, status) {
+        switch (threatState) {
+            case 'RESOLVED':
+                return '已确认安全';
+            case 'CANCELED':
+                return '已解除等待';
+            case 'NONE':
+                return '已恢复正常';
+            case 'PRE':
+            case 'PRE_L1':
+            case 'PRE_L2':
+            case 'PRE_L3':
+                return status === 'ACKED' ? '已查看' : '待处理';
+            case 'TRIGGERED':
+            case 'PENDING':
+            default:
+                return '待处理';
+        }
+    }
     generateHeadline(threatState, triggerReason, locationLabel, summary) {
         const loc = `【${locationLabel}】`;
         switch (threatState) {
@@ -205,24 +245,31 @@ let EventViewModelService = class EventViewModelService {
             case 'PRE_L2':
             case 'PRE_L3':
                 if (triggerReason === 'person_detected') {
-                    return `${loc}门外有人活动（观察中）`;
+                    return `${loc}门外有人活动（进行中）`;
                 }
                 if (triggerReason === 'delivery_detected') {
                     return `${loc}快递到达`;
                 }
                 if (triggerReason === 'network_down') {
-                    return `${loc}摄像头可能离线（观察中）`;
+                    return `${loc}摄像头可能离线（进行中）`;
                 }
-                return `${loc}检测到活动（观察中）`;
+                return `${loc}检测到活动（进行中）`;
             case 'RESOLVED':
                 return `${loc}本次活动已确认安全`;
             case 'CANCELED':
                 return `${loc}已解除本次等待确认`;
-            default:
+            case 'NONE':
+                if (summary.entryPointId ||
+                    summary.workflowClass === 'SECURITY_HEAVY' ||
+                    summary.workflowClass === 'SUSPICION_LIGHT') {
+                    return `${loc}检测到活动（已正常）`;
+                }
                 if (summary.workflowClass === 'LOGISTICS') {
                     return `${loc}快递到达`;
                 }
-                return `${loc}安全状态正常`;
+                return `${loc}无事件`;
+            default:
+                return `${loc}事件`;
         }
     }
     formatTimeText(date) {
@@ -344,7 +391,7 @@ let EventViewModelService = class EventViewModelService {
         return iconMap[triggerReason] ?? 'info';
     }
     mapThreatStateToStatus(threatState) {
-        if (threatState === 'RESOLVED' || threatState === 'CANCELED') {
+        if (threatState === 'RESOLVED' || threatState === 'CANCELED' || threatState === 'NONE') {
             return 'RESOLVED';
         }
         return 'OPEN';

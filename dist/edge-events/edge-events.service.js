@@ -60,14 +60,18 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
             }
             return isStrongSecurityEvent || isLogisticsEvent;
         });
-        const rawEvents = filteredEvents.slice(0, limit).map((ev) => ({
-            eventId: ev.eventId,
-            edgeInstanceId: ev.edgeInstanceId,
-            threatState: ev.threatState,
-            triggerReason: ev.triggerReason,
-            edgeUpdatedAt: ev.edgeUpdatedAt,
-            summaryJson: ev.summaryJson,
-        }));
+        const rawEvents = filteredEvents.slice(0, limit).map((ev) => {
+            const summary = ev.summaryJson;
+            return {
+                eventId: ev.eventId,
+                edgeInstanceId: ev.edgeInstanceId,
+                threatState: ev.threatState,
+                triggerReason: ev.triggerReason,
+                edgeUpdatedAt: ev.edgeUpdatedAt,
+                summaryJson: summary,
+                status: summary?.appStatus,
+            };
+        });
         const items = await this.viewModelService.toViewModelList(rawEvents, circleId);
         return { items, nextCursor: null };
     }
@@ -76,13 +80,15 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         if (!ev) {
             return null;
         }
+        const summary = ev.summaryJson;
         return this.viewModelService.toViewModel({
             eventId: ev.eventId,
             edgeInstanceId: ev.edgeInstanceId,
             threatState: ev.threatState,
             triggerReason: ev.triggerReason,
             edgeUpdatedAt: ev.edgeUpdatedAt,
-            summaryJson: ev.summaryJson,
+            summaryJson: summary,
+            status: summary?.appStatus,
         }, circleId, { includeDebug: false });
     }
     async updateEventStatus(circleId, eventId, status, note, triggeredByUserId) {
@@ -90,13 +96,28 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         if (!ev) {
             return null;
         }
-        const newThreatState = status === 'RESOLVED' ? 'RESOLVED' :
-            status === 'ACKED' ? 'PENDING' : ev.threatState;
         const now = new Date();
+        const currentSummary = ev.summaryJson ?? {};
+        if (status === 'ACKED') {
+            const newSummary = { ...currentSummary, appStatus: 'ACKED' };
+            await this.edgeRepo.update({ circleId, eventId }, {
+                summaryJson: newSummary,
+                edgeUpdatedAt: now,
+            });
+            return {
+                updated: true,
+                eventId,
+                status,
+                updatedAt: now.toISOString(),
+            };
+        }
+        const newThreatState = status === 'RESOLVED' ? 'RESOLVED' : ev.threatState;
         const updated = ev.threatState !== newThreatState;
         if (updated) {
+            const newSummary = { ...currentSummary, appStatus: status };
             await this.edgeRepo.update({ circleId, eventId }, {
                 threatState: newThreatState,
+                summaryJson: newSummary,
                 edgeUpdatedAt: now,
             });
         }

@@ -16,6 +16,8 @@ export interface EventViewModel {
     };
     threatState: 'NONE' | 'PRE' | 'PENDING' | 'TRIGGERED' | 'RESOLVED' | 'CANCELED';
     triggerReason?: 'none' | 'entry_delay_expired' | 'glass_break' | 'tamper_verified_by_user' | 'life_safety';
+    triggerReasonLabel?: string;
+    resolution: string;
     status: 'OPEN' | 'ACKED' | 'RESOLVED';
     entryPointId?: string;
     title: string;
@@ -77,6 +79,8 @@ export declare class EventViewModelService {
     }): Promise<EventViewModel>;
     toViewModelList(events: RawEventData[], circleId: string): Promise<EventViewModel[]>;
     private resolveEntryPointLabel;
+    private resolveTriggerReasonLabel;
+    private generateResolution;
     private generateHeadline;
     private formatTimeText;
     private generateFacts;

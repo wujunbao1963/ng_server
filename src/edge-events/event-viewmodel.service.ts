@@ -34,6 +34,10 @@ export interface EventViewModel {
   };
   threatState: 'NONE' | 'PRE' | 'PENDING' | 'TRIGGERED' | 'RESOLVED' | 'CANCELED';
   triggerReason?: 'none' | 'entry_delay_expired' | 'glass_break' | 'tamper_verified_by_user' | 'life_safety';
+  // 触发原因的人类可读文案（用于详情页显示）
+  triggerReasonLabel?: string;
+  // 处理结果（终态显示结果，非终态显示"待处理"）
+  resolution: string;
   // 兼容字段：原始 app.html 依赖此字段判断事件状态
   status: 'OPEN' | 'ACKED' | 'RESOLVED';
   // 兼容字段：原始 app.html 依赖
@@ -103,17 +107,17 @@ export class EventViewModelService {
     disarm: '撤防模式',
   };
 
-  // ThreatState → UI 状态标签
+  // ThreatState → UI 状态标签（系统状态，不是处理结果）
   private readonly statusLabels: Record<string, string> = {
     NONE: '正常',
-    PRE: '观察中',
-    PRE_L1: '观察中',
-    PRE_L2: '观察中',
-    PRE_L3: '观察中',
+    PRE: '轻度威胁',
+    PRE_L1: '轻度威胁',
+    PRE_L2: '重度威胁',
+    PRE_L3: '重度威胁',
     PENDING: '等待确认',
-    TRIGGERED: '已报警',
-    RESOLVED: '已解决',
-    CANCELED: '已取消',
+    TRIGGERED: '正在报警',
+    RESOLVED: '警报已平息',
+    CANCELED: '已撤防',
   };
 
   // 触发原因 → 人类可读文案
@@ -160,9 +164,15 @@ export class EventViewModelService {
 
     // 解析触发原因（null转为undefined）
     const triggerReason = (raw.triggerReason ?? undefined) as EventViewModel['triggerReason'];
+    
+    // 生成触发原因的人类可读文案
+    const triggerReasonLabel = this.resolveTriggerReasonLabel(triggerReason, summary);
 
     // 生成标题
     const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
+    
+    // 生成处理结果（PRE 状态根据是否已查看）
+    const resolution = this.generateResolution(threatState, raw.status);
 
     // 生成时间文本
     const timeText = this.formatTimeText(raw.edgeUpdatedAt);
@@ -193,6 +203,8 @@ export class EventViewModelService {
       },
       threatState,
       triggerReason: triggerReason ?? 'none',
+      triggerReasonLabel,
+      resolution,
       status: this.mapThreatStateToStatus(threatState),
       entryPointId: entryPointId,  // 兼容字段
       title: headlineText,  // 兼容字段
@@ -241,7 +253,9 @@ export class EventViewModelService {
       const threatState = (raw.threatState ?? 'NONE') as EventViewModel['threatState'];
       const statusLabel = this.statusLabels[threatState] ?? threatState;
       const triggerReason = (raw.triggerReason ?? undefined) as EventViewModel['triggerReason'];
+      const triggerReasonLabel = this.resolveTriggerReasonLabel(triggerReason, summary);
       const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
+      const resolution = this.generateResolution(threatState, raw.status);
       const timeText = this.formatTimeText(raw.edgeUpdatedAt);
       const facts = this.generateFacts(raw, entryPointLabel);
       const nextActions = this.generateNextActions(threatState);
@@ -262,6 +276,8 @@ export class EventViewModelService {
         },
         threatState,
         triggerReason: triggerReason ?? 'none',
+        triggerReasonLabel,
+        resolution,
         status: this.mapThreatStateToStatus(threatState),  // 兼容字段
         entryPointId: entryPointId,  // 兼容字段
         title: headlineText,  // 兼容字段
@@ -319,6 +335,62 @@ export class EventViewModelService {
   }
 
   /**
+   * 解析触发原因为人类可读文案
+   * 用于事件详情页的"触发原因"字段
+   */
+  private resolveTriggerReasonLabel(
+    triggerReason: string | undefined,
+    summary: Record<string, unknown>,
+  ): string {
+    // 优先使用已知的触发原因
+    if (triggerReason && this.triggerReasonLabels[triggerReason]) {
+      return this.triggerReasonLabels[triggerReason];
+    }
+    
+    // 根据 workflowClass 推断
+    const workflowClass = summary.workflowClass as string | undefined;
+    if (workflowClass === 'LOGISTICS') {
+      return '快递到达';
+    }
+    if (workflowClass === 'SECURITY_HEAVY' || workflowClass === 'SUSPICION_LIGHT') {
+      return '检测到活动';
+    }
+    
+    // 默认
+    return '检测到异常';
+  }
+
+  /**
+   * 生成处理结果文案
+   * - 终态返回结果描述
+   * - PRE 状态根据是否已查看返回"已查看"或"待处理"
+   * - 其他非终态返回"待处理"
+   */
+  private generateResolution(
+    threatState: string,
+    status: string | undefined,
+  ): string {
+    switch (threatState) {
+      case 'RESOLVED':
+        return '已确认安全';
+      case 'CANCELED':
+        return '已解除等待';
+      case 'NONE':
+        return '已恢复正常';
+      case 'PRE':
+      case 'PRE_L1':
+      case 'PRE_L2':
+      case 'PRE_L3':
+        // PRE 状态：查看过就算"已查看"
+        return status === 'ACKED' ? '已查看' : '待处理';
+      case 'TRIGGERED':
+      case 'PENDING':
+      default:
+        return '待处理';
+    }
+  }
+
+  /**
    * 生成标题文案
    * 按照 NG_UI_EVENT_LANGUAGE_SPEC_v7.7 §3 模板
    */
@@ -354,15 +426,15 @@ export class EventViewModelService {
       case 'PRE_L3':
         // 根据 triggerReason 细化
         if (triggerReason === 'person_detected') {
-          return `${loc}门外有人活动（观察中）`;
+          return `${loc}门外有人活动（进行中）`;
         }
         if (triggerReason === 'delivery_detected') {
           return `${loc}快递到达`;
         }
         if (triggerReason === 'network_down') {
-          return `${loc}摄像头可能离线（观察中）`;
+          return `${loc}摄像头可能离线（进行中）`;
         }
-        return `${loc}检测到活动（观察中）`;
+        return `${loc}检测到活动（进行中）`;
 
       case 'RESOLVED':
         return `${loc}本次活动已确认安全`;
@@ -370,12 +442,24 @@ export class EventViewModelService {
       case 'CANCELED':
         return `${loc}已解除本次等待确认`;
 
-      default:
+      case 'NONE':
+        // PRE clear 后的 NONE 状态
+        // 有 entryPointId 或 SECURITY 类型说明是安全事件的结束
+        if (summary.entryPointId || 
+            (summary.workflowClass as string) === 'SECURITY_HEAVY' ||
+            (summary.workflowClass as string) === 'SUSPICION_LIGHT') {
+          return `${loc}检测到活动（已正常）`;
+        }
         // LOGISTICS 快递事件
         if ((summary.workflowClass as string) === 'LOGISTICS') {
           return `${loc}快递到达`;
         }
-        return `${loc}安全状态正常`;
+        // 其他 NONE 状态不应该出现在列表中
+        return `${loc}无事件`;
+
+      default:
+        // 未知状态（不应该到达这里）
+        return `${loc}事件`;
     }
   }
 
@@ -543,10 +627,11 @@ export class EventViewModelService {
    * 原始 app.html 依赖此字段判断是否显示操作按钮
    */
   private mapThreatStateToStatus(threatState: string): 'OPEN' | 'ACKED' | 'RESOLVED' {
-    if (threatState === 'RESOLVED' || threatState === 'CANCELED') {
+    // RESOLVED, CANCELED, NONE 都表示事件已结束
+    if (threatState === 'RESOLVED' || threatState === 'CANCELED' || threatState === 'NONE') {
       return 'RESOLVED';
     }
-    // NONE, PRE, PENDING, TRIGGERED 都映射为 OPEN
+    // PRE, PENDING, TRIGGERED 都映射为 OPEN（活跃事件）
     return 'OPEN';
   }
 }

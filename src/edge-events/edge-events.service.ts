@@ -102,14 +102,18 @@ export class EdgeEventsService {
     // ========================================================================
 
     // 转换为 ViewModel 格式
-    const rawEvents = filteredEvents.slice(0, limit).map((ev) => ({
-      eventId: ev.eventId,
-      edgeInstanceId: ev.edgeInstanceId,
-      threatState: ev.threatState,
-      triggerReason: ev.triggerReason,
-      edgeUpdatedAt: ev.edgeUpdatedAt,
-      summaryJson: ev.summaryJson as Record<string, unknown> | undefined,
-    }));
+    const rawEvents = filteredEvents.slice(0, limit).map((ev) => {
+      const summary = ev.summaryJson as Record<string, unknown> | undefined;
+      return {
+        eventId: ev.eventId,
+        edgeInstanceId: ev.edgeInstanceId,
+        threatState: ev.threatState,
+        triggerReason: ev.triggerReason,
+        edgeUpdatedAt: ev.edgeUpdatedAt,
+        summaryJson: summary,
+        status: summary?.appStatus as string | undefined,  // 从 summaryJson 读取 app 状态
+      };
+    });
 
     const items = await this.viewModelService.toViewModelList(rawEvents, circleId);
 
@@ -125,6 +129,7 @@ export class EdgeEventsService {
       return null;
     }
 
+    const summary = ev.summaryJson as Record<string, unknown> | undefined;
     return this.viewModelService.toViewModel(
       {
         eventId: ev.eventId,
@@ -132,7 +137,8 @@ export class EdgeEventsService {
         threatState: ev.threatState,
         triggerReason: ev.triggerReason,
         edgeUpdatedAt: ev.edgeUpdatedAt,
-        summaryJson: ev.summaryJson as Record<string, unknown> | undefined,
+        summaryJson: summary,
+        status: summary?.appStatus as string | undefined,  // 从 summaryJson 读取 app 状态
       },
       circleId,
       { includeDebug: false },
@@ -170,23 +176,47 @@ export class EdgeEventsService {
       return null as any; // Will be handled by controller
     }
 
+    const now = new Date();
+    const currentSummary = (ev.summaryJson as Record<string, unknown>) ?? {};
+    
+    // ========================================================================
+    // ACKED 状态：仅更新 summaryJson 中的 appStatus，不修改 threatState
+    // 用于 PRE 事件的"已查看"标记
+    // ========================================================================
+    if (status === 'ACKED') {
+      const newSummary = { ...currentSummary, appStatus: 'ACKED' };
+      await this.edgeRepo.update(
+        { circleId, eventId },
+        { 
+          summaryJson: newSummary,
+          edgeUpdatedAt: now,
+        }
+      );
+      return {
+        updated: true,
+        eventId,
+        status,
+        updatedAt: now.toISOString(),
+      };
+    }
+
     // ========================================================================
     // [临时补丁 - TODO Phase 5d 移除]
     // 直接修改 threatState，违反 "Edge decides state" 原则
     // 保留原因：提供即时用户反馈，作为命令通道的兜底
     // 风险：Edge 重发事件可能覆盖此修改（当前可接受）
     // ========================================================================
-    const newThreatState = status === 'RESOLVED' ? 'RESOLVED' : 
-                          status === 'ACKED' ? 'PENDING' : ev.threatState;
+    const newThreatState = status === 'RESOLVED' ? 'RESOLVED' : ev.threatState;
     
-    const now = new Date();
     const updated = ev.threatState !== newThreatState;
     
     if (updated) {
+      const newSummary = { ...currentSummary, appStatus: status };
       await this.edgeRepo.update(
         { circleId, eventId },
         { 
           threatState: newThreatState,
+          summaryJson: newSummary,
           edgeUpdatedAt: now,
         }
       );
