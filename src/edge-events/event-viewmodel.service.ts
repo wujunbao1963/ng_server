@@ -23,6 +23,8 @@ export interface EventViewModel {
   edgeInstanceId?: string;
   createdAt: string;
   updatedAt: string;
+  // 兼容字段：原始 app.html 依赖
+  occurredAt: string;
   timeText: string;
   mode: 'home' | 'away' | 'night' | 'disarm';
   modeLabel: string;
@@ -32,6 +34,11 @@ export interface EventViewModel {
   };
   threatState: 'NONE' | 'PRE' | 'PENDING' | 'TRIGGERED' | 'RESOLVED' | 'CANCELED';
   triggerReason?: 'none' | 'entry_delay_expired' | 'glass_break' | 'tamper_verified_by_user' | 'life_safety';
+  // 兼容字段：原始 app.html 依赖此字段判断事件状态
+  status: 'OPEN' | 'ACKED' | 'RESOLVED';
+  // 兼容字段：原始 app.html 依赖
+  entryPointId?: string;
+  title: string;
   statusLabel: string;
   headlineText: string;
   workflowClass?: 'SECURITY_HEAVY' | 'SUSPICION_LIGHT' | 'LOGISTICS' | 'LIFE_SAFETY' | 'NONE';
@@ -176,6 +183,7 @@ export class EventViewModelService {
       edgeInstanceId: raw.edgeInstanceId,
       createdAt: raw.edgeUpdatedAt.toISOString(),
       updatedAt: raw.edgeUpdatedAt.toISOString(),
+      occurredAt: raw.edgeUpdatedAt.toISOString(),  // 兼容字段
       timeText,
       mode,
       modeLabel,
@@ -185,6 +193,9 @@ export class EventViewModelService {
       },
       threatState,
       triggerReason: triggerReason ?? 'none',
+      status: this.mapThreatStateToStatus(threatState),
+      entryPointId: entryPointId,  // 兼容字段
+      title: headlineText,  // 兼容字段
       statusLabel,
       headlineText,
       workflowClass: (summary.workflowClass as EventViewModel['workflowClass']) ?? 'NONE',
@@ -521,5 +532,17 @@ export class EventViewModelService {
       life_safety: 'heart',
     };
     return iconMap[triggerReason] ?? 'info';
+  }
+
+  /**
+   * 兼容映射：threatState → 原始 status 字段
+   * 原始 app.html 依赖此字段判断是否显示操作按钮
+   */
+  private mapThreatStateToStatus(threatState: string): 'OPEN' | 'ACKED' | 'RESOLVED' {
+    if (threatState === 'RESOLVED' || threatState === 'CANCELED') {
+      return 'RESOLVED';
+    }
+    // NONE, PRE, PENDING, TRIGGERED 都映射为 OPEN
+    return 'OPEN';
   }
 }
