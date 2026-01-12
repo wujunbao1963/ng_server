@@ -253,6 +253,7 @@ export class EventViewModelService {
         edgeInstanceId: raw.edgeInstanceId,
         createdAt: raw.edgeUpdatedAt.toISOString(),
         updatedAt: raw.edgeUpdatedAt.toISOString(),
+        occurredAt: raw.edgeUpdatedAt.toISOString(),  // 兼容字段
         timeText,
         mode,
         modeLabel,
@@ -261,6 +262,9 @@ export class EventViewModelService {
         },
         threatState,
         triggerReason: triggerReason ?? 'none',
+        status: this.mapThreatStateToStatus(threatState),  // 兼容字段
+        entryPointId: entryPointId,  // 兼容字段
+        title: headlineText,  // 兼容字段
         statusLabel,
         headlineText,
         workflowClass: (summary.workflowClass as EventViewModel['workflowClass']) ?? 'NONE',

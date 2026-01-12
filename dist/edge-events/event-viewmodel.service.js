@@ -78,6 +78,7 @@ let EventViewModelService = class EventViewModelService {
             edgeInstanceId: raw.edgeInstanceId,
             createdAt: raw.edgeUpdatedAt.toISOString(),
             updatedAt: raw.edgeUpdatedAt.toISOString(),
+            occurredAt: raw.edgeUpdatedAt.toISOString(),
             timeText,
             mode,
             modeLabel,
@@ -87,6 +88,9 @@ let EventViewModelService = class EventViewModelService {
             },
             threatState,
             triggerReason: triggerReason ?? 'none',
+            status: this.mapThreatStateToStatus(threatState),
+            entryPointId: entryPointId,
+            title: headlineText,
             statusLabel,
             headlineText,
             workflowClass: summary.workflowClass ?? 'NONE',
@@ -131,6 +135,7 @@ let EventViewModelService = class EventViewModelService {
                 edgeInstanceId: raw.edgeInstanceId,
                 createdAt: raw.edgeUpdatedAt.toISOString(),
                 updatedAt: raw.edgeUpdatedAt.toISOString(),
+                occurredAt: raw.edgeUpdatedAt.toISOString(),
                 timeText,
                 mode,
                 modeLabel,
@@ -139,6 +144,9 @@ let EventViewModelService = class EventViewModelService {
                 },
                 threatState,
                 triggerReason: triggerReason ?? 'none',
+                status: this.mapThreatStateToStatus(threatState),
+                entryPointId: entryPointId,
+                title: headlineText,
                 statusLabel,
                 headlineText,
                 workflowClass: summary.workflowClass ?? 'NONE',
@@ -334,6 +342,12 @@ let EventViewModelService = class EventViewModelService {
             life_safety: 'heart',
         };
         return iconMap[triggerReason] ?? 'info';
+    }
+    mapThreatStateToStatus(threatState) {
+        if (threatState === 'RESOLVED' || threatState === 'CANCELED') {
+            return 'RESOLVED';
+        }
+        return 'OPEN';
     }
 };
 exports.EventViewModelService = EventViewModelService;

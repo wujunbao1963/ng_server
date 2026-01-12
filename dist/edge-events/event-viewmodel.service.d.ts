@@ -6,6 +6,7 @@ export interface EventViewModel {
     edgeInstanceId?: string;
     createdAt: string;
     updatedAt: string;
+    occurredAt: string;
     timeText: string;
     mode: 'home' | 'away' | 'night' | 'disarm';
     modeLabel: string;
@@ -15,6 +16,9 @@ export interface EventViewModel {
     };
     threatState: 'NONE' | 'PRE' | 'PENDING' | 'TRIGGERED' | 'RESOLVED' | 'CANCELED';
     triggerReason?: 'none' | 'entry_delay_expired' | 'glass_break' | 'tamper_verified_by_user' | 'life_safety';
+    status: 'OPEN' | 'ACKED' | 'RESOLVED';
+    entryPointId?: string;
+    title: string;
     statusLabel: string;
     headlineText: string;
     workflowClass?: 'SECURITY_HEAVY' | 'SUSPICION_LIGHT' | 'LOGISTICS' | 'LIFE_SAFETY' | 'NONE';
@@ -79,5 +83,6 @@ export declare class EventViewModelService {
     private generateExplanations;
     private generateNextActions;
     private getIconKeyForTrigger;
+    private mapThreatStateToStatus;
 }
 export {};
