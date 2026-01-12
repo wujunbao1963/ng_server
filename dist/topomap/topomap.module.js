@@ -22,6 +22,7 @@ exports.TopoMapModule = TopoMapModule = __decorate([
         imports: [typeorm_1.TypeOrmModule.forFeature([ng_topomap_entity_1.NgTopoMap]), device_auth_module_1.DeviceAuthModule, contracts_module_1.ContractsModule],
         controllers: [topomap_controller_1.TopoMapController],
         providers: [topomap_service_1.TopoMapService],
+        exports: [topomap_service_1.TopoMapService],
     })
 ], TopoMapModule);
 //# sourceMappingURL=topomap.module.js.map

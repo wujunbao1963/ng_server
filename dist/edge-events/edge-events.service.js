@@ -25,8 +25,9 @@ const stable_json_1 = require("../common/utils/stable-json");
 const notifications_service_1 = require("../notifications/notifications.service");
 const circles_service_1 = require("../circles/circles.service");
 const edge_commands_service_1 = require("./edge-commands.service");
+const event_viewmodel_service_1 = require("./event-viewmodel.service");
 let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
-    constructor(rawRepo, edgeRepo, auditRepo, dataSource, notificationsService, circlesService, commandsService) {
+    constructor(rawRepo, edgeRepo, auditRepo, dataSource, notificationsService, circlesService, commandsService, viewModelService) {
         this.rawRepo = rawRepo;
         this.edgeRepo = edgeRepo;
         this.auditRepo = auditRepo;
@@ -34,25 +35,40 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         this.notificationsService = notificationsService;
         this.circlesService = circlesService;
         this.commandsService = commandsService;
+        this.viewModelService = viewModelService;
         this.logger = new common_1.Logger(EdgeEventsService_1.name);
     }
     async listEvents(circleId, limit = 50) {
         const events = await this.edgeRepo.find({
             where: { circleId },
             order: { edgeUpdatedAt: 'DESC' },
-            take: limit,
+            take: limit * 2,
         });
-        const items = events.map((ev) => ({
+        const filteredEvents = events.filter((ev) => {
+            const summary = ev.summaryJson;
+            const mode = summary?.mode?.toLowerCase();
+            const workflowClass = summary?.workflowClass;
+            if (mode !== 'home') {
+                return true;
+            }
+            const isStrongSecurityEvent = ev.threatState === 'TRIGGERED' ||
+                ev.triggerReason === 'glass_break';
+            const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
+                ev.triggerReason === 'delivery_detected';
+            if (!isStrongSecurityEvent && !isLogisticsEvent) {
+                this.logger.debug(`listEvents: filtering out Home mode event ${ev.eventId} (threatState=${ev.threatState})`);
+            }
+            return isStrongSecurityEvent || isLogisticsEvent;
+        });
+        const rawEvents = filteredEvents.slice(0, limit).map((ev) => ({
             eventId: ev.eventId,
             edgeInstanceId: ev.edgeInstanceId,
             threatState: ev.threatState,
             triggerReason: ev.triggerReason,
-            occurredAt: ev.edgeUpdatedAt.toISOString(),
-            updatedAt: ev.edgeUpdatedAt.toISOString(),
-            status: this.mapThreatStateToStatus(ev.threatState),
-            title: this.generateTitle(ev),
-            ...(ev.summaryJson && typeof ev.summaryJson === 'object' ? this.extractSummaryFields(ev.summaryJson) : {}),
+            edgeUpdatedAt: ev.edgeUpdatedAt,
+            summaryJson: ev.summaryJson,
         }));
+        const items = await this.viewModelService.toViewModelList(rawEvents, circleId);
         return { items, nextCursor: null };
     }
     async getEvent(circleId, eventId) {
@@ -60,17 +76,14 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         if (!ev) {
             return null;
         }
-        return {
+        return this.viewModelService.toViewModel({
             eventId: ev.eventId,
             edgeInstanceId: ev.edgeInstanceId,
             threatState: ev.threatState,
             triggerReason: ev.triggerReason,
-            occurredAt: ev.edgeUpdatedAt.toISOString(),
-            updatedAt: ev.edgeUpdatedAt.toISOString(),
-            status: this.mapThreatStateToStatus(ev.threatState),
-            title: this.generateTitle(ev),
+            edgeUpdatedAt: ev.edgeUpdatedAt,
             summaryJson: ev.summaryJson,
-        };
+        }, circleId, { includeDebug: false });
     }
     async updateEventStatus(circleId, eventId, status, note, triggeredByUserId) {
         const ev = await this.edgeRepo.findOne({ where: { circleId, eventId } });
@@ -267,12 +280,24 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         const workflowClass = payload.workflowClass;
         const triggerReason = payload.triggerReason;
         const threatState = payload.threatState;
-        this.logger.log(`maybeCreateNotification: eventId=${payload.eventId} workflowClass=${workflowClass} threatState=${threatState}`);
+        const mode = payload.mode;
+        this.logger.log(`maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} threatState=${threatState} triggerReason=${triggerReason}`);
         try {
             const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
             if (!ownerUserId) {
                 this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
                 return;
+            }
+            if (mode?.toLowerCase() === 'home') {
+                const isStrongSecurityEvent = threatState === 'TRIGGERED' ||
+                    triggerReason === 'glass_break';
+                const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
+                    triggerReason === 'delivery_detected';
+                if (!isStrongSecurityEvent && !isLogisticsEvent) {
+                    this.logger.log(`Home mode: skipping notification for threatState=${threatState} triggerReason=${triggerReason} (silent recording)`);
+                    return;
+                }
+                this.logger.log(`Home mode: allowing notification (strongSecurity=${isStrongSecurityEvent}, logistics=${isLogisticsEvent})`);
             }
             if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
                 await this.notificationsService.createParcelNotification({
@@ -321,7 +346,8 @@ exports.EdgeEventsService = EdgeEventsService = EdgeEventsService_1 = __decorate
         typeorm_2.DataSource,
         notifications_service_1.NotificationsService,
         circles_service_1.CirclesService,
-        edge_commands_service_1.EdgeCommandsService])
+        edge_commands_service_1.EdgeCommandsService,
+        event_viewmodel_service_1.EventViewModelService])
 ], EdgeEventsService);
 function sha256Hex(input) {
     return crypto.createHash('sha256').update(input).digest('hex');

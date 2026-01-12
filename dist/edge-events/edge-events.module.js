@@ -13,6 +13,7 @@ const contracts_validator_service_1 = require("../common/contracts/contracts-val
 const device_auth_module_1 = require("../device-auth/device-auth.module");
 const circles_module_1 = require("../circles/circles.module");
 const notifications_module_1 = require("../notifications/notifications.module");
+const topomap_module_1 = require("../topomap/topomap.module");
 const ng_edge_event_entity_1 = require("./ng-edge-event.entity");
 const ng_edge_ingest_audit_entity_1 = require("./ng-edge-ingest-audit.entity");
 const ng_edge_event_summary_raw_entity_1 = require("./ng-edge-event-summary-raw.entity");
@@ -24,6 +25,7 @@ const edge_commands_controller_1 = require("./edge-commands.controller");
 const edge_events_service_1 = require("./edge-events.service");
 const edge_commands_service_1 = require("./edge-commands.service");
 const incident_manifests_service_1 = require("./incident-manifests.service");
+const event_viewmodel_service_1 = require("./event-viewmodel.service");
 const usecases_1 = require("../application/usecases");
 let EdgeEventsModule = class EdgeEventsModule {
 };
@@ -34,6 +36,7 @@ exports.EdgeEventsModule = EdgeEventsModule = __decorate([
             device_auth_module_1.DeviceAuthModule,
             circles_module_1.CirclesModule,
             notifications_module_1.NotificationsModule,
+            topomap_module_1.TopoMapModule,
             typeorm_1.TypeOrmModule.forFeature([
                 ng_edge_event_summary_raw_entity_1.NgEdgeEventSummaryRaw,
                 ng_edge_event_entity_1.NgEdgeEvent,
@@ -48,10 +51,11 @@ exports.EdgeEventsModule = EdgeEventsModule = __decorate([
             edge_events_service_1.EdgeEventsService,
             edge_commands_service_1.EdgeCommandsService,
             incident_manifests_service_1.IncidentManifestsService,
+            event_viewmodel_service_1.EventViewModelService,
             contracts_validator_service_1.ContractsValidatorService,
             usecases_1.IngestEdgeEventUseCase,
         ],
-        exports: [edge_commands_service_1.EdgeCommandsService],
+        exports: [edge_commands_service_1.EdgeCommandsService, event_viewmodel_service_1.EventViewModelService],
     })
 ], EdgeEventsModule);
 //# sourceMappingURL=edge-events.module.js.map

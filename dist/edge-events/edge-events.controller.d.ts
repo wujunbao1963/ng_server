@@ -14,12 +14,12 @@ export declare class EdgeEventsController {
     listEvents(req: {
         user: JwtUser;
     }, circleId: string, limitStr?: string): Promise<{
-        items: any[];
+        items: import("./event-viewmodel.service").EventViewModel[];
         nextCursor: string | null;
     }>;
     getEvent(req: {
         user: JwtUser;
-    }, circleId: string, eventId: string): Promise<any>;
+    }, circleId: string, eventId: string): Promise<import("./event-viewmodel.service").EventViewModel>;
     updateStatus(req: {
         user: JwtUser;
     }, circleId: string, eventId: string, body: {

@@ -5,6 +5,7 @@ import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
 import { EdgeCommandsService } from './edge-commands.service';
+import { EventViewModelService, EventViewModel } from './event-viewmodel.service';
 export type EdgeEventSummaryUpsertV77 = {
     schemaVersion: 'v7.7';
     circleId: string;
@@ -28,13 +29,14 @@ export declare class EdgeEventsService {
     private readonly notificationsService;
     private readonly circlesService;
     private readonly commandsService;
+    private readonly viewModelService;
     private readonly logger;
-    constructor(rawRepo: Repository<NgEdgeEventSummaryRaw>, edgeRepo: Repository<NgEdgeEvent>, auditRepo: Repository<NgEdgeIngestAudit>, dataSource: DataSource, notificationsService: NotificationsService, circlesService: CirclesService, commandsService: EdgeCommandsService);
+    constructor(rawRepo: Repository<NgEdgeEventSummaryRaw>, edgeRepo: Repository<NgEdgeEvent>, auditRepo: Repository<NgEdgeIngestAudit>, dataSource: DataSource, notificationsService: NotificationsService, circlesService: CirclesService, commandsService: EdgeCommandsService, viewModelService: EventViewModelService);
     listEvents(circleId: string, limit?: number): Promise<{
-        items: any[];
+        items: EventViewModel[];
         nextCursor: string | null;
     }>;
-    getEvent(circleId: string, eventId: string): Promise<any>;
+    getEvent(circleId: string, eventId: string): Promise<EventViewModel | null>;
     updateEventStatus(circleId: string, eventId: string, status: 'OPEN' | 'ACKED' | 'RESOLVED', note?: string, triggeredByUserId?: string): Promise<{
         updated: boolean;
         eventId: string;

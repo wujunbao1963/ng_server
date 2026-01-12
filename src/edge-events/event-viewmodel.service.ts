@@ -57,7 +57,7 @@ interface RawEventData {
   eventId: string;
   edgeInstanceId?: string;
   threatState: string;
-  triggerReason?: string;
+  triggerReason?: string | null;
   edgeUpdatedAt: Date;
   summaryJson?: Record<string, unknown>;
   status?: string;
@@ -151,8 +151,8 @@ export class EventViewModelService {
     const threatState = (raw.threatState ?? 'NONE') as EventViewModel['threatState'];
     const statusLabel = this.statusLabels[threatState] ?? threatState;
 
-    // 解析触发原因
-    const triggerReason = raw.triggerReason as EventViewModel['triggerReason'];
+    // 解析触发原因（null转为undefined）
+    const triggerReason = (raw.triggerReason ?? undefined) as EventViewModel['triggerReason'];
 
     // 生成标题
     const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
@@ -229,7 +229,7 @@ export class EventViewModelService {
       const modeLabel = this.modeLabels[mode] ?? mode;
       const threatState = (raw.threatState ?? 'NONE') as EventViewModel['threatState'];
       const statusLabel = this.statusLabels[threatState] ?? threatState;
-      const triggerReason = raw.triggerReason as EventViewModel['triggerReason'];
+      const triggerReason = (raw.triggerReason ?? undefined) as EventViewModel['triggerReason'];
       const headlineText = this.generateHeadline(threatState, triggerReason, entryPointLabel, summary);
       const timeText = this.formatTimeText(raw.edgeUpdatedAt);
       const facts = this.generateFacts(raw, entryPointLabel);
