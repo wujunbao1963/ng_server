@@ -636,21 +636,25 @@ function renderEvents() {
   container.innerHTML = state.events.map(event => {
     const status = event.status || 'OPEN';
     const threatState = event.threatState || event.alarmState || '';
+    const workflowClass = event.workflowClass || '';
+    const isLogistics = workflowClass === 'LOGISTICS';
     const isAlert = threatState === 'TRIGGERED';
     const isResolved = status === 'RESOLVED' || threatState === 'RESOLVED' || threatState === 'CANCELED';
     const isPending = threatState === 'PENDING';
     const isPre = threatState.startsWith('PRE');
-    const statusClass = isAlert ? 'alert' : (isResolved ? 'resolved' : (isPending ? 'pending' : ''));
-    const icon = isAlert ? '🚨' : (isResolved ? '✅' : (isPending ? '⏳' : (isPre ? '👁️' : '⚠️')));
+    
+    // LOGISTICS 用绿色样式和 📦 图标
+    const statusClass = isLogistics ? 'resolved' : (isAlert ? 'alert' : (isResolved ? 'resolved' : (isPending ? 'pending' : '')));
+    const icon = isLogistics ? '📦' : (isAlert ? '🚨' : (isResolved ? '✅' : (isPending ? '⏳' : (isPre ? '👁️' : '⚠️'))));
     
     // 优先使用 ViewModel 字段，回退到原有逻辑
     const timeStr = event.timeText || formatTime(event.occurredAt || event.updatedAt || event.createdAt);
     const zone = event.entryPoint?.label || event.entryPointId || event.zoneId || '入口';
-    const title = event.headlineText || event.title || getStatusLabel(status, threatState);
+    const title = event.headlineText || event.title || getStatusLabel(status, threatState, workflowClass);
     const statusLabel = event.statusLabel || '';
     
-    // 状态徽章（仅活跃状态显示）
-    const showBadge = statusLabel && !isResolved;
+    // 状态徽章（LOGISTICS 不显示威胁徽章）
+    const showBadge = statusLabel && !isResolved && !isLogistics;
     const badgeClass = isAlert ? 'badge-danger' : (isPending ? 'badge-warning' : 'badge-info');
     const badgeHtml = showBadge ? `<span class="badge ${badgeClass}" style="font-size: 11px; padding: 2px 6px;">${statusLabel}</span>` : '';
     
@@ -669,8 +673,13 @@ function renderEvents() {
   }).join('');
 }
 
-function getStatusLabel(status, alarmState) {
-  // 系统状态（状态机状态），不是处理结果
+function getStatusLabel(status, alarmState, workflowClass) {
+  // LOGISTICS 工作流（快递/访客）显示"正常"
+  if (workflowClass === 'LOGISTICS') {
+    return '正常';
+  }
+  
+  // 安全事件的状态标签
   const stateLabels = { 
     'NONE': '正常',
     'PRE': '轻度威胁', 
@@ -754,7 +763,9 @@ async function showEventDetail(eventId) {
   document.getElementById('detailTime').textContent = timeStr;
   
   const status = event.status || 'OPEN';
-  const statusLabel = event.statusLabel || getStatusLabel(status, threatState);
+  const workflowClass = event.workflowClass || '';
+  const isLogistics = workflowClass === 'LOGISTICS';
+  const statusLabel = event.statusLabel || getStatusLabel(status, threatState, workflowClass);
   document.getElementById('detailStatus').textContent = statusLabel;
   
   // 处理结果：始终显示
@@ -767,7 +778,8 @@ async function showEventDetail(eventId) {
   const isAlert = threatState === 'TRIGGERED';
   const isResolved = status === 'RESOLVED' || threatState === 'RESOLVED' || threatState === 'CANCELED' || threatState === 'NONE';
   badge.textContent = statusLabel;
-  badge.className = 'badge ' + (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning'));
+  // LOGISTICS 用绿色徽章
+  badge.className = 'badge ' + (isLogistics ? 'badge-success' : (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning')));
   
   // 渲染 facts（发生情况）
   const factsSection = document.getElementById('factsSection');
