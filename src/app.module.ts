@@ -22,6 +22,10 @@ import { InfraModule } from './infra/infra.module';
 import { OutboxModule } from './common/outbox';
 import { RequestIdInterceptor } from './infra/interceptors/request-id.interceptor';
 
+// Phase 4: Server Sync
+import { LedgerIngestModule } from './ledger-ingest/ledger-ingest.module';
+import { RolesModule } from './roles/roles.module';
+
 @Module({
   imports: [
     // Infrastructure (global - provides ClockPort, PushProviderPort)
@@ -78,6 +82,10 @@ import { RequestIdInterceptor } from './infra/interceptors/request-id.intercepto
     AdminModule,
     EvidenceModule,
     NotificationsModule,
+    
+    // Phase 4: Server Sync
+    LedgerIngestModule,
+    RolesModule,
   ],
   providers: [
     // Global interceptor for request tracking

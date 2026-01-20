@@ -30,6 +30,8 @@ const ng_exception_filter_1 = require("./common/errors/ng-exception.filter");
 const infra_module_1 = require("./infra/infra.module");
 const outbox_1 = require("./common/outbox");
 const request_id_interceptor_1 = require("./infra/interceptors/request-id.interceptor");
+const ledger_ingest_module_1 = require("./ledger-ingest/ledger-ingest.module");
+const roles_module_1 = require("./roles/roles.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -77,6 +79,8 @@ exports.AppModule = AppModule = __decorate([
             admin_module_1.AdminModule,
             evidence_module_1.EvidenceModule,
             notifications_module_1.NotificationsModule,
+            ledger_ingest_module_1.LedgerIngestModule,
+            roles_module_1.RolesModule,
         ],
         providers: [
             { provide: core_1.APP_INTERCEPTOR, useClass: request_id_interceptor_1.RequestIdInterceptor },
