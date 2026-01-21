@@ -120,7 +120,7 @@ export class RahaActionsService {
    * Map Server role to RAHA actorRole
    */
   private mapToActorRole(serverRole: string): string | null {
-    const roleMap: Record<string, string> = {
+    const roleMap: Record<string, string | null> = {
       'owner': 'owner',
       'household': 'caretaker',  // household maps to caretaker
       'caretaker': 'caretaker',
@@ -128,7 +128,7 @@ export class RahaActionsService {
       'guest': null,  // guests cannot execute RAHA
       'witness': null,  // witnesses cannot execute RAHA
     };
-    return roleMap[serverRole.toLowerCase()] || null;
+    return roleMap[serverRole.toLowerCase()] ?? null;
   }
 
   /**
