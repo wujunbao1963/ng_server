@@ -22,9 +22,12 @@ import { InfraModule } from './infra/infra.module';
 import { OutboxModule } from './common/outbox';
 import { RequestIdInterceptor } from './infra/interceptors/request-id.interceptor';
 
-// Phase 4: Server Sync
+// Phase 4: Server Sync (Ledger & Roles)
 import { LedgerIngestModule } from './ledger-ingest/ledger-ingest.module';
 import { RolesModule } from './roles/roles.module';
+
+// Phase 6: RAHA Forwarding
+import { RahaActionsModule } from './raha-actions/raha-actions.module';
 
 @Module({
   imports: [
@@ -83,9 +86,12 @@ import { RolesModule } from './roles/roles.module';
     EvidenceModule,
     NotificationsModule,
     
-    // Phase 4: Server Sync
+    // Phase 4: Server Sync (Ledger & Roles)
     LedgerIngestModule,
     RolesModule,
+    
+    // Phase 6: RAHA Forwarding
+    RahaActionsModule,
   ],
   providers: [
     // Global interceptor for request tracking
