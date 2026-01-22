@@ -8,15 +8,26 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminModule = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
+const admin_controller_1 = require("./admin.controller");
+const admin_service_1 = require("./admin.service");
+const admin_guard_1 = require("./admin.guard");
+const ng_user_entity_1 = require("../auth/ng-user.entity");
+const ng_circle_entity_1 = require("../circles/ng-circle.entity");
+const ng_role_entity_1 = require("../roles/ng-role.entity");
 const evidence_tickets_module_1 = require("../evidence-tickets/evidence-tickets.module");
-const admin_maintenance_controller_1 = require("./admin-maintenance.controller");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
-        imports: [evidence_tickets_module_1.EvidenceTicketsModule],
-        controllers: [admin_maintenance_controller_1.AdminMaintenanceController],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([ng_user_entity_1.NgUser, ng_circle_entity_1.NgCircle, ng_role_entity_1.NgRole]),
+            evidence_tickets_module_1.EvidenceTicketsModule,
+        ],
+        controllers: [admin_controller_1.AdminController],
+        providers: [admin_service_1.AdminService, admin_guard_1.AdminGuard],
+        exports: [admin_service_1.AdminService, admin_guard_1.AdminGuard],
     })
 ], AdminModule);
 //# sourceMappingURL=admin.module.js.map

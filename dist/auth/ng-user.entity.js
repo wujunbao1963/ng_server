@@ -27,6 +27,10 @@ __decorate([
     __metadata("design:type", Object)
 ], NgUser.prototype, "displayName", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: 'is_admin', type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], NgUser.prototype, "isAdmin", void 0);
+__decorate([
     (0, typeorm_1.Column)({ name: 'created_at', type: 'timestamptz', default: () => 'now()' }),
     __metadata("design:type", Date)
 ], NgUser.prototype, "createdAt", void 0);

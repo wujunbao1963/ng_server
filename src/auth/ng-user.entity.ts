@@ -11,6 +11,9 @@ export class NgUser {
   @Column({ name: 'display_name', type: 'text', nullable: true })
   displayName!: string | null;
 
+  @Column({ name: 'is_admin', type: 'boolean', default: false })
+  isAdmin!: boolean;
+
   @Column({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;
 }
