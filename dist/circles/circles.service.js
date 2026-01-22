@@ -58,8 +58,17 @@ let CirclesService = class CirclesService {
         }
         const circles = await this.circlesRepo.find({ where: { id: (0, typeorm_2.In)(circleIds) } });
         const byId = new Map(circles.map((c) => [c.id, c]));
+        const roleMap = new Map(memberships.map((m) => [m.circleId, m.role]));
         const ordered = circleIds.map((id) => byId.get(id)).filter(Boolean);
-        return { circles: ordered.map((c) => ({ id: c.id, name: c.name })), count: ordered.length };
+        return {
+            circles: ordered.map((c) => ({
+                id: c.id,
+                name: c.name,
+                role: roleMap.get(c.id) ?? 'unknown',
+                createdAt: c.createdAt.toISOString(),
+            })),
+            count: ordered.length,
+        };
     }
     async listMembers(requesterUserId, circleId) {
         await this.mustBeMember(requesterUserId, circleId);
@@ -138,6 +147,147 @@ let CirclesService = class CirclesService {
             where: { circleId, role: 'owner' },
         });
         return owner?.userId ?? null;
+    }
+    async getCircleDetail(requesterUserId, circleId) {
+        const membership = await this.mustBeMember(requesterUserId, circleId);
+        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
+        if (!circle) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 404,
+                error: 'Not Found',
+                code: ng_http_error_1.NgErrorCodes.NOT_FOUND,
+                message: 'Circle not found',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        const members = await this.membersRepo.find({ where: { circleId } });
+        const userIds = members.map((m) => m.userId);
+        const users = userIds.length ? await this.usersRepo.find({ where: { id: (0, typeorm_2.In)(userIds) } }) : [];
+        const byId = new Map(users.map((u) => [u.id, u]));
+        const ownerMember = members.find((m) => m.role === 'owner');
+        const ownerUser = ownerMember ? byId.get(ownerMember.userId) : null;
+        return {
+            circle: {
+                id: circle.id,
+                name: circle.name,
+                createdAt: circle.createdAt.toISOString(),
+            },
+            myRole: membership.role,
+            owner: ownerUser
+                ? {
+                    userId: ownerUser.id,
+                    email: ownerUser.email,
+                    displayName: ownerUser.displayName,
+                }
+                : null,
+            members: members.map((m) => ({
+                userId: m.userId,
+                email: byId.get(m.userId)?.email ?? null,
+                displayName: byId.get(m.userId)?.displayName ?? null,
+                role: m.role,
+                joinedAt: m.createdAt.toISOString(),
+            })),
+            memberCount: members.length,
+        };
+    }
+    async updateCircle(requesterUserId, circleId, dto) {
+        await this.mustHaveRole(requesterUserId, circleId, ['owner']);
+        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
+        if (!circle) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 404,
+                error: 'Not Found',
+                code: ng_http_error_1.NgErrorCodes.NOT_FOUND,
+                message: 'Circle not found',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        if (dto.name !== undefined) {
+            circle.name = dto.name;
+        }
+        await this.circlesRepo.save(circle);
+        return {
+            circle: {
+                id: circle.id,
+                name: circle.name,
+                createdAt: circle.createdAt.toISOString(),
+            },
+        };
+    }
+    async deleteCircle(requesterUserId, circleId) {
+        await this.mustHaveRole(requesterUserId, circleId, ['owner']);
+        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
+        if (!circle) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 404,
+                error: 'Not Found',
+                code: ng_http_error_1.NgErrorCodes.NOT_FOUND,
+                message: 'Circle not found',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        await this.membersRepo.delete({ circleId });
+        await this.circlesRepo.delete({ id: circleId });
+        return { deleted: true, circleId };
+    }
+    async leaveCircle(requesterUserId, circleId) {
+        const membership = await this.mustBeMember(requesterUserId, circleId);
+        if (membership.role === 'owner') {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 400,
+                error: 'Bad Request',
+                code: ng_http_error_1.NgErrorCodes.VALIDATION_ERROR,
+                message: 'Owner cannot leave circle. Transfer ownership first or delete the circle.',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        await this.membersRepo.delete({ circleId, userId: requesterUserId });
+        return { left: true, circleId };
+    }
+    async transferOwnership(requesterUserId, circleId, newOwnerUserId) {
+        await this.mustHaveRole(requesterUserId, circleId, ['owner']);
+        const newOwnerMembership = await this.membersRepo.findOne({
+            where: { circleId, userId: newOwnerUserId },
+        });
+        if (!newOwnerMembership) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 400,
+                error: 'Bad Request',
+                code: ng_http_error_1.NgErrorCodes.VALIDATION_ERROR,
+                message: 'New owner must be a member of the circle',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        if (newOwnerUserId === requesterUserId) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 400,
+                error: 'Bad Request',
+                code: ng_http_error_1.NgErrorCodes.VALIDATION_ERROR,
+                message: 'Cannot transfer ownership to yourself',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        const currentOwnerMembership = await this.membersRepo.findOne({
+            where: { circleId, userId: requesterUserId },
+        });
+        if (currentOwnerMembership) {
+            currentOwnerMembership.role = 'household';
+            await this.membersRepo.save(currentOwnerMembership);
+        }
+        newOwnerMembership.role = 'owner';
+        await this.membersRepo.save(newOwnerMembership);
+        return {
+            transferred: true,
+            circleId,
+            previousOwner: requesterUserId,
+            newOwner: newOwnerUserId,
+        };
     }
 };
 exports.CirclesService = CirclesService;

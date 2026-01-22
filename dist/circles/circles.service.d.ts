@@ -16,6 +16,7 @@ export declare class CirclesService {
         circles: Array<{
             id: string;
             name: string;
+            role: string;
         }>;
         count: number;
     }>;
@@ -43,4 +44,48 @@ export declare class CirclesService {
     mustBeMember(userId: string, circleId: string): Promise<NgCircleMember>;
     mustHaveRole(userId: string, circleId: string, allowed: string[]): Promise<NgCircleMember>;
     getCircleOwner(circleId: string): Promise<string | null>;
+    getCircleDetail(requesterUserId: string, circleId: string): Promise<{
+        circle: {
+            id: string;
+            name: string;
+            createdAt: string;
+        };
+        myRole: string;
+        owner: {
+            userId: string;
+            email: string;
+            displayName: string | null;
+        } | null;
+        members: {
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            joinedAt: string;
+        }[];
+        memberCount: number;
+    }>;
+    updateCircle(requesterUserId: string, circleId: string, dto: {
+        name?: string;
+    }): Promise<{
+        circle: {
+            id: string;
+            name: string;
+            createdAt: string;
+        };
+    }>;
+    deleteCircle(requesterUserId: string, circleId: string): Promise<{
+        deleted: boolean;
+        circleId: string;
+    }>;
+    leaveCircle(requesterUserId: string, circleId: string): Promise<{
+        left: boolean;
+        circleId: string;
+    }>;
+    transferOwnership(requesterUserId: string, circleId: string, newOwnerUserId: string): Promise<{
+        transferred: boolean;
+        circleId: string;
+        previousOwner: string;
+        newOwner: string;
+    }>;
 }

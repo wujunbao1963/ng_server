@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const create_circle_dto_1 = require("./dto/create-circle.dto");
 const add_circle_member_dto_1 = require("./dto/add-circle-member.dto");
+const update_circle_dto_1 = require("./dto/update-circle.dto");
 const circles_service_1 = require("./circles.service");
 let CirclesController = class CirclesController {
     constructor(circlesService) {
@@ -28,6 +29,21 @@ let CirclesController = class CirclesController {
     async listMyCircles(req) {
         return this.circlesService.listMyCircles(req.user.userId);
     }
+    async getCircle(req, circleId) {
+        return this.circlesService.getCircleDetail(req.user.userId, circleId);
+    }
+    async updateCircle(req, circleId, dto) {
+        return this.circlesService.updateCircle(req.user.userId, circleId, dto);
+    }
+    async deleteCircle(req, circleId) {
+        return this.circlesService.deleteCircle(req.user.userId, circleId);
+    }
+    async leaveCircle(req, circleId) {
+        return this.circlesService.leaveCircle(req.user.userId, circleId);
+    }
+    async transferOwnership(req, circleId, dto) {
+        return this.circlesService.transferOwnership(req.user.userId, circleId, dto.newOwnerUserId);
+    }
     async listMembers(req, circleId) {
         return this.circlesService.listMembers(req.user.userId, circleId);
     }
@@ -38,7 +54,6 @@ let CirclesController = class CirclesController {
 exports.CirclesController = CirclesController;
 __decorate([
     (0, common_1.Post)(),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -47,26 +62,65 @@ __decorate([
 ], CirclesController.prototype, "createCircle", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "listMyCircles", null);
 __decorate([
-    (0, common_1.Get)(':circleId/members'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)(':circleId'),
     __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('circleId')),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "getCircle", null);
+__decorate([
+    (0, common_1.Patch)(':circleId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_circle_dto_1.UpdateCircleDto]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "updateCircle", null);
+__decorate([
+    (0, common_1.Delete)(':circleId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "deleteCircle", null);
+__decorate([
+    (0, common_1.Post)(':circleId/leave'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "leaveCircle", null);
+__decorate([
+    (0, common_1.Post)(':circleId/transfer'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "transferOwnership", null);
+__decorate([
+    (0, common_1.Get)(':circleId/members'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "listMembers", null);
 __decorate([
     (0, common_1.Post)(':circleId/members'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('circleId')),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, add_circle_member_dto_1.AddCircleMemberDto]),
@@ -74,6 +128,7 @@ __decorate([
 ], CirclesController.prototype, "addMember", null);
 exports.CirclesController = CirclesController = __decorate([
     (0, common_1.Controller)('api/circles'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:paramtypes", [circles_service_1.CirclesService])
 ], CirclesController);
 //# sourceMappingURL=circles.controller.js.map
