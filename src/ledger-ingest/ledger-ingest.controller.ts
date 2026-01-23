@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -118,16 +119,22 @@ export class LedgerIngestController {
    * Query ledger entries for a circle.
    * 
    * GET /api/circles/:circleId/ledger
+   * 
+   * Security: Requires user to be a member of the circle.
    */
   @Get('/api/circles/:circleId/ledger')
   @UseGuards(AuthGuard('jwt'))
   async queryLedger(
+    @Req() req: { user: JwtUser },
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
     @Query('eventId') eventId?: string,
     @Query('entryType') entryType?: string,
     @Query('edgeInstanceId') edgeInstanceId?: string,
     @Query('limit') limitStr?: string,
   ) {
+    // Security check: user must be a member of the circle
+    await this.circles.mustBeMember(req.user.userId, circleId);
+    
     const limit = Math.min(parseInt(limitStr ?? '50', 10) || 50, 200);
 
     if (eventId) {
