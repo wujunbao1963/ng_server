@@ -11,6 +11,7 @@ import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
 import { NgIncidentManifest } from './ng-incident-manifest.entity';
 import { NgIncidentManifestRaw } from './ng-incident-manifest-raw.entity';
 import { NgEdgeCommand } from './ng-edge-command.entity';
+import { NgLedgerEntry } from '../ledger-ingest/ng-ledger-entry.entity';
 import { EdgeEventsController } from './edge-events.controller';
 import { EdgeCommandsController } from './edge-commands.controller';
 import { EdgeEventsService } from './edge-events.service';
@@ -32,6 +33,7 @@ import { IngestEdgeEventUseCase } from '../application/usecases';
       NgIncidentManifestRaw,
       NgIncidentManifest,
       NgEdgeCommand,
+      NgLedgerEntry,
     ]),
   ],
   controllers: [EdgeEventsController, EdgeCommandsController],

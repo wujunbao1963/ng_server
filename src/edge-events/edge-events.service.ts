@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { NgEdgeEvent } from './ng-edge-event.entity';
 import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
 import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
+import { NgLedgerEntry } from '../ledger-ingest/ng-ledger-entry.entity';
 import { stableStringify } from '../common/utils/stable-json';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
@@ -39,6 +40,8 @@ export class EdgeEventsService {
     private readonly edgeRepo: Repository<NgEdgeEvent>,
     @InjectRepository(NgEdgeIngestAudit)
     private readonly auditRepo: Repository<NgEdgeIngestAudit>,
+    @InjectRepository(NgLedgerEntry)
+    private readonly ledgerRepo: Repository<NgLedgerEntry>,
     private readonly dataSource: DataSource,
     private readonly notificationsService: NotificationsService,
     private readonly circlesService: CirclesService,
@@ -426,12 +429,75 @@ export class EdgeEventsService {
       return { applied: true, reason: 'applied' };
     });
 
-    // 事件应用成功后，检查是否需要触发通知
+    // 事件应用成功后，检查是否需要触发通知和写入 Ledger
     if (result.applied) {
       await this.maybeCreateNotification(payload);
+      
+      // ========================================================================
+      // v8: 同步写入 Ledger（审计记录）
+      // ========================================================================
+      await this.writeLedgerEntry(payload, incomingSeq);
     }
 
     return result;
+  }
+
+  /**
+   * 写入 Ledger 条目（审计记录）
+   * 
+   * 根据 NG_INTERFACE_CONTRACT_MASTER_v8 §B.3.1 FSMTransition
+   * 当 EventSummary 被应用时，同步写入一条 Ledger 记录
+   */
+  private async writeLedgerEntry(
+    payload: EdgeEventSummaryUpsertV77,
+    sequence: number,
+  ): Promise<void> {
+    try {
+      const idempotencyKey = `${payload.edgeInstanceId}:${payload.eventId}:summary:${sequence}`;
+      
+      // 检查是否已存在（幂等）
+      const existing = await this.ledgerRepo.findOne({
+        where: { idempotencyKey },
+      });
+      if (existing) {
+        this.logger.debug(`Ledger entry already exists: ${idempotencyKey}`);
+        return;
+      }
+
+      const entry = this.ledgerRepo.create({
+        id: `${payload.edgeInstanceId}:${sequence}`,
+        edgeInstanceId: payload.edgeInstanceId,
+        circleId: payload.circleId,
+        ledgerSeq: sequence,
+        entryType: 'FSM_TRANSITION',
+        eventId: payload.eventId,
+        actorId: null,
+        actorRole: null,
+        deviceTime: new Date(payload.updatedAt),
+        monoTime: null,
+        timeQuality: 'SYNCED',
+        payload: {
+          fromState: null,  // Edge 未提供
+          toState: payload.threatState,
+          mode: (payload as any).mode ?? null,
+          reason: payload.triggerReason ?? 'none',
+          entryPointId: (payload as any).entryPointId ?? null,
+          workflowClass: (payload as any).workflowClass ?? null,
+        },
+        contractVersion: 'ng.edge.server/8.0',
+        edgeSpecVersion: payload.schemaVersion,
+        idempotencyKey,
+      });
+
+      await this.ledgerRepo.save(entry);
+      this.logger.log(`Ledger entry created: ${idempotencyKey}`);
+    } catch (error) {
+      // Ledger 写入失败不应影响主流程
+      this.logger.error(
+        `Failed to write ledger entry for ${payload.eventId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   /**
