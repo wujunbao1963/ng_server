@@ -1010,25 +1010,8 @@ async function markEventAsViewed(eventId) {
 // =============================================================================
 
 function silenceSiren() {
-  // 调用 Edge API 静音警报
-  fetch(`${EDGE_URL}/api/pipeline/silence`, { method: 'POST' })
-    .then(res => {
-      if (res.ok) {
-        state.sirenActive = false;
-        updateModeUI();
-        showToast('🔇 警报已静音');
-        // 刷新事件状态
-        if (state.currentEvent) {
-          loadEvents();
-        }
-      } else {
-        res.json().then(data => showToast('静音失败: ' + (data.detail || '未知错误')));
-      }
-    })
-    .catch(e => {
-      console.error('Silence siren error:', e);
-      showToast('静音失败: ' + e.message);
-    });
+  // TODO: 实现静音功能 - 需要调用 Edge API
+  showToast('静音功能开发中');
 }
 
 function requestHelp() {
