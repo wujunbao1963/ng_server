@@ -884,19 +884,25 @@ async function testNtfyPush() {
   }
   
   try {
+    // 使用 JSON body 来支持 Unicode 字符
     const res = await fetch(`https://ntfy.sh/${topic}`, {
       method: 'POST',
-      headers: { 'Title': '🛡️ NeighborGuard 测试', 'Priority': 'default' },
-      body: '这是一条测试通知。如果你收到了，说明推送设置成功！'
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'NeighborGuard Test',
+        message: '这是一条测试通知。如果你收到了，说明推送设置成功！',
+        priority: 3,
+        tags: ['white_check_mark', 'shield']
+      })
     });
     
     if (res.ok) {
-      showNtfyStatus('✅ 测试通知已发送，检查手机', 'success');
+      showNtfyStatus('测试通知已发送，检查手机', 'success');
     } else {
-      showNtfyStatus(`❌ 发送失败: ${res.status}`, 'error');
+      showNtfyStatus(`发送失败: ${res.status}`, 'error');
     }
   } catch (e) {
-    showNtfyStatus(`❌ 发送失败: ${e.message}`, 'error');
+    showNtfyStatus(`发送失败: ${e.message}`, 'error');
   }
 }
 
@@ -986,41 +992,41 @@ async function sendNtfyNotification(incident) {
   const topic = localStorage.getItem('ntfyTopic');
   if (!topic) return;
   
-  const loc = incident.entry_point_name || incident.entry_point_id || '未知';
+  const loc = incident.entry_point_name || incident.entry_point_id || 'Unknown';
   const ts = incident.threat_state || 'none';
   
-  let title, body, priority;
+  let title, message, priority, tags;
   if (ts === 'triggered') {
-    title = '🚨 安全警报触发！';
-    body = `位置: ${loc}\n原因: ${incident.trigger_reason || '未知'}`;
-    priority = 'urgent';
+    title = 'ALERT: Security Triggered!';
+    message = `Location: ${loc}\nReason: ${incident.trigger_reason || 'Unknown'}`;
+    priority = 5;  // urgent
+    tags = ['rotating_light', 'warning'];
   } else if (ts === 'pending') {
-    title = '⏳ 入口延时';
-    body = `位置: ${loc}\n请在延时结束前处理`;
-    priority = 'high';
+    title = 'Entry Delay';
+    message = `Location: ${loc}\nPlease disarm before timeout`;
+    priority = 4;  // high
+    tags = ['hourglass', 'door'];
   } else if (ts.startsWith('pre')) {
-    title = '👁️ 检测到活动';
-    body = `位置: ${loc}`;
-    priority = 'default';
+    title = 'Activity Detected';
+    message = `Location: ${loc}`;
+    priority = 3;  // default
+    tags = ['eyes', 'house'];
   } else {
-    title = '📋 新事件';
-    body = `位置: ${loc}`;
-    priority = 'low';
+    title = 'New Event';
+    message = `Location: ${loc}`;
+    priority = 2;  // low
+    tags = ['clipboard', 'house'];
   }
   
   try {
     await fetch(`https://ntfy.sh/${topic}`, {
       method: 'POST',
-      headers: { 
-        'Title': title, 
-        'Priority': priority,
-        'Tags': ts === 'triggered' ? 'rotating_light' : 'house'
-      },
-      body: body
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, title, message, priority, tags })
     });
-    console.log('[ntfy] 通知已发送');
+    console.log('[ntfy] Notification sent');
   } catch (e) {
-    console.error('[ntfy] 发送失败:', e);
+    console.error('[ntfy] Send failed:', e);
   }
 }
 
