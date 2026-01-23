@@ -147,76 +147,6 @@
       50% { opacity: 0.5; }
     }
     
-    /* 入口点状态区域 */
-    .entry-points-status {
-      background: white;
-      border-radius: var(--radius);
-      margin-bottom: 16px;
-      overflow: hidden;
-    }
-    .entry-points-header {
-      padding: 12px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--gray-700);
-      border-bottom: 1px solid var(--gray-200);
-    }
-    .entry-point-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--gray-100);
-    }
-    .entry-point-item:last-child { border-bottom: none; }
-    .entry-point-name {
-      font-size: 14px;
-      color: var(--gray-700);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .entry-point-name .ep-icon { font-size: 16px; }
-    .entry-point-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .threat-badge {
-      font-size: 12px;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-weight: 500;
-    }
-    .threat-badge.none { background: var(--success-bg); color: var(--success); }
-    .threat-badge.pre { background: #fff3cd; color: #856404; }
-    .threat-badge.pending { background: var(--warning-bg); color: var(--warning); }
-    .threat-badge.triggered { background: var(--danger-bg); color: var(--danger); animation: blink 1s infinite; }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-    .entry-delay-countdown {
-      font-size: 12px;
-      color: var(--warning);
-      font-weight: 600;
-    }
-    
-    /* 解除警报按钮 */
-    .resolve-btn {
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: 500;
-      color: white;
-      background: var(--danger);
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-left: 8px;
-    }
-    .resolve-btn:hover { background: #b91c1c; }
-    .resolve-btn:active { transform: scale(0.95); }
-    
     .events-list { display: flex; flex-direction: column; gap: 12px; }
     
     .event-card {
@@ -298,6 +228,17 @@
     .fact-item, .explanation-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; background: var(--gray-50); border-radius: 8px; font-size: 14px; }
     .fact-item .fact-icon { font-size: 16px; flex-shrink: 0; }
     .explanation-item { background: #f0f9ff; border-left: 3px solid var(--primary); }
+    
+    /* Timeline 样式 */
+    .timeline-list { display: flex; flex-direction: column; gap: 0; }
+    .timeline-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+    .timeline-content { flex: 1; min-width: 0; }
+    .timeline-title { font-size: 14px; font-weight: 500; color: var(--gray-800); }
+    .timeline-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+    .timeline-time { font-size: 11px; color: var(--gray-400); flex-shrink: 0; }
+    
     .evidence-icon { font-size: 24px; }
     .evidence-info { flex: 1; }
     .evidence-name { font-weight: 500; font-size: 14px; }
@@ -560,21 +501,6 @@
         <span style="margin-left: auto;" id="lastUpdate">--</span>
       </div>
       
-      <!-- 入口点状态区域 -->
-      <div class="entry-points-status" id="entryPointsStatus">
-        <div class="entry-points-header" onclick="toggleDebugPanel()" style="cursor: pointer;">
-          🚪 入口点状态 <span style="font-size: 10px; color: var(--gray-400);">(点击显示调试)</span>
-        </div>
-        <div id="entryPointsList">
-          <div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">加载中...</div>
-        </div>
-        <!-- 调试面板 -->
-        <div id="debugPanel" style="display: none; padding: 12px; background: #1a1a2e; border-top: 1px solid #333; font-family: monospace; font-size: 11px; color: #0f0; max-height: 200px; overflow-y: auto;">
-          <div style="margin-bottom: 8px; color: #ff0;">🔧 调试信息 (点击标题关闭)</div>
-          <div id="debugLog"></div>
-        </div>
-      </div>
-      
       <div id="eventsList" class="events-list">
         <div class="loading"><div class="spinner"></div></div>
       </div>
@@ -591,6 +517,7 @@
     </div>
     
     <div class="detail-container">
+      <!-- 媒体预览区：缩略图/截图显示在顶部 -->
       <div class="detail-media" id="detailMedia">
         <span class="placeholder">加载中...</span>
       </div>
@@ -606,6 +533,12 @@
           <div class="detail-row" id="detailResolutionRow"><span class="detail-label">处理结果</span><span class="detail-value" id="detailResolution">-</span></div>
         </div>
         
+        <!-- 发生情况 (Timeline) -->
+        <div class="detail-section" id="timelineSection" style="display: none;">
+          <h3>发生情况</h3>
+          <div id="timelineList" class="timeline-list"></div>
+        </div>
+        
         <div class="detail-section" id="factsSection" style="display: none;">
           <h3>发生情况</h3>
           <div id="factsList" class="facts-list"></div>
@@ -616,6 +549,7 @@
           <div id="explanationsList" class="explanations-list"></div>
         </div>
         
+        <!-- 证据文件列表：显示在底部 -->
         <div class="detail-section">
           <h3>证据文件</h3>
           <div id="evidenceList" class="evidence-list">
@@ -1121,9 +1055,7 @@ async function showEventDetail(eventId) {
   const needsAck = isPreState && currentStatus !== 'ACKED' && currentStatus !== 'RESOLVED';
   
   if (needsAck) {
-    // 异步标记为已查看，不阻塞 UI
     markEventAsViewed(eventId).then(() => {
-      // 更新本地状态
       event.status = 'ACKED';
       event.resolution = '已查看';
       document.getElementById('detailResolution').textContent = '已查看';
@@ -1132,7 +1064,6 @@ async function showEventDetail(eventId) {
   
   // 使用 ViewModel 字段，回退到原有字段
   const location = event.entryPoint?.label || event.entryPointId || event.zoneId || '入口';
-  // 触发原因：使用 triggerReasonLabel（人类可读文案），而不是 headlineText（标题）
   const reason = event.triggerReasonLabel || getTriggerReasonLabel(event.triggerReason) || '检测到活动';
   const timeStr = event.occurredAt ? new Date(event.occurredAt).toLocaleString('zh-CN') : '-';
   
@@ -1147,45 +1078,27 @@ async function showEventDetail(eventId) {
   const statusLabel = event.statusLabel || getStatusLabel(status, threatState, workflowClass);
   document.getElementById('detailStatus').textContent = statusLabel;
   
-  // 处理结果：始终显示
+  // 处理结果
   const resolutionRow = document.getElementById('detailResolutionRow');
   const resolutionValue = document.getElementById('detailResolution');
   resolutionRow.style.display = 'flex';
-  resolutionValue.textContent = event.resolution || '待处理';
+  
+  // 本地化处理结果
+  const resolutionMap = { 'canceled': '已撤防', 'resolved': '已解决', 'safe': '确认安全' };
+  const resolutionText = event.resolution ? (resolutionMap[event.resolution.toLowerCase()] || event.resolution) : '待处理';
+  resolutionValue.textContent = resolutionText;
   
   const badge = document.getElementById('detailBadge');
   const isAlert = threatState === 'TRIGGERED';
   const isResolved = status === 'RESOLVED' || threatState === 'RESOLVED' || threatState === 'CANCELED' || threatState === 'NONE';
   badge.textContent = statusLabel;
-  // LOGISTICS 用绿色徽章
   badge.className = 'badge ' + (isLogistics ? 'badge-success' : (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning')));
   
-  // 渲染 facts（发生情况）
-  const factsSection = document.getElementById('factsSection');
-  const factsList = document.getElementById('factsList');
-  if (event.facts && event.facts.length > 0) {
-    factsSection.style.display = 'block';
-    factsList.innerHTML = event.facts.map(f => {
-      const icon = getFactIcon(f.iconKey);
-      return `<div class="fact-item"><span class="fact-icon">${icon}</span><span>${f.text}</span></div>`;
-    }).join('');
-  } else {
-    factsSection.style.display = 'none';
-  }
+  // 隐藏 facts 和 explanations（这些字段主要来自 Server ViewModel）
+  document.getElementById('factsSection').style.display = 'none';
+  document.getElementById('explanationsSection').style.display = 'none';
   
-  // 渲染 explanations（系统依据）
-  const explanationsSection = document.getElementById('explanationsSection');
-  const explanationsList = document.getElementById('explanationsList');
-  if (event.explanations && event.explanations.length > 0) {
-    explanationsSection.style.display = 'block';
-    explanationsList.innerHTML = event.explanations.map(e => 
-      `<div class="explanation-item">${e.text}</div>`
-    ).join('');
-  } else {
-    explanationsSection.style.display = 'none';
-  }
-  
-  // 动态渲染操作栏（基于 nextActions）
+  // 动态渲染操作栏
   renderActionBar(event.nextActions, status);
   
   document.getElementById('detailMedia').innerHTML = '<span class="placeholder">加载中...</span>';
@@ -1193,16 +1106,78 @@ async function showEventDetail(eventId) {
   
   showPage('detail');
   
+  // 同时加载 timeline 和证据
   try {
-    // Edge-First: 从 Edge 获取证据 manifest
-    const manifest = await fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/evidence`).then(r => r.json());
+    // 1. 加载 timeline
+    const timelinePromise = fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/timeline`)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);
+    
+    // 2. 加载证据
+    const evidencePromise = fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/evidence`)
+      .then(r => r.ok ? r.json() : { items: [] })
+      .catch(() => ({ items: [] }));
+    
+    const [timeline, manifest] = await Promise.all([timelinePromise, evidencePromise]);
+    
+    // 渲染 timeline
+    if (timeline && timeline.events && timeline.events.length > 0) {
+      renderTimeline(timeline.events);
+    }
+    
+    // 渲染证据
     state.currentManifest = manifest;
     renderEvidence(manifest);
+    
   } catch (e) {
-    console.error('Load manifest error:', e);
+    console.error('Load detail error:', e);
     document.getElementById('evidenceList').innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
     document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
   }
+}
+
+// 渲染 Timeline
+function renderTimeline(events) {
+  const section = document.getElementById('timelineSection');
+  const list = document.getElementById('timelineList');
+  
+  if (!events || events.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  // Timeline 事件图标
+  const icons = {
+    'FSM_TRANSITION': '🔄',
+    'SIGNAL': '📡',
+    'DOOR_OPEN': '🚪',
+    'DOOR_CLOSE': '🚪',
+    'PERSON_DETECTED': '👤',
+    'DISARM': '🔓',
+    'MODE_CHANGE': '🛡️',
+    'RESOLVE': '✅',
+    'CANCEL': '❌',
+  };
+  
+  list.innerHTML = events.map(e => {
+    const icon = icons[e.event_type] || '•';
+    const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('zh-CN') : '';
+    const title = e.title || e.event_type;
+    const desc = e.description || '';
+    
+    return `
+      <div class="timeline-item">
+        <span class="timeline-icon">${icon}</span>
+        <div class="timeline-content">
+          <div class="timeline-title">${title}</div>
+          ${desc ? `<div class="timeline-desc">${desc}</div>` : ''}
+        </div>
+        <span class="timeline-time">${time}</span>
+      </div>
+    `;
+  }).join('');
 }
 
 // 辅助函数：获取 fact 图标
@@ -1263,31 +1238,107 @@ function renderActionBar(nextActions, status) {
 }
 
 async function renderEvidence(manifest) {
-  const items = manifest.items || manifest.manifest?.items || [];
+  const items = manifest.items || [];
   const evidenceList = document.getElementById('evidenceList');
+  const mediaContainer = document.getElementById('detailMedia');
   
-  // 过滤掉缩略图，只显示主要证据
-  const mainItems = items.filter(item => (item.item_type || item.type) !== 'thumbnail');
-  
-  if (mainItems.length === 0) {
+  if (items.length === 0) {
     evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
-    document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
+    mediaContainer.innerHTML = '<span class="placeholder">暂无媒体</span>';
     return;
   }
   
-  evidenceList.innerHTML = mainItems.map((item, idx) => {
-    const itemType = item.item_type || item.type || item.kind;
+  // 分类证据
+  const thumbnails = items.filter(i => (i.item_type || i.type) === 'thumbnail');
+  const snapshots = items.filter(i => (i.item_type || i.type) === 'snapshot');
+  const clips = items.filter(i => (i.item_type || i.type) === 'clip');
+  
+  // 1. 顶部媒体区：优先显示缩略图，否则显示第一张截图
+  const previewItem = thumbnails[0] || snapshots[0];
+  if (previewItem) {
+    const previewKey = previewItem.evidence_key || previewItem.evidenceKey;
+    const previewUrl = `${EDGE_RUNTIME_URL}/api/evidence/${previewKey}`;
+    mediaContainer.innerHTML = `
+      <img src="${previewUrl}" alt="证据图片" 
+           style="max-width: 100%; max-height: 100%; object-fit: contain;"
+           onerror="this.parentNode.innerHTML='<span class=\\'placeholder\\'>图片加载失败</span>'">
+    `;
+    
+    // 如果有多张图片，添加导航点
+    const allImages = [...thumbnails, ...snapshots];
+    if (allImages.length > 1) {
+      const dots = allImages.map((_, i) => 
+        `<span class="media-dot ${i === 0 ? 'active' : ''}" onclick="showPreviewImage(${i})"></span>`
+      ).join('');
+      mediaContainer.innerHTML += `<div class="media-nav">${dots}</div>`;
+    }
+  } else if (clips.length > 0) {
+    // 没有图片，显示第一个视频
+    const clipKey = clips[0].evidence_key || clips[0].evidenceKey;
+    const clipUrl = `${EDGE_RUNTIME_URL}/api/evidence/${clipKey}`;
+    mediaContainer.innerHTML = `
+      <video controls playsinline style="max-width: 100%; max-height: 100%;">
+        <source src="${clipUrl}" type="video/mp4">
+      </video>
+    `;
+  } else {
+    mediaContainer.innerHTML = '<span class="placeholder">暂无媒体</span>';
+  }
+  
+  // 2. 底部证据列表：显示截图和视频
+  const displayItems = [...snapshots, ...clips];
+  
+  // 保存到 state 供 playEvidence 使用
+  state.currentManifest = { ...manifest, items: displayItems };
+  
+  if (displayItems.length === 0) {
+    evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
+    return;
+  }
+  
+  evidenceList.innerHTML = displayItems.map((item, idx) => {
+    const itemType = item.item_type || item.type;
     const isVideo = itemType === 'clip';
     const icon = isVideo ? '🎬' : '📸';
     const name = isVideo ? '视频片段' : '截图';
-    const size = item.size_bytes ? formatSize(item.size_bytes) : (item.sizeBytesApprox ? formatSize(item.sizeBytesApprox) : '-');
-    return `<div class="evidence-item" onclick="playEvidence(${idx})"><span class="evidence-icon">${icon}</span><div class="evidence-info"><div class="evidence-name">${name}</div><div class="evidence-size">${size}</div></div><span style="color: var(--gray-400);">▶</span></div>`;
+    const size = item.size_bytes ? formatSize(item.size_bytes) : '-';
+    
+    return `
+      <div class="evidence-item" onclick="playEvidence(${idx})">
+        <span class="evidence-icon">${icon}</span>
+        <div class="evidence-info">
+          <div class="evidence-name">${name}</div>
+          <div class="evidence-size">${size}</div>
+        </div>
+        <span style="color: var(--gray-400);">▶</span>
+      </div>
+    `;
   }).join('');
+}
+
+// 切换预览图片
+function showPreviewImage(idx) {
+  const items = state.currentManifest?.items || [];
+  const thumbnails = items.filter(i => (i.item_type || i.type) === 'thumbnail');
+  const snapshots = items.filter(i => (i.item_type || i.type) === 'snapshot');
+  const allImages = [...thumbnails, ...snapshots];
   
-  // 更新 state.currentManifest 以过滤后的数据
-  state.currentManifest = { ...manifest, items: mainItems };
+  if (idx >= allImages.length) return;
   
-  await playEvidence(0);
+  const item = allImages[idx];
+  const key = item.evidence_key || item.evidenceKey;
+  const url = `${EDGE_RUNTIME_URL}/api/evidence/${key}`;
+  
+  const mediaContainer = document.getElementById('detailMedia');
+  const img = mediaContainer.querySelector('img');
+  if (img) {
+    img.src = url;
+  }
+  
+  // 更新导航点
+  mediaContainer.querySelectorAll('.media-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === idx);
+  });
 }
 
 async function playEvidence(idx) {
@@ -1554,37 +1605,17 @@ function stopLiveView() {
 
 async function loadModeStatus() {
   const statusEl = document.getElementById('modeStatus');
-  const epListEl = document.getElementById('entryPointsList');
-  
-  // PWA 检测
-  const isPWA = isStandalone();
-  const debugInfo = {
-    isPWA: isPWA,
-    userAgent: navigator.userAgent.slice(0, 50),
-    url: window.location.href.slice(0, 50),
-    time: new Date().toLocaleTimeString()
-  };
-  console.log('[Status] Debug:', JSON.stringify(debugInfo));
-  
-  // 显示加载状态
-  if (epListEl) {
-    epListEl.innerHTML = `<div class="entry-point-item" style="color: var(--gray-500); font-size: 13px;">加载中... ${isPWA ? '(PWA)' : '(Safari)'}</div>`;
-  }
   
   try {
     console.log('[Status] Fetching:', `${EDGE_RUNTIME_URL}/api/pipeline/status`);
-    const startTime = Date.now();
     const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/status`);
-    const elapsed = Date.now() - startTime;
-    console.log('[Status] Response:', res.status, 'in', elapsed, 'ms');
     
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
     }
     
     const data = await res.json();
-    console.log('[Status] Data keys:', Object.keys(data).join(', '));
-    console.log('[Status] entry_points:', JSON.stringify(data.entry_points || 'undefined'));
+    console.log('[Status] Mode:', data.mode, 'Alarm:', data.alarm_state);
     
     state.currentMode = data.mode || 'disarm';
     state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
@@ -1592,30 +1623,12 @@ async function loadModeStatus() {
     state.entryPoints = data.entry_points || {};
     
     updateModeUI();
-    updateEntryPointsUI();
     
   } catch (e) {
-    const errorMsg = e.message || e.toString();
-    console.error('[Status] Error:', errorMsg, 'isPWA:', isPWA);
-    console.error('[Status] Error stack:', e.stack);
-    
+    console.error('[Status] Error:', e.message);
     if (statusEl) { 
       statusEl.textContent = 'Edge 离线'; 
       statusEl.className = 'mode-control-status'; 
-    }
-    
-    // 显示详细错误信息
-    if (epListEl) {
-      epListEl.innerHTML = `
-        <div class="entry-point-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-          <div style="color: var(--danger); font-size: 13px; font-weight: 500;">⚠️ 加载失败</div>
-          <div style="color: var(--gray-500); font-size: 11px; word-break: break-all;">
-            ${isPWA ? '模式: PWA' : '模式: Safari'}<br>
-            错误: ${errorMsg.slice(0, 100)}<br>
-            URL: ${EDGE_RUNTIME_URL.slice(0, 30)}...
-          </div>
-        </div>
-      `;
     }
   }
 }
@@ -1647,74 +1660,6 @@ function updateModeUI() {
   const sirenBtn = document.getElementById('sirenBtn');
   const silenceBtn = document.getElementById('silenceBtn');
   if (sirenBtn && silenceBtn) { sirenBtn.disabled = state.sirenActive; silenceBtn.disabled = !state.sirenActive; }
-}
-
-// 入口点状态显示
-function updateEntryPointsUI() {
-  const container = document.getElementById('entryPointsList');
-  if (!container) {
-    console.warn('[EntryPoints] Container not found');
-    return;
-  }
-  
-  const entryPoints = state.entryPoints || {};
-  const epNames = Object.keys(entryPoints);
-  
-  console.log('[EntryPoints] Updating UI, count:', epNames.length, 'data:', JSON.stringify(entryPoints));
-  
-  if (epNames.length === 0) {
-    container.innerHTML = `
-      <div class="entry-point-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-        <div style="color: var(--gray-500); font-size: 13px;">暂无入口点数据</div>
-        <div style="color: var(--gray-400); font-size: 11px;">
-          state.entryPoints = ${JSON.stringify(entryPoints)}<br>
-          isPWA: ${isStandalone()}
-        </div>
-      </div>
-    `;
-    return;
-  }
-  
-  // 入口点名称映射
-  const epLabels = {
-    'ep_back': { icon: '🚪', name: '后门' },
-    'ep_front': { icon: '🚪', name: '前门' },
-    'ep_garage': { icon: '🚗', name: '车库' },
-    'ep_side': { icon: '🚪', name: '侧门' },
-  };
-  
-  // 威胁状态映射
-  const threatLabels = {
-    'none': { text: '正常', class: 'none' },
-    'pre_l1': { text: '轻微异常', class: 'pre' },
-    'pre_l2': { text: '可疑活动', class: 'pre' },
-    'pre_l3': { text: '高度可疑', class: 'pre' },
-    'pending': { text: '待确认', class: 'pending' },
-    'triggered': { text: '⚠️ 警报', class: 'triggered' },
-  };
-  
-  let html = '';
-  for (const epId of epNames) {
-    const ep = entryPoints[epId];
-    const label = epLabels[epId] || { icon: '📍', name: epId };
-    const threat = threatLabels[ep.threat_state] || threatLabels['none'];
-    const isTriggered = ep.threat_state === 'triggered';
-    
-    html += `
-      <div class="entry-point-item">
-        <div class="entry-point-name">
-          <span class="ep-icon">${label.icon}</span>
-          <span>${label.name}</span>
-        </div>
-        <div class="entry-point-status">
-          ${ep.entry_delay_remaining > 0 ? `<span class="entry-delay-countdown">⏱️ ${Math.ceil(ep.entry_delay_remaining)}s</span>` : ''}
-          <span class="threat-badge ${threat.class}">${threat.text}</span>
-          ${isTriggered ? `<button class="resolve-btn" onclick="resolveTriggered('${epId}')">解除</button>` : ''}
-        </div>
-      </div>
-    `;
-  }
-  container.innerHTML = html;
 }
 
 async function setMode(mode) {
