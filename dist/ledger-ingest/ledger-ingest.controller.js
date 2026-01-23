@@ -55,7 +55,8 @@ let LedgerIngestController = class LedgerIngestController {
             ackedSeq: body.ackedSeq,
         };
     }
-    async queryLedger(circleId, eventId, entryType, edgeInstanceId, limitStr) {
+    async queryLedger(req, circleId, eventId, entryType, edgeInstanceId, limitStr) {
+        await this.circles.mustBeMember(req.user.userId, circleId);
         const limit = Math.min(parseInt(limitStr ?? '50', 10) || 50, 200);
         if (eventId) {
             const entries = await this.svc.getEntriesForEvent(circleId, eventId, limit);
@@ -107,13 +108,14 @@ __decorate([
 __decorate([
     (0, common_1.Get)('/api/circles/:circleId/ledger'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __param(1, (0, common_1.Query)('eventId')),
-    __param(2, (0, common_1.Query)('entryType')),
-    __param(3, (0, common_1.Query)('edgeInstanceId')),
-    __param(4, (0, common_1.Query)('limit')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Query)('eventId')),
+    __param(3, (0, common_1.Query)('entryType')),
+    __param(4, (0, common_1.Query)('edgeInstanceId')),
+    __param(5, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], LedgerIngestController.prototype, "queryLedger", null);
 exports.LedgerIngestController = LedgerIngestController = __decorate([

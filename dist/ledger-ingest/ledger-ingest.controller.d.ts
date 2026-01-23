@@ -1,5 +1,6 @@
 import { NgEdgeDevice } from '../edge-devices/ng-edge-device.entity';
 import { CirclesService } from '../circles/circles.service';
+import { JwtUser } from '../auth/auth.types';
 import { LedgerIngestService, LedgerBatchDto, LedgerIngestResponse } from './ledger-ingest.service';
 export declare class LedgerIngestController {
     private readonly svc;
@@ -23,7 +24,9 @@ export declare class LedgerIngestController {
         ok: boolean;
         ackedSeq: number;
     }>;
-    queryLedger(circleId: string, eventId?: string, entryType?: string, edgeInstanceId?: string, limitStr?: string): Promise<{
+    queryLedger(req: {
+        user: JwtUser;
+    }, circleId: string, eventId?: string, entryType?: string, edgeInstanceId?: string, limitStr?: string): Promise<{
         entries: import("./ng-ledger-entry.entity").NgLedgerEntry[];
         count: number;
     }>;

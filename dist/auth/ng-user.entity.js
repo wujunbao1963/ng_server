@@ -19,21 +19,33 @@ __decorate([
     __metadata("design:type", String)
 ], NgUser.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'email', type: 'text', unique: true }),
+    (0, typeorm_1.Column)({ name: 'email', type: 'varchar', length: 255, unique: true }),
     __metadata("design:type", String)
 ], NgUser.prototype, "email", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'display_name', type: 'text', nullable: true }),
+    (0, typeorm_1.Column)({ name: 'display_name', type: 'varchar', length: 200, nullable: true }),
     __metadata("design:type", Object)
 ], NgUser.prototype, "displayName", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'password_hash', type: 'varchar', length: 255, nullable: true }),
+    __metadata("design:type", Object)
+], NgUser.prototype, "passwordHash", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'is_admin', type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], NgUser.prototype, "isAdmin", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'created_at', type: 'timestamptz', default: () => 'now()' }),
+    (0, typeorm_1.Column)({ name: 'can_create_circle', type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], NgUser.prototype, "canCreateCircle", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ name: 'created_at', type: 'timestamptz' }),
     __metadata("design:type", Date)
 ], NgUser.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at', type: 'timestamptz' }),
+    __metadata("design:type", Date)
+], NgUser.prototype, "updatedAt", void 0);
 exports.NgUser = NgUser = __decorate([
     (0, typeorm_1.Entity)({ name: 'ng_users' })
 ], NgUser);
