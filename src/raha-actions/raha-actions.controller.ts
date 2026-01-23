@@ -67,8 +67,9 @@ export class RahaActionsController {
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
     @Body() dto: ExecuteActionDto,
     @Req() req: any,
+    @Req() req: { user: JwtUser },  // 改成明确类型    
   ): Promise<HumanActionResultDto> {
-    const userId = req.user?.sub || req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return {
         requestId: '',
