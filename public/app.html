@@ -751,10 +751,27 @@ const state = {
   timeFilter: 'all',  // 默认显示全部事件
   pendingAction: null,
   snapshotInterval: null,
+  snapshotErrorCount: 0,
+  snapshotDisabled: false,
 };
+
+// 当前快照 URL（用于释放）
+let currentBlobUrl = null;
 
 // ========== Navigation ==========
 function showPage(page) {
+  // 离开 live 页面时停止快照轮询
+  if (state.page === 'live' && page !== 'live') {
+    if (state.snapshotInterval) {
+      clearInterval(state.snapshotInterval);
+      state.snapshotInterval = null;
+    }
+    if (currentBlobUrl) {
+      URL.revokeObjectURL(currentBlobUrl);
+      currentBlobUrl = null;
+    }
+  }
+  
   state.page = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(page + 'Page').classList.add('active');
@@ -1405,33 +1422,148 @@ async function loadCameras() {
 
 function selectCamera(id) {
   state.selectedCamera = id;
+  state.snapshotErrorCount = 0;
+  state.snapshotDisabled = false;
+  
   document.querySelectorAll('.camera-btn').forEach(b => {
     b.classList.toggle('active', b.onclick.toString().includes(id));
   });
+  
+  // 显示连接中
+  const frame = document.getElementById('liveFrame');
+  frame.innerHTML = `
+    <span class="live-badge remote">☁️ REMOTE</span>
+    <div class="live-placeholder">
+      <div class="icon">⏳</div>
+      <p>连接中...</p>
+    </div>
+  `;
+  
   startSnapshots(id);
 }
 
 function startSnapshots(id) {
+  // 停止旧的轮询
   if (state.snapshotInterval) {
     clearInterval(state.snapshotInterval);
     state.snapshotInterval = null;
   }
+  
+  // 释放旧的 blob URL
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = null;
+  }
 
   const frame = document.getElementById('liveFrame');
+  
   const load = async () => {
+    if (state.snapshotDisabled || state.selectedCamera !== id) return;
+    
     try {
       const res = await fetch(`${EDGE}/api/live/cameras/${id}/snapshot`);
-      if (!res.ok) throw new Error(`${res.status}`);
+      
+      // 202 = 摄像头正在连接
+      if (res.status === 202) {
+        if (!frame.querySelector('img')) {
+          frame.innerHTML = `
+            <span class="live-badge remote">☁️ REMOTE</span>
+            <div class="live-placeholder">
+              <div class="icon">📷</div>
+              <p>摄像头连接中...</p>
+            </div>
+          `;
+        }
+        return;
+      }
+      
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      frame.innerHTML = `<span class="live-badge remote">☁️ REMOTE</span><img src="${url}" onload="URL.revokeObjectURL(this.src)">`;
+      const newUrl = URL.createObjectURL(blob);
+      
+      // 预加载图片，完成后再显示
+      const img = new Image();
+      img.onload = () => {
+        // 检查是否还是当前摄像头
+        if (state.selectedCamera !== id) {
+          URL.revokeObjectURL(newUrl);
+          return;
+        }
+        
+        // 更新显示
+        const existingImg = frame.querySelector('img');
+        if (existingImg) {
+          // 已有图片，直接更新 src（更平滑）
+          const oldUrl = existingImg.src;
+          existingImg.src = newUrl;
+          if (oldUrl && oldUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(oldUrl);
+          }
+        } else {
+          // 首次加载，创建 img
+          if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl);
+          }
+          frame.innerHTML = `
+            <span class="live-badge remote">☁️ REMOTE</span>
+            <img src="${newUrl}" style="width: 100%; height: 100%; object-fit: contain;">
+          `;
+        }
+        currentBlobUrl = newUrl;
+        
+        // 成功，重置错误计数
+        state.snapshotErrorCount = 0;
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(newUrl);
+        handleSnapshotError('图片解码失败');
+      };
+      
+      img.src = newUrl;
+      
     } catch (e) {
-      frame.innerHTML = `<div class="live-placeholder"><div class="icon">📷</div><p>无法获取画面</p></div>`;
+      handleSnapshotError(e.message);
     }
   };
 
+  // 立即加载第一帧
   load();
-  state.snapshotInterval = setInterval(load, 500);
+  // 600ms 间隔更稳定
+  state.snapshotInterval = setInterval(load, 600);
+}
+
+function handleSnapshotError(msg) {
+  state.snapshotErrorCount = (state.snapshotErrorCount || 0) + 1;
+  console.warn(`[Live] 快照错误 #${state.snapshotErrorCount}: ${msg}`);
+  
+  // 连续 5 次错误后停止
+  if (state.snapshotErrorCount >= 5) {
+    state.snapshotDisabled = true;
+    if (state.snapshotInterval) {
+      clearInterval(state.snapshotInterval);
+      state.snapshotInterval = null;
+    }
+    
+    const frame = document.getElementById('liveFrame');
+    frame.innerHTML = `
+      <span class="live-badge remote">☁️ REMOTE</span>
+      <div class="live-placeholder">
+        <div class="icon">❌</div>
+        <p>无法获取画面</p>
+        <button onclick="retrySnapshot()" style="margin-top: 12px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;">重试</button>
+      </div>
+    `;
+  }
+}
+
+function retrySnapshot() {
+  state.snapshotErrorCount = 0;
+  state.snapshotDisabled = false;
+  if (state.selectedCamera) {
+    selectCamera(state.selectedCamera);
+  }
 }
 
 // ========== Utils ==========
