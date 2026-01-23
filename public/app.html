@@ -756,17 +756,17 @@ function showPage(page) {
 // ========== Status ==========
 async function loadStatus() {
   try {
-    const res = await fetch(`${EDGE}/api/pipeline/status`);
+    const res = await fetch(`${EDGE}/api/status`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     console.log('Status data:', data);
 
-    // Mode - 正确解析，支持多种格式
-    let mode = (data.mode || data.security_mode || 'disarmed').toLowerCase();
+    // Mode - 使用 house_mode_raw (小写) 或 house_mode
+    let mode = (data.house_mode_raw || data.house_mode || 'disarmed').toLowerCase();
     if (mode === 'disarm') mode = 'disarmed';
     if (!['disarmed', 'home', 'away', 'night'].includes(mode)) mode = 'disarmed';
     state.mode = mode;
-    state.threat = (data.alarm_state || data.threat_state || 'none').toLowerCase();
+    state.threat = (data.alarm_state || 'none').toLowerCase();
     updateModeUI();
 
     // Entry points
@@ -777,19 +777,18 @@ async function loadStatus() {
     })) : [];
     renderEntryPoints();
 
-    // Sensors - 只有有数据时才显示
+    // Sensors - 直接使用 sensors 数组
     state.sensors = data.sensors || [];
     renderSensors();
 
-    // Devices
-    const cams = data.cameras || {};
-    const online = Object.values(cams).filter(c => c.connected !== false).length;
-    const total = Object.keys(cams).length;
+    // Devices - 使用正确的字段
+    const online = data.cameras_online || 0;
+    const total = data.cameras_total || 0;
     document.getElementById('devCameras').textContent = `${online} / ${total} 在线`;
     document.getElementById('devCameras').className = `device-value ${online === total && total > 0 ? 'online' : (total === 0 ? '' : 'offline')}`;
     document.getElementById('devZigbee').textContent = `${data.zigbee_devices || 0} 已连接`;
-    document.getElementById('devRunning').textContent = data.running !== false ? '运行中' : '已停止';
-    document.getElementById('devRunning').className = `device-value ${data.running !== false ? 'online' : 'offline'}`;
+    document.getElementById('devRunning').textContent = data.running ? '运行中' : '已停止';
+    document.getElementById('devRunning').className = `device-value ${data.running ? 'online' : 'offline'}`;
 
     // Connection - 成功连接到 Edge
     document.getElementById('connectionBadge').textContent = 'REMOTE';
@@ -868,15 +867,23 @@ function renderSensors() {
   
   card.classList.remove('hidden');
   list.innerHTML = state.sensors.map(s => {
+    // 根据类型选择图标
     const icon = s.type === 'contact' ? '🚪' : s.type === 'motion' ? '🏃' : s.type === 'camera' ? '📹' : '📡';
+    // 传感器名称使用 device_id
+    const name = s.device_id || s.name || 'Unknown';
+    // 区域使用 zone
+    const zone = s.zone || '-';
+    // 在线状态
+    const isOnline = s.online !== false;
+    
     return `
       <div class="sensor-item">
         <span class="sensor-icon">${icon}</span>
         <div class="sensor-info">
-          <div class="sensor-name">${s.device_id || s.name}</div>
-          <div class="sensor-zone">${s.zone || '-'}</div>
+          <div class="sensor-name">${name}</div>
+          <div class="sensor-zone">${zone}</div>
         </div>
-        <span class="sensor-status ${s.online !== false ? 'online' : 'offline'}"></span>
+        <span class="sensor-status ${isOnline ? 'online' : 'offline'}"></span>
       </div>
     `;
   }).join('');
@@ -896,37 +903,11 @@ async function switchMode(mode) {
   if (btn) btn.classList.add('loading');
   
   try {
-    // Disarm 需要 PIN
-    if (mode === 'disarmed') {
-      const pin = prompt('请输入安全密码:');
-      if (!pin) {
-        if (btn) btn.classList.remove('loading');
-        return;
-      }
-      const res = await fetch(`${EDGE}/api/pipeline/disarm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-      });
-      const data = await res.json().catch(() => ({}));
-      console.log('Disarm response:', res.status, data);
-      if (!res.ok) { 
-        toast(data.detail || data.error || '密码错误'); 
-        if (btn) btn.classList.remove('loading');
-        return; 
-      }
-      state.mode = 'disarmed';
-      updateModeUI();
-      toast('已撤防');
-      setTimeout(loadStatus, 500);
-      return;
-    }
-    
-    // 其他模式切换 - 尝试大写和小写
-    const res = await fetch(`${EDGE}/api/pipeline/mode`, {
+    // 使用路径方式切换模式: /api/mode/{MODE}
+    const apiMode = mode === 'disarmed' ? 'DISARMED' : mode.toUpperCase();
+    const res = await fetch(`${EDGE}/api/mode/${apiMode}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: mode.toUpperCase() })
+      headers: { 'Content-Type': 'application/json' }
     });
     const data = await res.json().catch(() => ({}));
     console.log('Mode switch response:', res.status, data);
@@ -937,9 +918,11 @@ async function switchMode(mode) {
       return; 
     }
     
+    // 成功 - 立即更新 UI
     state.mode = mode;
     updateModeUI();
     toast(`已切换到${MODE_CFG[mode].label}模式`);
+    // 刷新状态确认
     setTimeout(loadStatus, 500);
     
   } catch (e) { 
@@ -964,16 +947,15 @@ async function loadIncidents() {
     console.log('Incidents data:', data);
     
     // 支持多种响应格式
-    state.incidents = data.incidents || data.items || data || [];
-    if (!Array.isArray(state.incidents)) state.incidents = [];
+    state.incidents = data.incidents || data.items || (Array.isArray(data) ? data : []);
     
     renderRecentEvents();
     renderEventList();
     updateEventBadge();
   } catch (e) {
     console.error('Incidents error:', e);
-    recent.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><p>加载失败</p></div>';
-    if (full) full.innerHTML = '<div class="empty"><div class="empty-icon">❌</div><p>加载失败</p></div>';
+    recent.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>暂无事件</p></div>';
+    if (full) full.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>暂无事件</p></div>';
   }
 }
 
