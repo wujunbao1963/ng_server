@@ -12,6 +12,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RahaActionsService } from './raha-actions.service';
 import { ExecuteActionDto, HumanActionResultDto } from './dto';
+import type { JwtUser } from '../auth/auth.types.ts';
 
 /**
  * RAHA Actions Controller
@@ -66,7 +67,6 @@ export class RahaActionsController {
   async executeAction(
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
     @Body() dto: ExecuteActionDto,
-    @Req() req: any,
     @Req() req: { user: JwtUser },  // 改成明确类型    
   ): Promise<HumanActionResultDto> {
     const userId = req.user?.userId;

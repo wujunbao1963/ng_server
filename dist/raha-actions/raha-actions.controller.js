@@ -22,7 +22,7 @@ let RahaActionsController = class RahaActionsController {
         this.rahaService = rahaService;
     }
     async executeAction(circleId, dto, req) {
-        const userId = req.user?.sub || req.user?.id;
+        const userId = req.user?.userId;
         if (!userId) {
             return {
                 requestId: '',
