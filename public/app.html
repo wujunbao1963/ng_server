@@ -48,6 +48,9 @@
     .header-badge.local { background: #dcfce7; color: #166534; }
     .header-badge.remote { background: #fef3c7; color: #92400e; }
     .header-badge.offline { background: #fee2e2; color: #991b1b; }
+    .header-badge.role-owner { background: #dbeafe; color: #1e40af; }
+    .header-badge.role-caretaker { background: #f3e8ff; color: #6b21a8; }
+    .header-badge.role-acting_owner { background: #fef3c7; color: #92400e; }
 
     /* Main */
     .main {
@@ -540,6 +543,7 @@
   <header class="header">
     <div class="header-title"><span>🛡️</span> NeighborGuard</div>
     <div class="header-actions">
+      <span id="roleBadge" class="header-badge role-owner" title="当前角色">Owner</span>
       <button class="header-btn" onclick="refreshAll()" id="refreshBtn" title="刷新">🔄</button>
       <button class="header-btn" onclick="openSettings()" title="设置">⚙️</button>
       <span id="connectionBadge" class="header-badge remote">REMOTE</span>
@@ -762,6 +766,17 @@
         <button class="modal-close" onclick="closeSettings()">✕</button>
       </div>
       <div class="settings-body">
+        <!-- 角色选择 -->
+        <div class="settings-section">
+          <h4>👤 当前角色</h4>
+          <select id="roleSelect" class="settings-input" onchange="changeRole()">
+            <option value="owner">Owner (所有者)</option>
+            <option value="caretaker">Caretaker (看护人)</option>
+            <option value="acting_owner">Acting Owner (临时代理)</option>
+          </select>
+          <div id="roleDesc" class="settings-hint"></div>
+        </div>
+
         <div class="settings-section">
           <h4>📱 手机推送通知 (ntfy)</h4>
           <p class="settings-hint">
@@ -808,10 +823,66 @@ const MODE_CFG = {
   night: { icon: '🌙', label: '夜间', desc: '夜间模式，缩短延迟' },
 };
 
+// 角色配置 (L2)
+const ROLE_CFG = {
+  owner: {
+    label: 'Owner',
+    labelCn: '所有者',
+    desc: '完全控制权限，可管理所有角色和设置',
+    permissions: {
+      viewAllHistory: true,      // 查看所有历史
+      modeChange: true,          // 模式切换
+      resolve: true,             // 解决事件
+      dismiss: true,             // 误报处理
+      silence: true,             // 静音
+      silenceNeedsConfirm: false,// 静音需要额外确认
+      manageRoles: true,         // 角色管理
+      exportEvidence: true,      // 导出证据
+      configuration: true,       // 系统配置
+    },
+    historyDays: 999,            // 历史天数限制
+  },
+  caretaker: {
+    label: 'Caretaker',
+    labelCn: '看护人',
+    desc: '可处理事件和切换模式，查看 7 天历史',
+    permissions: {
+      viewAllHistory: false,
+      modeChange: true,
+      resolve: true,
+      dismiss: true,
+      silence: true,
+      silenceNeedsConfirm: false,
+      manageRoles: false,
+      exportEvidence: false,
+      configuration: false,
+    },
+    historyDays: 7,
+  },
+  acting_owner: {
+    label: 'Acting Owner',
+    labelCn: '临时代理',
+    desc: '仅处理当前事件和 24 小时内历史，静音需确认',
+    permissions: {
+      viewAllHistory: false,
+      modeChange: true,
+      resolve: true,
+      dismiss: true,
+      silence: true,
+      silenceNeedsConfirm: true, // 静音需要额外确认
+      manageRoles: false,
+      exportEvidence: false,
+      configuration: false,
+    },
+    historyDays: 1,
+  },
+};
+
 const state = {
   page: 'dashboard',
   mode: 'disarmed',
   threat: 'none',
+  currentRole: localStorage.getItem('currentRole') || 'owner',
   incidents: [],
   cameras: [],
   sensors: [],
@@ -859,11 +930,61 @@ function openSettings() {
   document.getElementById('eventPolling').checked = eventPollingInterval !== null;
   updatePollingStatus();
   
+  // 加载角色设置
+  document.getElementById('roleSelect').value = state.currentRole;
+  updateRoleDesc();
+  
   document.getElementById('settingsModal').classList.add('active');
 }
 
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('active');
+}
+
+// ========== 角色管理 ==========
+function changeRole() {
+  const newRole = document.getElementById('roleSelect').value;
+  state.currentRole = newRole;
+  localStorage.setItem('currentRole', newRole);
+  
+  updateRoleUI();
+  updateRoleDesc();
+  
+  // 重新加载事件列表（应用历史限制）
+  loadIncidents();
+  
+  toast(`已切换到 ${ROLE_CFG[newRole].labelCn}`);
+}
+
+function updateRoleDesc() {
+  const role = ROLE_CFG[state.currentRole];
+  document.getElementById('roleDesc').textContent = role.desc;
+}
+
+function updateRoleUI() {
+  const role = state.currentRole;
+  const cfg = ROLE_CFG[role];
+  
+  // 更新 header 徽章
+  const badge = document.getElementById('roleBadge');
+  badge.textContent = cfg.label;
+  badge.className = `header-badge role-${role}`;
+  
+  // 根据权限显示/隐藏模式切换按钮
+  const modeButtons = document.querySelectorAll('.mode-btn');
+  modeButtons.forEach(btn => {
+    btn.style.display = cfg.permissions.modeChange ? '' : 'none';
+  });
+}
+
+function hasPermission(action) {
+  const cfg = ROLE_CFG[state.currentRole];
+  return cfg.permissions[action] === true;
+}
+
+function getHistoryLimit() {
+  const cfg = ROLE_CFG[state.currentRole];
+  return cfg.historyDays;
 }
 
 function saveNtfyTopic() {
@@ -1267,7 +1388,24 @@ async function loadIncidents() {
     console.log('Incidents data:', data);
     
     // 支持多种响应格式
-    state.incidents = data.incidents || data.items || (Array.isArray(data) ? data : []);
+    let incidents = data.incidents || data.items || (Array.isArray(data) ? data : []);
+    
+    // 根据角色限制历史天数
+    const historyDays = getHistoryLimit();
+    if (historyDays < 999) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - historyDays);
+      incidents = incidents.filter(i => {
+        // 活跃事件始终显示
+        if (i.is_active) return true;
+        // 历史事件按时间过滤
+        const created = new Date(i.created_at);
+        return created >= cutoff;
+      });
+      console.log(`[Role] ${state.currentRole} - showing ${incidents.length} events (${historyDays} days)`);
+    }
+    
+    state.incidents = incidents;
     
     renderRecentEvents();
     renderEventList();
@@ -1564,28 +1702,58 @@ function renderDetail(i, ev, tl) {
 
 function renderActions(i) {
   const f = document.getElementById('detailFooter');
+  const perms = ROLE_CFG[state.currentRole].permissions;
+  
   if (!i.is_active) {
     f.innerHTML = '<p style="text-align: center; color: var(--gray-400);">事件已结束</p>';
     return;
   }
+  
   const ts = i.threat_state;
+  
   if (ts === 'pending') {
-    f.innerHTML = `<button class="action-btn warning" onclick="confirm('disarm', '撤防', '确认撤防？')">🔓 撤防</button>`;
+    // PENDING 状态：撤防
+    if (perms.modeChange) {
+      f.innerHTML = `<button class="action-btn warning" onclick="confirm('disarm', '撤防', '确认撤防？')">🔓 撤防</button>`;
+    } else {
+      f.innerHTML = '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
+    }
   } else if (ts === 'triggered') {
-    f.innerHTML = `
-      <div class="action-row">
-        <button class="action-btn" style="background: var(--danger); color: white;" onclick="confirm('silence', '静音', '确认静音？')">🔇 静音</button>
-        <button class="action-btn secondary" onclick="confirm('dismiss', '误报', '确认误报？')">❌ 误报</button>
-      </div>
-      <button class="action-btn primary" style="margin-top: 8px;" onclick="confirm('resolve', '解决', '确认解决？')">✓ 解决事件</button>
-    `;
+    // TRIGGERED 状态：静音、误报、解决
+    let html = '<div class="action-row">';
+    
+    if (perms.silence) {
+      const silenceMsg = perms.silenceNeedsConfirm 
+        ? '静音后警报将停止。作为临时代理，请确保已通知 Owner。确认静音？' 
+        : '确认静音？';
+      html += `<button class="action-btn" style="background: var(--danger); color: white;" onclick="confirm('silence', '静音', '${silenceMsg}')">🔇 静音</button>`;
+    }
+    
+    if (perms.dismiss) {
+      html += `<button class="action-btn secondary" onclick="confirm('dismiss', '误报', '确认误报？')">❌ 误报</button>`;
+    }
+    
+    html += '</div>';
+    
+    if (perms.resolve) {
+      html += `<button class="action-btn primary" style="margin-top: 8px;" onclick="confirm('resolve', '解决', '确认解决？')">✓ 解决事件</button>`;
+    }
+    
+    f.innerHTML = html || '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
   } else {
-    f.innerHTML = `
-      <div class="action-row">
-        <button class="action-btn secondary" onclick="confirm('dismiss', '忽略', '确认忽略？')">忽略</button>
-        <button class="action-btn primary" onclick="confirm('resolve', '解决', '确认解决？')">解决</button>
-      </div>
-    `;
+    // 其他状态：忽略、解决
+    let html = '<div class="action-row">';
+    
+    if (perms.dismiss) {
+      html += `<button class="action-btn secondary" onclick="confirm('dismiss', '忽略', '确认忽略？')">忽略</button>`;
+    }
+    
+    if (perms.resolve) {
+      html += `<button class="action-btn primary" onclick="confirm('resolve', '解决', '确认解决？')">解决</button>`;
+    }
+    
+    html += '</div>';
+    f.innerHTML = html;
   }
 }
 
@@ -1634,7 +1802,7 @@ async function doConfirm() {
       requestId: requestId,
       eventId: i.incident_id,
       actorId: 'cloud_user',
-      actorRole: 'owner',
+      actorRole: state.currentRole,
       action: rahaAction
     };
     
@@ -1895,6 +2063,9 @@ function toast(msg) {
 
 // ========== Init ==========
 document.addEventListener('DOMContentLoaded', () => {
+  // 初始化角色 UI
+  updateRoleUI();
+  
   loadStatus();
   loadIncidents();
   
