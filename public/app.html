@@ -526,7 +526,7 @@
       </div>
 
       <div class="dashboard-grid">
-        <!-- 左列：模式 + 事件 -->
+        <!-- 左列：模式 + 系统状态 + 事件 -->
         <div>
           <!-- Mode Card -->
           <div class="card mode-card">
@@ -540,19 +540,24 @@
               </div>
             </div>
 
-            <div id="systemStatus" class="system-status ok">
-              <span class="system-status-icon">✓</span>
-              <span class="system-status-text">正常</span>
-            </div>
-
             <div class="mode-buttons">
               <button class="mode-btn active disarmed" data-mode="disarmed" onclick="switchMode('disarmed')"><span class="mode-btn-icon">🏠</span><span class="mode-btn-label">撤防</span></button>
               <button class="mode-btn" data-mode="home" onclick="switchMode('home')"><span class="mode-btn-icon">🏡</span><span class="mode-btn-label">在家</span></button>
               <button class="mode-btn" data-mode="away" onclick="switchMode('away')"><span class="mode-btn-icon">🚗</span><span class="mode-btn-label">离开</span></button>
               <button class="mode-btn" data-mode="night" onclick="switchMode('night')"><span class="mode-btn-icon">🌙</span><span class="mode-btn-label">夜间</span></button>
             </div>
+          </div>
 
-            <div class="entry-points-toggle" onclick="toggleEntryPoints()">
+          <!-- System Status Card (独立) -->
+          <div class="card" style="margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px;">
+              <span style="font-weight: 600; font-size: 15px;">系统状态</span>
+              <div id="systemStatus" class="system-status ok" style="margin: 0; padding: 6px 14px;">
+                <span class="system-status-icon">✓</span>
+                <span class="system-status-text">正常</span>
+              </div>
+            </div>
+            <div class="entry-points-toggle" onclick="toggleEntryPoints()" style="border-top: 1px solid var(--gray-100);">
               <span>入口点状态 (点击显示调试)</span>
               <span id="entryPointsArrow">▼</span>
             </div>
@@ -760,12 +765,22 @@ async function loadStatus() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     console.log('Status data:', data);
+    console.log('house_mode:', data.house_mode, 'house_mode_raw:', data.house_mode_raw);
 
-    // Mode - 使用 house_mode_raw (小写) 或 house_mode
-    let mode = (data.house_mode_raw || data.house_mode || 'disarmed').toLowerCase();
+    // Mode - house_mode 可能是大写，需要转小写
+    let rawMode = data.house_mode_raw || data.house_mode || 'disarmed';
+    console.log('rawMode before toLowerCase:', rawMode);
+    let mode = String(rawMode).toLowerCase();
+    console.log('mode after toLowerCase:', mode);
+    
     if (mode === 'disarm') mode = 'disarmed';
-    if (!['disarmed', 'home', 'away', 'night'].includes(mode)) mode = 'disarmed';
+    if (!['disarmed', 'home', 'away', 'night'].includes(mode)) {
+      console.warn('Unknown mode, defaulting to disarmed:', mode);
+      mode = 'disarmed';
+    }
     state.mode = mode;
+    console.log('Final state.mode:', state.mode);
+    
     state.threat = (data.alarm_state || 'none').toLowerCase();
     updateModeUI();
 
@@ -827,17 +842,24 @@ async function loadStatus() {
 }
 
 function updateModeUI() {
-  const cfg = MODE_CFG[state.mode] || MODE_CFG.home;
+  console.log('updateModeUI called, state.mode =', state.mode);
+  const cfg = MODE_CFG[state.mode] || MODE_CFG.disarmed;
+  
+  // 更新模式圆圈
   document.getElementById('modeCircle').className = `mode-circle ${state.mode}`;
   document.getElementById('modeIcon').textContent = cfg.icon;
   document.getElementById('modeLabel').textContent = cfg.label;
   document.getElementById('modeLabel').className = state.mode;
   document.getElementById('modeDesc').textContent = cfg.desc;
 
+  // 更新按钮状态
   document.querySelectorAll('.mode-btn').forEach(btn => {
     const m = btn.dataset.mode;
     btn.classList.remove('active', 'disarmed', 'home', 'away', 'night');
-    if (m === state.mode) btn.classList.add('active', m);
+    if (m === state.mode) {
+      btn.classList.add('active', m);
+      console.log('Button activated:', m);
+    }
   });
 }
 
