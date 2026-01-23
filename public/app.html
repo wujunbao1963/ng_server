@@ -1,52 +1,45 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/manifest.json">
   <title>NeighborGuard</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+  <link rel="manifest" href="/manifest.json">
   <style>
+    /* NG Cloud UI - 基于 Edge HMI v8.0 */
     :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --danger: #dc2626;
-      --danger-bg: #fef2f2;
-      --success: #16a34a;
-      --success-bg: #f0fdf4;
-      --warning: #d97706;
-      --warning-bg: #fffbeb;
+      --primary: #3b82f6;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
       --gray-50: #f9fafb;
       --gray-100: #f3f4f6;
       --gray-200: #e5e7eb;
       --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
       --gray-500: #6b7280;
+      --gray-600: #4b5563;
       --gray-700: #374151;
+      --gray-800: #1f2937;
       --gray-900: #111827;
-      --radius: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     }
-    
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--gray-100);
       color: var(--gray-900);
-      line-height: 1.5;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
-    
-    .page { display: none; min-height: 100vh; }
-    .page.active { display: flex; flex-direction: column; }
-    
+    .safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+    /* Header */
     .header {
       background: white;
-      padding: 16px;
       border-bottom: 1px solid var(--gray-200);
+      padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -54,1988 +47,615 @@
       top: 0;
       z-index: 100;
     }
-    .header h1 { font-size: 18px; font-weight: 600; }
-    .header-back {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 4px 8px;
-      margin: -4px -8px -4px -8px;
+    .header-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .header-badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 500; }
+    .header-badge.local { background: #dcfce7; color: #166534; }
+    .header-badge.remote { background: #fef3c7; color: #92400e; }
+    .header-badge.offline { background: #fee2e2; color: #991b1b; }
+
+    /* Main */
+    .main { flex: 1; padding: 16px; padding-bottom: 80px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+    /* Bottom Nav */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: white; border-top: 1px solid var(--gray-200);
+      display: flex; justify-content: space-around; padding: 8px 0;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0)); z-index: 100;
     }
-    .header-right { display: flex; gap: 8px; align-items: center; }
-    
-    .login-page {
-      justify-content: center;
-      align-items: center;
-      padding: 24px;
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 8px 16px; border-radius: 8px; cursor: pointer; color: var(--gray-500);
+      text-decoration: none; position: relative;
     }
-    .login-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 32px 24px;
-      width: 100%;
-      max-width: 360px;
-      box-shadow: var(--shadow-lg);
+    .nav-item.active { color: var(--primary); }
+    .nav-icon { font-size: 20px; }
+    .nav-label { font-size: 11px; font-weight: 500; }
+    .nav-badge {
+      position: absolute; top: 0; right: 8px;
+      background: var(--danger); color: white; font-size: 10px;
+      min-width: 16px; height: 16px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
     }
-    .login-logo { text-align: center; font-size: 48px; margin-bottom: 8px; }
-    .login-title { text-align: center; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-    .login-subtitle { text-align: center; color: var(--gray-500); margin-bottom: 24px; }
-    
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; font-size: 14px; font-weight: 500; color: var(--gray-700); margin-bottom: 6px; }
-    .form-input {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid var(--gray-300);
-      border-radius: 8px;
-      font-size: 16px;
-      transition: border-color 0.15s, box-shadow 0.15s;
+
+    /* Page */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Mode Shield */
+    .mode-shield {
+      background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      padding: 24px; margin-bottom: 16px;
     }
-    .form-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    .shield-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
+    .shield-circle {
+      width: 128px; height: 128px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.3s; box-shadow: 0 0 0 4px white, 0 0 0 8px currentColor;
     }
-    
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s;
-      width: 100%;
+    .shield-circle.disarmed { background: var(--gray-500); color: var(--gray-400); }
+    .shield-circle.home { background: #3b82f6; color: #93c5fd; }
+    .shield-circle.away { background: #f97316; color: #fdba74; }
+    .shield-circle.night { background: #8b5cf6; color: #c4b5fd; }
+    .shield-icon { font-size: 56px; }
+    .shield-label { margin-top: 16px; font-size: 24px; font-weight: 700; }
+    .shield-label.disarmed { color: var(--gray-600); }
+    .shield-label.home { color: #3b82f6; }
+    .shield-label.away { color: #f97316; }
+    .shield-label.night { color: #8b5cf6; }
+    .shield-desc { font-size: 14px; color: var(--gray-500); margin-top: 4px; }
+    .threat-badge { margin-top: 12px; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+    .threat-badge.triggered { background: #fee2e2; color: #991b1b; }
+    .threat-badge.pending { background: #fef3c7; color: #92400e; }
+    .threat-badge.pre { background: #dbeafe; color: #1e40af; }
+
+    .mode-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .mode-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px 8px; border: 2px solid var(--gray-200); border-radius: 12px;
+      background: white; cursor: pointer; transition: all 0.2s;
     }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-primary:disabled { background: var(--gray-300); cursor: not-allowed; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-success { background: var(--success); color: white; }
-    .btn-outline { background: white; border: 1px solid var(--gray-300); color: var(--gray-700); }
-    .btn-sm { padding: 8px 16px; font-size: 14px; width: auto; }
-    .btn-icon { padding: 8px; width: auto; background: none; border: none; font-size: 20px; cursor: pointer; }
-    
-    .events-page { background: var(--gray-50); }
-    .events-container { flex: 1; padding: 16px; }
-    .events-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 16px;
-      background: white;
-      border-radius: var(--radius);
-      margin-bottom: 16px;
-      font-size: 14px;
-      color: var(--gray-500);
+    .mode-btn:hover:not(:disabled) { border-color: var(--gray-400); background: var(--gray-50); }
+    .mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .mode-btn.active.disarmed { background: var(--gray-100); border-color: var(--gray-400); }
+    .mode-btn.active.home { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+    .mode-btn.active.away { background: #fff7ed; border-color: #f97316; color: #c2410c; }
+    .mode-btn.active.night { background: #f5f3ff; border-color: #8b5cf6; color: #6d28d9; }
+    .mode-btn-icon { font-size: 24px; }
+    .mode-btn-label { font-size: 12px; font-weight: 500; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-value { font-size: 28px; font-weight: 700; }
+    .stat-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+    .stat-card.danger .stat-value { color: var(--danger); }
+
+    /* Device Card */
+    .device-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .device-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .device-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+    .device-row:last-child { border-bottom: none; }
+    .device-name { display: flex; align-items: center; gap: 8px; color: var(--gray-600); }
+    .device-status { font-weight: 500; }
+    .device-status.online { color: var(--success); }
+    .device-status.offline { color: var(--danger); }
+
+    /* Events Page */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .page-title { font-size: 24px; font-weight: 700; }
+    .refresh-btn { padding: 8px 16px; background: var(--gray-100); border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .refresh-btn:hover { background: var(--gray-200); }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .filter-btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .filter-btn.primary { background: #dbeafe; color: #1d4ed8; }
+    .filter-btn.primary.active { background: #3b82f6; color: white; }
+    .filter-btn.secondary { background: white; color: var(--gray-600); border: 1px solid var(--gray-200); }
+    .filter-btn.secondary.active { background: var(--gray-700); color: white; }
+
+    .event-list { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    .event-item {
+      display: flex; align-items: flex-start; gap: 12px; padding: 16px;
+      border-left: 4px solid; cursor: pointer; transition: background 0.2s;
     }
-    .events-status .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    .events-list { display: flex; flex-direction: column; gap: 12px; }
-    
-    .event-card {
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .event-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-    .event-card.alert { border-left: 4px solid var(--danger); }
-    .event-card.resolved { border-left: 4px solid var(--success); }
-    .event-card.pending { border-left: 4px solid var(--warning); }
-    
-    .event-header { padding: 16px; display: flex; align-items: flex-start; gap: 12px; }
-    .event-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      flex-shrink: 0;
-    }
-    .event-icon.alert { background: var(--danger-bg); }
-    .event-icon.resolved { background: var(--success-bg); }
-    .event-icon.pending { background: var(--warning-bg); }
-    
-    .event-info { flex: 1; min-width: 0; }
-    .event-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
-    .event-meta { font-size: 13px; color: var(--gray-500); }
-    .event-time { font-size: 12px; color: var(--gray-500); white-space: nowrap; }
-    
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .badge-danger { background: var(--danger-bg); color: var(--danger); }
-    .badge-success { background: var(--success-bg); color: var(--success); }
-    .badge-warning { background: var(--warning-bg); color: var(--warning); }
-    .badge-info { background: #e0f2fe; color: #0369a1; }
-    
-    .detail-page { background: var(--gray-50); }
-    .detail-container { flex: 1; overflow-y: auto; }
-    
-    .detail-media {
-      background: black;
-      aspect-ratio: 16/9;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-    .detail-media img, .detail-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .detail-media .placeholder { color: white; font-size: 14px; }
-    .media-nav { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-    .media-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; }
-    .media-dot.active { background: white; }
-    
-    .detail-content { padding: 20px; }
-    .detail-section { background: white; border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
-    .detail-section h3 { font-size: 14px; font-weight: 600; color: var(--gray-500); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
-    .detail-row:last-child { border-bottom: none; }
+    .event-item:hover { background: var(--gray-50); }
+    .event-item + .event-item { border-top: 1px solid var(--gray-100); }
+    .event-item.triggered { border-left-color: var(--danger); background: #fef2f2; }
+    .event-item.pending { border-left-color: var(--warning); background: #fffbeb; }
+    .event-item.pre_l1, .event-item.pre_l2, .event-item.pre_l3 { border-left-color: #f97316; background: #fff7ed; }
+    .event-item.resolved, .event-item.canceled, .event-item.none { border-left-color: var(--gray-200); background: var(--gray-50); }
+    .event-icon { font-size: 24px; flex-shrink: 0; }
+    .event-item.resolved .event-icon, .event-item.canceled .event-icon, .event-item.none .event-icon { font-size: 18px; color: var(--gray-400); }
+    .event-content { flex: 1; min-width: 0; }
+    .event-title { font-weight: 500; color: var(--gray-900); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .event-item.resolved .event-title, .event-item.canceled .event-title, .event-item.none .event-title { font-weight: 400; color: var(--gray-600); }
+    .event-track { font-size: 11px; color: var(--gray-400); font-family: monospace; }
+    .event-meta { display: flex; gap: 12px; font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+    .event-time { text-align: right; flex-shrink: 0; }
+    .event-time-main { font-size: 14px; font-family: monospace; color: var(--gray-600); }
+    .event-time-date { font-size: 11px; color: var(--gray-400); }
+    .event-item.resolved .event-time-main, .event-item.canceled .event-time-main { color: var(--gray-400); }
+
+    .empty-state { padding: 48px 24px; text-align: center; color: var(--gray-500); }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: white; width: 100%; max-width: 600px; max-height: 90vh; border-radius: 16px 16px 0 0; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--gray-200); }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { width: 32px; height: 32px; border: none; background: var(--gray-100); border-radius: 50%; cursor: pointer; font-size: 16px; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 16px; }
+    .modal-footer { padding: 16px; border-top: 1px solid var(--gray-200); }
+
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h3 { font-size: 14px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 8px; }
     .detail-label { color: var(--gray-500); font-size: 14px; }
-    .detail-value { font-weight: 500; font-size: 14px; }
-    
-    .evidence-list { display: flex; flex-direction: column; gap: 8px; }
+    .detail-value { color: var(--gray-900); font-size: 14px; font-weight: 500; }
+
+    .timeline { position: relative; padding-left: 24px; }
+    .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--gray-200); }
+    .timeline-item { position: relative; padding: 12px 0; }
+    .timeline-item::before { content: ''; position: absolute; left: -20px; top: 16px; width: 12px; height: 12px; border-radius: 50%; background: white; border: 2px solid var(--gray-300); }
+    .timeline-item.fsm::before { border-color: var(--primary); background: #dbeafe; }
+    .timeline-item.signal::before { border-color: var(--warning); background: #fef3c7; }
+    .timeline-header { display: flex; align-items: center; justify-content: space-between; }
+    .timeline-title { font-size: 14px; font-weight: 500; }
+    .timeline-time { font-size: 12px; color: var(--gray-400); font-family: monospace; }
+    .timeline-desc { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+
+    .evidence-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .evidence-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px; cursor: pointer; }
     .evidence-item:hover { background: var(--gray-100); }
-    
-    .facts-list, .explanations-list { display: flex; flex-direction: column; gap: 8px; }
-    .fact-item, .explanation-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; background: var(--gray-50); border-radius: 8px; font-size: 14px; }
-    .fact-item .fact-icon { font-size: 16px; flex-shrink: 0; }
-    .explanation-item { background: #f0f9ff; border-left: 3px solid var(--primary); }
-    
-    /* Timeline 样式 */
-    .timeline-list { display: flex; flex-direction: column; gap: 0; }
-    .timeline-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
-    .timeline-item:last-child { border-bottom: none; }
-    .timeline-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
-    .timeline-content { flex: 1; min-width: 0; }
-    .timeline-title { font-size: 14px; font-weight: 500; color: var(--gray-800); }
-    .timeline-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
-    .timeline-time { font-size: 11px; color: var(--gray-400); flex-shrink: 0; }
-    
-    .evidence-icon { font-size: 24px; }
+    .evidence-thumb { width: 48px; height: 48px; background: var(--gray-300); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
     .evidence-info { flex: 1; }
-    .evidence-name { font-weight: 500; font-size: 14px; }
-    .evidence-size { font-size: 12px; color: var(--gray-500); }
-    
-    .live-view-container { background: #1a1a2e; border-radius: 12px; overflow: hidden; margin-top: 8px; }
-    .live-view-tabs { display: flex; gap: 4px; padding: 8px; background: #16213e; overflow-x: auto; }
-    .live-view-tab { padding: 8px 16px; background: #0f3460; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; white-space: nowrap; }
-    .live-view-tab.active { background: #00adb5; }
-    .live-view-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+    .evidence-name { font-size: 13px; font-weight: 500; }
+    .evidence-size { font-size: 11px; color: var(--gray-400); }
+    .evidence-play { width: 32px; height: 32px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+    .action-buttons { display: flex; flex-direction: column; gap: 8px; }
+    .action-row { display: flex; gap: 8px; }
+    .action-btn { flex: 1; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .action-btn.primary { background: var(--success); color: white; }
+    .action-btn.warning { background: var(--warning); color: white; }
+    .action-btn.danger { background: var(--danger); color: white; }
+    .action-btn.secondary { background: var(--gray-100); color: var(--gray-700); }
+
+    /* Live View */
+    .camera-selector { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .camera-selector h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .camera-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .camera-btn { padding: 12px; border: 2px solid var(--gray-200); border-radius: 8px; background: white; cursor: pointer; text-align: left; }
+    .camera-btn:hover { border-color: var(--gray-400); }
+    .camera-btn.active { border-color: var(--primary); background: #eff6ff; }
+    .camera-btn.offline { opacity: 0.5; }
+    .camera-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+    .camera-status { width: 8px; height: 8px; border-radius: 50%; }
+    .camera-status.online { background: var(--success); }
+    .camera-status.offline { background: var(--danger); }
+
+    .live-view-container { background: #1a1a2e; border-radius: 12px; overflow: hidden; }
+    .live-view-frame { aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
     .live-view-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .live-view-placeholder { color: #666; font-size: 14px; }
-    .live-view-status { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #16213e; color: #888; font-size: 12px; }
-    .live-view-status.connected { color: #00ff88; }
-    .live-view-status.error { color: #ff4444; }
-    
-    .mode-control { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
-    .mode-control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .mode-control-title { color: white; font-size: 14px; font-weight: 500; }
-    .mode-control-status { font-size: 12px; padding: 4px 8px; border-radius: 12px; }
-    .mode-control-status.armed { background: #ff4444; color: white; }
-    .mode-control-status.disarmed { background: #00aa55; color: white; }
-    .mode-control-status.home { background: #ff9500; color: white; }
-    .mode-control-status.night { background: #8b5cf6; color: white; }
-    .mode-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .mode-btn { padding: 12px 8px; border: 2px solid rgba(255,255,255,0.2); border-radius: 12px; background: transparent; color: white; font-size: 12px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .mode-btn:hover { border-color: rgba(255,255,255,0.5); }
-    .mode-btn.active { border-color: var(--primary); background: rgba(59,130,246,0.2); }
-    .mode-btn .mode-icon { font-size: 20px; }
-    .mode-btn .mode-label { font-size: 11px; opacity: 0.8; }
-    
-    .alert-actions { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
-    .alert-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .alert-btn.siren { background: #ff4444; color: white; }
-    .alert-btn.silence { background: #666; color: white; }
-    .alert-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    
-    .action-bar { padding: 16px; background: white; border-top: 1px solid var(--gray-200); display: flex; gap: 12px; }
-    .action-bar .btn { flex: 1; }
-    
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-500); }
-    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-    .empty-state-title { font-size: 18px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; }
-    
-    .loading { display: flex; align-items: center; justify-content: center; padding: 40px; }
-    .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .live-view-badge { position: absolute; top: 12px; left: 12px; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; color: white; background: var(--warning); }
+    .live-view-placeholder { color: white; text-align: center; }
+    .live-view-placeholder .icon { font-size: 48px; margin-bottom: 16px; }
+
+    /* Video Modal */
+    .video-modal { position: fixed; inset: 0; background: #000; z-index: 300; display: none; flex-direction: column; }
+    .video-modal.active { display: flex; }
+    .video-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px; color: white; }
+    .video-modal-close { width: 40px; height: 40px; border: none; background: rgba(255,255,255,0.1); color: white; border-radius: 8px; cursor: pointer; font-size: 20px; }
+    .video-modal-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .video-modal-body video { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
+    /* Confirm */
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: none; align-items: center; justify-content: center; padding: 16px; }
+    .confirm-overlay.active { display: flex; }
+    .confirm-dialog { background: white; border-radius: 16px; padding: 24px; max-width: 360px; width: 100%; }
+    .confirm-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .confirm-message { font-size: 14px; color: var(--gray-600); margin-bottom: 20px; }
+    .confirm-buttons { display: flex; gap: 12px; }
+    .confirm-btn { flex: 1; padding: 12px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .confirm-btn.cancel { background: var(--gray-100); color: var(--gray-700); }
+    .confirm-btn.confirm { background: var(--primary); color: white; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--gray-800); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 500; opacity: 0; transition: opacity 0.3s; }
+    .toast.visible { opacity: 1; }
+
+    /* Loading */
+    .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    
-    .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--gray-900); color: white; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 1000; animation: slideUp 0.3s; }
-    @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-    
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
-    .modal-overlay.active { display: flex; }
-    .modal { background: white; border-radius: var(--radius); width: 100%; max-width: 400px; overflow: hidden; }
-    .modal-header { padding: 20px; border-bottom: 1px solid var(--gray-200); }
-    .modal-header h2 { font-size: 18px; }
-    .modal-body { padding: 20px; }
-    .modal-footer { padding: 16px 20px; border-top: 1px solid var(--gray-200); display: flex; gap: 12px; justify-content: flex-end; }
-    .modal-footer .btn { width: auto; }
-    
-    @media (min-width: 768px) {
-      .events-container { max-width: 600px; margin: 0 auto; }
-      .detail-container { max-width: 800px; margin: 0 auto; }
-    }
-    
-    /* ===== L2 Role-based UI Styles ===== */
-    
-    /* 角色徽章 */
-    .role-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-      color: white;
-    }
-    .role-badge.owner { background: #2563eb; }
-    .role-badge.caretaker { background: #7c3aed; }
-    .role-badge.acting_owner { background: #d97706; }
-    .role-badge.witness { background: #6b7280; }
-    
-    /* 角色 Header Banner */
-    .role-banner {
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      border-bottom: 1px solid #bae6fd;
-      padding: 8px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 13px;
-    }
-    .role-banner.caretaker { background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border-color: #d8b4fe; }
-    .role-banner.acting_owner { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-color: #fcd34d; }
-    .role-banner.witness { background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-color: #d1d5db; }
-    
-    .role-banner-text {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .role-banner-icon { font-size: 16px; }
-    
-    /* Resolver 指示器 */
-    .resolver-indicator {
-      background: var(--warning-bg);
-      border: 1px solid var(--warning);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .resolver-indicator.is-me {
-      background: var(--success-bg);
-      border-color: var(--success);
-    }
-    .resolver-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .resolver-name { font-weight: 500; }
-    .resolver-role { font-size: 12px; color: var(--gray-500); }
-    
-    /* Take Over 按钮 */
-    .btn-takeover {
-      background: white;
-      border: 1px solid var(--warning);
-      color: var(--warning);
-      font-size: 12px;
-      padding: 4px 12px;
-    }
-    .btn-takeover:hover {
-      background: var(--warning);
-      color: white;
-    }
-    
-    /* 只读状态覆盖 */
-    .readonly-overlay {
-      position: relative;
-    }
-    .readonly-overlay::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(255,255,255,0.6);
-      pointer-events: all;
-      cursor: not-allowed;
-    }
-    .readonly-notice {
-      background: var(--gray-100);
-      border: 1px solid var(--gray-300);
-      border-radius: 8px;
-      padding: 12px;
-      text-align: center;
-      color: var(--gray-500);
-      font-size: 14px;
-      margin-bottom: 12px;
-    }
-    
-    /* 历史范围提示 */
-    .history-notice {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 8px;
-      padding: 8px 12px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: #0369a1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    /* 操作按钮禁用样式 */
-    .action-bar .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
+  <header class="header">
+    <div class="header-title"><span>🛡️</span><span>NeighborGuard</span></div>
+    <span id="connectionBadge" class="header-badge remote">REMOTE</span>
+  </header>
   
-  <div id="loginPage" class="page login-page active">
-    <div class="login-card">
-      <div class="login-logo">🏠</div>
-      <h1 class="login-title">NeighborGuard</h1>
-      <p class="login-subtitle">智能家居安防系统</p>
-      <form id="loginForm">
-        <div class="form-group">
-          <label class="form-label">邮箱</label>
-          <input type="email" id="loginEmail" class="form-input" value="test@example.com" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Circle ID (可选)</label>
-          <input type="text" id="loginCircleId" class="form-input" value="a793c5c7-f458-44d5-994e-84cef6635172" placeholder="留空则使用默认">
-        </div>
-        <button type="submit" class="btn btn-primary">登录</button>
-      </form>
-      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">v8.0.0-L2 测试版</p>
-    </div>
-  </div>
-  
-  <div id="eventsPage" class="page events-page">
-    <div class="header">
-      <h1>🏠 NeighborGuard</h1>
-      <div class="header-right">
-        <span id="headerRoleBadge" class="role-badge owner" style="display: none;">业主</span>
-        <button class="btn-icon" id="pushToggleBtn" onclick="enablePushByUser()" title="开启推送通知">🔕</button>
-        <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
-        <button class="btn-icon" onclick="logout()" title="登出">👤</button>
-      </div>
-    </div>
-    
-    <!-- L2: 角色 Banner (非 owner 时显示) -->
-    <div id="roleBanner" class="role-banner" style="display: none;">
-      <div class="role-banner-text">
-        <span class="role-banner-icon">👤</span>
-        <span>您正在以 <strong id="roleBannerName">看护者</strong> 身份操作</span>
-      </div>
-      <span id="roleBannerCircle" class="role-badge">Home</span>
-    </div>
-    
-    <div class="events-container">
-      <div class="mode-control" id="modeControl">
-        <div class="mode-control-header">
-          <span class="mode-control-title">🛡️ 安防模式</span>
-          <span class="mode-control-status disarmed" id="modeStatus">加载中...</span>
+  <main class="main">
+    <!-- Dashboard -->
+    <div id="dashboardPage" class="page active">
+      <div class="mode-shield">
+        <div class="shield-container">
+          <div id="shieldCircle" class="shield-circle disarmed"><span id="shieldIcon" class="shield-icon">🏠</span></div>
+          <h2 id="shieldLabel" class="shield-label disarmed">撤防</h2>
+          <p id="shieldDesc" class="shield-desc">安防系统已关闭</p>
+          <div id="threatBadge" class="threat-badge hidden"></div>
         </div>
         <div class="mode-buttons">
-          <button class="mode-btn" data-mode="disarm" onclick="setMode('disarm')">
-            <span class="mode-icon">🔓</span>
-            <span class="mode-label">撤防</span>
-          </button>
-          <button class="mode-btn" data-mode="home" onclick="setMode('home')">
-            <span class="mode-icon">🏠</span>
-            <span class="mode-label">在家</span>
-          </button>
-          <button class="mode-btn" data-mode="away" onclick="setMode('away')">
-            <span class="mode-icon">🚪</span>
-            <span class="mode-label">离家</span>
-          </button>
-          <button class="mode-btn" data-mode="night" onclick="setMode('night')">
-            <span class="mode-icon">🌙</span>
-            <span class="mode-label">夜间</span>
-          </button>
-        </div>
-        <div class="alert-actions" id="alertActions" style="display: none;">
-          <button class="alert-btn siren" id="sirenBtn" onclick="triggerSiren()">🔊 触发警报</button>
-          <button class="alert-btn silence" id="silenceBtn" onclick="silenceAlarm()">🔇 静音</button>
+          <button class="mode-btn active disarmed" data-mode="disarmed" onclick="switchMode('disarmed')"><span class="mode-btn-icon">🏠</span><span class="mode-btn-label">撤防</span></button>
+          <button class="mode-btn" data-mode="home" onclick="switchMode('home')"><span class="mode-btn-icon">🏡</span><span class="mode-btn-label">在家</span></button>
+          <button class="mode-btn" data-mode="away" onclick="switchMode('away')"><span class="mode-btn-icon">🚗</span><span class="mode-btn-label">离开</span></button>
+          <button class="mode-btn" data-mode="night" onclick="switchMode('night')"><span class="mode-btn-icon">🌙</span><span class="mode-btn-label">夜间</span></button>
         </div>
       </div>
-      
-      <div class="events-status">
-        <span class="dot"></span>
-        <span>实时监控中</span>
-        <span style="margin-left: auto;" id="lastUpdate">--</span>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">今日事件</div></div>
+        <div class="stat-card danger"><div class="stat-value" id="statActive">0</div><div class="stat-label">活跃事件</div></div>
       </div>
-      
-      <div id="eventsList" class="events-list">
-        <div class="loading"><div class="spinner"></div></div>
+      <div class="device-card">
+        <h3>设备状态</h3>
+        <div class="device-row"><span class="device-name"><span>📹</span> 摄像头</span><span id="camerasStatus" class="device-status online">- / - 在线</span></div>
+        <div class="device-row"><span class="device-name"><span>📡</span> Zigbee</span><span id="zigbeeStatus" class="device-status online">- 已连接</span></div>
+        <div class="device-row"><span class="device-name"><span>⚙️</span> 运行</span><span id="runningStatus" class="device-status online">运行中</span></div>
       </div>
+    </div>
+
+    <!-- Events -->
+    <div id="eventsPage" class="page">
+      <div class="page-header"><h1 class="page-title">事件记录</h1><button class="refresh-btn" onclick="loadIncidents()">刷新</button></div>
+      <div class="filters">
+        <button class="filter-btn primary active" data-filter="all" onclick="setStatusFilter('all')">全部</button>
+        <button class="filter-btn primary" data-filter="active" onclick="setStatusFilter('active')">活跃</button>
+        <button class="filter-btn primary" data-filter="resolved" onclick="setStatusFilter('resolved')">已结束</button>
+      </div>
+      <div class="filters">
+        <button class="filter-btn secondary active" data-time="today" onclick="setTimeFilter('today')">今天</button>
+        <button class="filter-btn secondary" data-time="week" onclick="setTimeFilter('week')">本周</button>
+        <button class="filter-btn secondary" data-time="all" onclick="setTimeFilter('all')">全部</button>
+      </div>
+      <div id="eventList" class="event-list"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- Live -->
+    <div id="livePage" class="page">
+      <div class="page-header"><h1 class="page-title">实时视频</h1></div>
+      <div class="camera-selector"><h3>选择摄像头</h3><div id="cameraGrid" class="camera-grid"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="live-view-container"><div id="liveViewFrame" class="live-view-frame"><div class="live-view-placeholder"><div class="icon">📷</div><p>选择摄像头查看</p></div></div></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span class="nav-icon">🏠</span><span class="nav-label">仪表盘</span></a>
+    <a class="nav-item" data-page="events" onclick="showPage('events')"><span class="nav-icon" style="position:relative;">📋<span id="eventBadge" class="nav-badge hidden">0</span></span><span class="nav-label">事件中心</span></a>
+    <a class="nav-item" data-page="live" onclick="showPage('live')"><span class="nav-icon">📹</span><span class="nav-label">实时视频</span></a>
+  </nav>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header"><h2 class="modal-title">事件详情</h2><button class="modal-close" onclick="closeDetailModal()">✕</button></div>
+      <div class="modal-body" id="detailBody"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="modal-footer" id="detailFooter"></div>
     </div>
   </div>
-  
-  <div id="detailPage" class="page detail-page">
-    <div class="header">
-      <button class="header-back" onclick="showPage('events')">←</button>
-      <h1>事件详情</h1>
-      <div class="header-right">
-        <span id="detailBadge" class="badge badge-danger">警报</span>
-      </div>
-    </div>
-    
-    <div class="detail-container">
-      <!-- 媒体预览区：缩略图/截图显示在顶部 -->
-      <div class="detail-media" id="detailMedia">
-        <span class="placeholder">加载中...</span>
-      </div>
-      
-      <div class="detail-content">
-        <div class="detail-section">
-          <h3>事件信息</h3>
-          <div class="detail-row"><span class="detail-label">事件 ID</span><span class="detail-value" id="detailEventId">-</span></div>
-          <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value" id="detailLocation">-</span></div>
-          <div class="detail-row"><span class="detail-label">触发原因</span><span class="detail-value" id="detailReason">-</span></div>
-          <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value" id="detailTime">-</span></div>
-          <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value" id="detailStatus">-</span></div>
-          <div class="detail-row" id="detailResolutionRow"><span class="detail-label">处理结果</span><span class="detail-value" id="detailResolution">-</span></div>
-        </div>
-        
-        <!-- 发生情况 (Timeline) -->
-        <div class="detail-section" id="timelineSection" style="display: none;">
-          <h3>发生情况</h3>
-          <div id="timelineList" class="timeline-list"></div>
-        </div>
-        
-        <div class="detail-section" id="factsSection" style="display: none;">
-          <h3>发生情况</h3>
-          <div id="factsList" class="facts-list"></div>
-        </div>
-        
-        <div class="detail-section" id="explanationsSection" style="display: none;">
-          <h3>系统依据</h3>
-          <div id="explanationsList" class="explanations-list"></div>
-        </div>
-        
-        <!-- 证据文件列表：显示在底部 -->
-        <div class="detail-section">
-          <h3>证据文件</h3>
-          <div id="evidenceList" class="evidence-list">
-            <div class="loading"><div class="spinner"></div></div>
-          </div>
-        </div>
-        
-        <div class="detail-section" id="liveViewSection" style="display: none;">
-          <h3>📹 实时画面</h3>
-          <div class="live-view-container">
-            <div class="live-view-tabs" id="liveViewTabs"></div>
-            <div class="live-view-frame" id="liveViewFrame">
-              <img id="liveViewImg" alt="实时画面" style="display: none;">
-              <div class="live-view-placeholder" id="liveViewPlaceholder"><span>点击上方按钮查看实时画面</span></div>
-            </div>
-            <div class="live-view-status" id="liveViewStatus">
-              <span id="liveViewStatusText">未连接</span>
-              <button class="btn btn-sm btn-outline" id="liveViewStopBtn" onclick="stopLiveView()" style="display: none;">停止</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="action-bar" id="actionBar">
-      <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
-      <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
-      <button class="btn btn-danger" onclick="confirmEvent('alert')">🚨 报警</button>
+
+  <!-- Video Modal -->
+  <div id="videoModal" class="video-modal">
+    <div class="video-modal-header"><span>视频播放</span><button class="video-modal-close" onclick="closeVideoModal()">✕</button></div>
+    <div class="video-modal-body"><video id="videoPlayer" controls></video></div>
+  </div>
+
+  <!-- Confirm -->
+  <div id="confirmOverlay" class="confirm-overlay">
+    <div class="confirm-dialog">
+      <h3 id="confirmTitle" class="confirm-title">确认</h3>
+      <p id="confirmMessage" class="confirm-message"></p>
+      <div class="confirm-buttons"><button class="confirm-btn cancel" onclick="closeConfirm()">取消</button><button class="confirm-btn confirm" onclick="executeConfirm()">确认</button></div>
     </div>
   </div>
-  
-  <div id="confirmModal" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-header"><h2 id="modalTitle">确认操作</h2></div>
-      <div class="modal-body"><p id="modalMessage">确定要执行此操作吗？</p></div>
-      <div class="modal-footer">
-        <button class="btn btn-outline btn-sm" onclick="closeModal()">取消</button>
-        <button id="modalConfirmBtn" class="btn btn-primary btn-sm" onclick="doConfirm()">确认</button>
-      </div>
-    </div>
-  </div>
-  
-  <div id="toast" class="toast" style="display: none;"></div>
+
+  <div id="toast" class="toast"></div>
 
 <script>
+const EDGE_URL = 'https://edge.neighbor-guard.com';
+const MODE_CONFIG = {
+  disarmed: { icon: '🏠', label: '撤防', desc: '安防系统已关闭' },
+  home: { icon: '🏡', label: '在家', desc: '周边监控，内部放松' },
+  away: { icon: '🚗', label: '离开', desc: '全面安防已启动' },
+  night: { icon: '🌙', label: '夜间', desc: '夜间模式，缩短延迟' },
+};
+
 const state = {
-  jwt: localStorage.getItem('ng_jwt') || '',
-  circleId: localStorage.getItem('ng_circleId') || '',
-  events: [],
-  currentEvent: null,
-  currentManifest: null,
-  refreshTimer: null,
-  pendingAction: null,
-  currentMode: 'disarm',
-  alarmActive: false,
-  sirenActive: false,
-  entryPoints: {},
-  
-  // ===== L2 角色相关状态 =====
-  userId: localStorage.getItem('ng_userId') || '',
-  userEmail: localStorage.getItem('ng_userEmail') || '',
-  role: localStorage.getItem('ng_role') || 'owner',  // owner | caretaker | acting_owner | witness
-  roleName: '',           // 角色显示名称
-  roleValidUntil: null,   // 角色有效期
-  circleName: '',         // 圈子名称
-  activeResolver: null,   // 当前事件的活跃 resolver { role, id, name }
-  isResolver: false,      // 当前用户是否是 resolver
+  page: 'dashboard', mode: 'disarmed', threat: 'none',
+  incidents: [], cameras: [], selectedCamera: null, selectedIncident: null,
+  statusFilter: 'all', timeFilter: 'today', stats: {},
+  pendingConfirm: null, snapshotInterval: null,
 };
 
-const API_BASE = window.location.origin;
-const BASE_URL = window.location.origin;
-
-// Edge 服务端点
-const EDGE_URL = 'https://evidence.neighbor-guard.com';        // 证据服务 (快照、视频)
-const EDGE_RUNTIME_URL = 'https://edge.neighbor-guard.com';    // 主 Edge Runtime (L2: incidents, raha, ledger)
-
-// =============================================================================
-// API
-// =============================================================================
-
-async function api(path, options = {}) {
-  const url = BASE_URL + path;
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (state.jwt && !options.noAuth) headers['Authorization'] = `Bearer ${state.jwt}`;
-  
-  // L2: 添加角色相关 headers (用于 RAHA 请求)
-  if (state.role && !options.noRole) {
-    headers['X-Actor-Role'] = state.role;
-    if (state.userId) headers['X-Actor-Id'] = state.userId;
-  }
-  
-  const res = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  return data;
+function showPage(page) {
+  state.page = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(page + 'Page').classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  if (page === 'events') loadIncidents();
+  if (page === 'live') loadCameras();
 }
 
-// =============================================================================
-// L2 Role & Permission Helpers
-// =============================================================================
-
-// 角色显示名称映射
-const ROLE_NAMES = {
-  'owner': '业主',
-  'caretaker': '看护者', 
-  'acting_owner': '临时代理',
-  'witness': '见证者'
-};
-
-// 角色徽章颜色
-const ROLE_COLORS = {
-  'owner': '#2563eb',      // 蓝色
-  'caretaker': '#7c3aed',  // 紫色
-  'acting_owner': '#d97706', // 橙色
-  'witness': '#6b7280'     // 灰色
-};
-
-// 获取角色显示名称
-function getRoleName(role) {
-  return ROLE_NAMES[role] || role;
-}
-
-// 获取角色颜色
-function getRoleColor(role) {
-  return ROLE_COLORS[role] || '#6b7280';
-}
-
-// 权限检查: 是否可以解决事件
-function canResolve() {
-  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
-}
-
-// 权限检查: 是否可以切换模式
-function canChangeMode() {
-  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
-}
-
-// 权限检查: 是否可以静音警报
-function canSilenceSiren() {
-  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
-}
-
-// 权限检查: 是否可以管理角色
-function canManageRoles() {
-  return state.role === 'owner';
-}
-
-// 权限检查: 是否可以导出证据
-function canExportEvidence() {
-  return ['owner', 'caretaker'].includes(state.role);
-}
-
-// 权限检查: 是否可以查看历史 (返回可查看天数)
-function getHistoryAccessDays() {
-  switch (state.role) {
-    case 'owner': return Infinity;
-    case 'caretaker': return 7;
-    case 'acting_owner': return 1;
-    case 'witness': return 0;
-    default: return 0;
-  }
-}
-
-// 过滤事件列表 (基于角色的历史访问范围)
-function filterEventsByRole(events) {
-  const days = getHistoryAccessDays();
-  if (days === Infinity) return events;
-  if (days === 0) return events.filter(e => e.status === 'OPEN' || e.threatState === 'TRIGGERED' || e.threatState === 'PENDING');
-  
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  return events.filter(e => {
-    const eventDate = new Date(e.createdAt || e.timestamp);
-    return eventDate >= cutoff || e.status === 'OPEN';
-  });
-}
-
-// 保存角色到本地存储
-function saveRoleToStorage() {
-  localStorage.setItem('ng_userId', state.userId);
-  localStorage.setItem('ng_userEmail', state.userEmail);
-  localStorage.setItem('ng_role', state.role);
-}
-
-// 清除角色信息
-function clearRoleFromStorage() {
-  localStorage.removeItem('ng_userId');
-  localStorage.removeItem('ng_userEmail');
-  localStorage.removeItem('ng_role');
-}
-
-// 更新角色 UI 显示
-function updateRoleUI() {
-  const roleBadge = document.getElementById('headerRoleBadge');
-  const roleBanner = document.getElementById('roleBanner');
-  const roleBannerName = document.getElementById('roleBannerName');
-  const roleBannerCircle = document.getElementById('roleBannerCircle');
-  
-  // 更新 header 徽章
-  if (roleBadge) {
-    roleBadge.textContent = getRoleName(state.role);
-    roleBadge.className = `role-badge ${state.role}`;
-    roleBadge.style.display = 'inline-flex';
-  }
-  
-  // 更新角色 banner (非 owner 时显示)
-  if (roleBanner) {
-    if (state.role !== 'owner') {
-      roleBanner.style.display = 'flex';
-      roleBanner.className = `role-banner ${state.role}`;
-      if (roleBannerName) roleBannerName.textContent = getRoleName(state.role);
-      if (roleBannerCircle) {
-        roleBannerCircle.textContent = state.circleName || 'Home';
-        roleBannerCircle.className = `role-badge ${state.role}`;
-      }
-    } else {
-      roleBanner.style.display = 'none';
-    }
-  }
-  
-  // 更新操作按钮状态
-  updateActionButtonsForRole();
-}
-
-// 根据角色更新操作按钮
-function updateActionButtonsForRole() {
-  // 模式按钮
-  const modeButtons = document.querySelectorAll('.mode-btn');
-  modeButtons.forEach(btn => {
-    btn.disabled = !canChangeMode();
-  });
-  
-  // 事件详情页的操作按钮会在 showEventDetail 中处理
-}
-
-// 初始化角色 (登录后调用)
-async function initializeRole() {
-  // 目前简单处理：本地用户默认为 owner
-  // TODO: 未来从 Server API 获取实际角色 GET /api/circles/:id/my-role
-  state.role = 'owner';
-  state.roleName = getRoleName(state.role);
-  state.userEmail = localStorage.getItem('ng_userEmail') || '';
-  
-  // 尝试获取 circle 信息
+async function loadStatus() {
   try {
-    const circles = await api('/api/circles');
-    if (circles && circles.length > 0) {
-      const circle = circles.find(c => (c.id || c.circleId) === state.circleId) || circles[0];
-      state.circleName = circle.name || 'Home';
-    }
-  } catch (e) {
-    console.log('Failed to get circle info:', e);
-    state.circleName = 'Home';
-  }
-  
-  saveRoleToStorage();
-  updateRoleUI();
-}
-
-// =============================================================================
-// Auth
-// =============================================================================
-
-async function login(email, circleId) {
-  const data = await api('/api/auth/dev/login', { method: 'POST', body: { email }, noAuth: true });
-  state.jwt = data.token || data.jwt || data.accessToken;
-  localStorage.setItem('ng_jwt', state.jwt);
-  
-  if (!circleId) {
-    try {
-      const circles = await api('/api/circles');
-      if (circles && circles.length > 0) circleId = circles[0].id || circles[0].circleId;
-    } catch (e) { console.log('No existing circles'); }
-    
-    if (!circleId) {
-      const newCircle = await api('/api/circles', { method: 'POST', body: { name: 'Home' } });
-      circleId = newCircle.id || newCircle.circleId;
-    }
-  }
-  
-  state.circleId = circleId;
-  localStorage.setItem('ng_circleId', circleId);
-  return { jwt: state.jwt, circleId: state.circleId };
-}
-
-function logout() {
-  state.jwt = '';
-  state.circleId = '';
-  state.events = [];
-  state.role = 'owner';  // 重置角色
-  state.userId = '';
-  state.userEmail = '';
-  localStorage.removeItem('ng_jwt');
-  localStorage.removeItem('ng_circleId');
-  clearRoleFromStorage();  // L2: 清除角色信息
-  stopRefresh();
-  showPage('login');
-}
-
-// =============================================================================
-// Events
-// =============================================================================
-
-async function loadEvents() {
-  try {
-    // Edge-First: Edge 是唯一数据源
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/incidents?limit=50`);
-    if (!res.ok) throw new Error(`Edge API error: ${res.status}`);
-    
-    const data = await res.json();
-    const events = data.items || data.incidents || (Array.isArray(data) ? data : []);
-    
-    // 转换 Edge 格式到 UI 格式
-    state.events = filterEventsByRole(events.map(normalizeEdgeEvent));
-    
-    console.log('[Events] Loaded from Edge:', state.events.length, 'events');
-    renderEvents();
-    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-  } catch (e) {
-    console.error('Load events error:', e);
-    showToast('加载事件失败: ' + e.message);
-  }
-}
-
-// 将 Edge 事件格式转换为 UI 格式
-function normalizeEdgeEvent(event) {
-  const threatState = (event.threat_state || 'none').toUpperCase();
-  const isResolved = event.is_terminal || threatState === 'RESOLVED' || threatState === 'CANCELED';
-  const isPending = threatState === 'PENDING';
-  const isTriggered = threatState === 'TRIGGERED';
-  const isPre = threatState.startsWith('PRE');
-  
-  // 生成标题
-  const location = event.entry_point_name || event.entry_point_id || '入口';
-  let title = `【${location}】`;
-  if (isTriggered) title += '未确认开门事件，已进入警报';
-  else if (isPending) title += '等待确认中';
-  else if (threatState === 'CANCELED') title += '已解除本次等待确认';
-  else if (isPre) title += '检测到活动';
-  else if (event.workflow_class === 'LOGISTICS') title += '访客/快递';
-  else title += '安全事件';
-  
-  // 状态标签
-  const statusLabels = {
-    'NONE': '正常', 'PRE': '轻度威胁', 'PRE_L1': '轻度威胁', 'PRE_L2': '重度威胁',
-    'PENDING': '等待确认', 'TRIGGERED': '正在报警', 'RESOLVED': '已解决', 'CANCELED': '已撤防'
-  };
-  
-  return {
-    eventId: event.incident_id,
-    threatState: threatState,
-    status: isResolved ? 'RESOLVED' : 'OPEN',
-    workflowClass: event.workflow_class || 'SECURITY_HEAVY',
-    entryPointId: event.entry_point_id,
-    entryPoint: { label: location },
-    createdAt: event.created_at,
-    updatedAt: event.updated_at,
-    occurredAt: event.created_at,
-    timeText: formatTime(event.created_at),
-    title: title,
-    headlineText: title,
-    statusLabel: statusLabels[threatState] || '安全事件',
-    triggerReason: event.trigger_reason,
-    mode: event.house_mode,
-    
-    // L2 字段
-    peakThreatState: event.peak_threat_state,
-    activeResolverId: event.active_resolver_id,
-    activeResolverRole: event.active_resolver_role,
-    lockEpoch: event.lock_epoch,
-    lockExpiresAt: event.lock_expires_at,
-    resolvedById: event.resolved_by_id,
-    resolvedByRole: event.resolved_by_role,
-    resolution: event.resolution,
-    isActive: event.is_active,
-    isTerminal: event.is_terminal,
-    evidenceStatus: event.evidence_status,
-    evidenceCount: event.evidence_count,
-  };
-}
-
-function renderEvents() {
-  const container = document.getElementById('eventsList');
-  
-  if (state.events.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">一切正常</div><p>暂无安全事件</p></div>`;
-    return;
-  }
-  
-  container.innerHTML = state.events.map(event => {
-    const status = event.status || 'OPEN';
-    const threatState = event.threatState || event.alarmState || '';
-    const workflowClass = event.workflowClass || '';
-    const isLogistics = workflowClass === 'LOGISTICS';
-    const isAlert = threatState === 'TRIGGERED';
-    const isResolved = status === 'RESOLVED' || threatState === 'RESOLVED' || threatState === 'CANCELED';
-    const isPending = threatState === 'PENDING';
-    const isPre = threatState.startsWith('PRE');
-    
-    // LOGISTICS 用绿色样式和 📦 图标
-    const statusClass = isLogistics ? 'resolved' : (isAlert ? 'alert' : (isResolved ? 'resolved' : (isPending ? 'pending' : '')));
-    const icon = isLogistics ? '📦' : (isAlert ? '🚨' : (isResolved ? '✅' : (isPending ? '⏳' : (isPre ? '👁️' : '⚠️'))));
-    
-    // 优先使用 ViewModel 字段，回退到原有逻辑
-    const timeStr = event.timeText || formatTime(event.occurredAt || event.updatedAt || event.createdAt);
-    const zone = event.entryPoint?.label || event.entryPointId || event.zoneId || '入口';
-    const title = event.headlineText || event.title || getStatusLabel(status, threatState, workflowClass);
-    const statusLabel = event.statusLabel || '';
-    
-    // 状态徽章（LOGISTICS 不显示威胁徽章）
-    const showBadge = statusLabel && !isResolved && !isLogistics;
-    const badgeClass = isAlert ? 'badge-danger' : (isPending ? 'badge-warning' : 'badge-info');
-    const badgeHtml = showBadge ? `<span class="badge ${badgeClass}" style="font-size: 11px; padding: 2px 6px;">${statusLabel}</span>` : '';
-    
-    return `<div class="event-card ${statusClass}" onclick="showEventDetail('${event.eventId}')">
-      <div class="event-header">
-        <div class="event-icon ${statusClass}">${icon}</div>
-        <div class="event-info">
-          <div class="event-title">${title}</div>
-          <div class="event-meta">${zone} · ${timeStr}</div>
-        </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-          ${badgeHtml}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function getStatusLabel(status, alarmState, workflowClass) {
-  // LOGISTICS 工作流（快递/访客）显示"正常"
-  if (workflowClass === 'LOGISTICS') {
-    return '正常';
-  }
-  
-  // 安全事件的状态标签
-  const stateLabels = { 
-    'NONE': '正常',
-    'PRE': '轻度威胁', 
-    'PRE_L1': '轻度威胁', 
-    'PRE_L2': '重度威胁', 
-    'PRE_L3': '重度威胁',
-    'PENDING': '等待确认', 
-    'TRIGGERED': '正在报警',
-    'RESOLVED': '警报已平息',
-    'CANCELED': '已撤防'
-  };
-  return stateLabels[alarmState] || '安全事件';
-}
-
-function getTriggerReasonLabel(triggerReason) {
-  const labels = {
-    'door_open': '门被打开',
-    'door_close': '门已关闭',
-    'entry_delay_expired': '等待确认超时',
-    'glass_break': '检测到玻璃破碎',
-    'tamper_verified_by_user': '用户确认防拆异常',
-    'life_safety': '检测到生命安全风险',
-    'person_detected': '检测到有人',
-    'motion_active': '检测到活动',
-    'delivery_detected': '快递到达',
-    'network_down': '摄像头离线',
-    'signal_person': '检测到有人',
-    'signal_door_open': '门被打开',
-  };
-  return labels[triggerReason] || null;
-}
-
-function formatTime(isoStr) {
-  try {
-    const date = new Date(isoStr);
-    const now = new Date();
-    const diff = now - date;
-    if (diff < 60000) return '刚刚';
-    if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch { return isoStr; }
-}
-
-// =============================================================================
-// Event Detail
-// =============================================================================
-
-async function showEventDetail(eventId) {
-  const event = state.events.find(e => e.eventId === eventId);
-  if (!event) { showToast('事件未找到'); return; }
-  
-  state.currentEvent = event;
-  state.currentManifest = null;
-  
-  // PRE 事件：打开详情时自动标记为已查看
-  const threatState = event.threatState || event.alarmState || '';
-  const currentStatus = event.status || 'OPEN';
-  const isPreState = threatState.startsWith('PRE');
-  const needsAck = isPreState && currentStatus !== 'ACKED' && currentStatus !== 'RESOLVED';
-  
-  if (needsAck) {
-    markEventAsViewed(eventId).then(() => {
-      event.status = 'ACKED';
-      event.resolution = '已查看';
-      document.getElementById('detailResolution').textContent = '已查看';
-    }).catch(e => console.warn('标记已查看失败:', e));
-  }
-  
-  // 使用 ViewModel 字段，回退到原有字段
-  const location = event.entryPoint?.label || event.entryPointId || event.zoneId || '入口';
-  const reason = event.triggerReasonLabel || getTriggerReasonLabel(event.triggerReason) || '检测到活动';
-  const timeStr = event.occurredAt ? new Date(event.occurredAt).toLocaleString('zh-CN') : '-';
-  
-  document.getElementById('detailEventId').textContent = eventId.substring(0, 8) + '...';
-  document.getElementById('detailLocation').textContent = location;
-  document.getElementById('detailReason').textContent = reason;
-  document.getElementById('detailTime').textContent = timeStr;
-  
-  const status = event.status || 'OPEN';
-  const workflowClass = event.workflowClass || '';
-  const isLogistics = workflowClass === 'LOGISTICS';
-  const statusLabel = event.statusLabel || getStatusLabel(status, threatState, workflowClass);
-  document.getElementById('detailStatus').textContent = statusLabel;
-  
-  // 处理结果
-  const resolutionRow = document.getElementById('detailResolutionRow');
-  const resolutionValue = document.getElementById('detailResolution');
-  resolutionRow.style.display = 'flex';
-  
-  // 本地化处理结果
-  const resolutionMap = { 'canceled': '已撤防', 'resolved': '已解决', 'safe': '确认安全' };
-  const resolutionText = event.resolution ? (resolutionMap[event.resolution.toLowerCase()] || event.resolution) : '待处理';
-  resolutionValue.textContent = resolutionText;
-  
-  const badge = document.getElementById('detailBadge');
-  const isAlert = threatState === 'TRIGGERED';
-  const isResolved = status === 'RESOLVED' || threatState === 'RESOLVED' || threatState === 'CANCELED' || threatState === 'NONE';
-  badge.textContent = statusLabel;
-  badge.className = 'badge ' + (isLogistics ? 'badge-success' : (isAlert ? 'badge-danger' : (isResolved ? 'badge-success' : 'badge-warning')));
-  
-  // 隐藏 facts 和 explanations（这些字段主要来自 Server ViewModel）
-  document.getElementById('factsSection').style.display = 'none';
-  document.getElementById('explanationsSection').style.display = 'none';
-  
-  // 动态渲染操作栏
-  renderActionBar(event.nextActions, status);
-  
-  document.getElementById('detailMedia').innerHTML = '<span class="placeholder">加载中...</span>';
-  document.getElementById('evidenceList').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  
-  showPage('detail');
-  
-  // 同时加载 timeline 和证据
-  try {
-    // 1. 加载 timeline
-    const timelinePromise = fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/timeline`)
-      .then(r => r.ok ? r.json() : null)
-      .catch(() => null);
-    
-    // 2. 加载证据
-    const evidencePromise = fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/evidence`)
-      .then(r => r.ok ? r.json() : { items: [] })
-      .catch(() => ({ items: [] }));
-    
-    const [timeline, manifest] = await Promise.all([timelinePromise, evidencePromise]);
-    
-    // 渲染 timeline
-    if (timeline && timeline.events && timeline.events.length > 0) {
-      renderTimeline(timeline.events);
-    }
-    
-    // 渲染证据
-    state.currentManifest = manifest;
-    renderEvidence(manifest);
-    
-  } catch (e) {
-    console.error('Load detail error:', e);
-    document.getElementById('evidenceList').innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
-    document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
-  }
-}
-
-// 渲染 Timeline
-function renderTimeline(events) {
-  const section = document.getElementById('timelineSection');
-  const list = document.getElementById('timelineList');
-  
-  if (!events || events.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-  
-  section.style.display = 'block';
-  
-  // Timeline 事件图标
-  const icons = {
-    'FSM_TRANSITION': '🔄',
-    'SIGNAL': '📡',
-    'DOOR_OPEN': '🚪',
-    'DOOR_CLOSE': '🚪',
-    'PERSON_DETECTED': '👤',
-    'DISARM': '🔓',
-    'MODE_CHANGE': '🛡️',
-    'RESOLVE': '✅',
-    'CANCEL': '❌',
-  };
-  
-  list.innerHTML = events.map(e => {
-    const icon = icons[e.event_type] || '•';
-    const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('zh-CN') : '';
-    const title = e.title || e.event_type;
-    const desc = e.description || '';
-    
-    return `
-      <div class="timeline-item">
-        <span class="timeline-icon">${icon}</span>
-        <div class="timeline-content">
-          <div class="timeline-title">${title}</div>
-          ${desc ? `<div class="timeline-desc">${desc}</div>` : ''}
-        </div>
-        <span class="timeline-time">${time}</span>
-      </div>
-    `;
-  }).join('');
-}
-
-// 辅助函数：获取 fact 图标
-function getFactIcon(iconKey) {
-  const icons = {
-    door: '🚪', person: '👤', motion: '📡', camera: '📷',
-    timer: '⏱️', alert: '⚠️', package: '📦', shield: '🛡️', heart: '❤️', info: 'ℹ️'
-  };
-  return icons[iconKey] || '•';
-}
-
-// 辅助函数：渲染操作栏
-function renderActionBar(nextActions, status) {
-  const actionBar = document.getElementById('actionBar');
-  
-  // 如果状态已解决，隐藏操作栏
-  if (status === 'RESOLVED') {
-    actionBar.style.display = 'none';
-    return;
-  }
-  
-  // 如果没有 nextActions，使用默认按钮
-  if (!nextActions || nextActions.length === 0) {
-    actionBar.style.display = 'flex';
-    actionBar.innerHTML = `
-      <button class="btn btn-success" onclick="confirmEvent('safe')">✓ 确认安全</button>
-      <button class="btn btn-primary" onclick="startVerification()">📹 实时查看</button>
-      <button class="btn btn-danger" onclick="confirmEvent('alert')">🚨 报警</button>
-    `;
-    return;
-  }
-  
-  // 基于 nextActions 动态生成按钮
-  const styleMap = { primary: 'btn-primary', secondary: 'btn-outline', danger: 'btn-danger', link: 'btn-outline' };
-  const actionHandlers = {
-    'disarm': "confirmEvent('safe')",
-    'cancel': "confirmEvent('safe')",
-    'open_live_view': "startVerification()",
-    'play_key_clip': "playEvidence(0)",
-    'silence': "silenceSiren()",
-    'request_help': "requestHelp()",
-    'view_details': ""  // 已在详情页，无需操作
-  };
-  
-  const buttons = nextActions
-    .filter(a => a.actionId !== 'view_details')  // 排除"查看详情"
-    .map(action => {
-      const btnClass = styleMap[action.style] || 'btn-outline';
-      const handler = actionHandlers[action.actionId] || '';
-      if (!handler) return '';
-      return `<button class="btn ${btnClass}" onclick="${handler}">${action.label}</button>`;
-    })
-    .filter(b => b)
-    .join('');
-  
-  actionBar.style.display = buttons ? 'flex' : 'none';
-  actionBar.innerHTML = buttons || '';
-}
-
-async function renderEvidence(manifest) {
-  const items = manifest.items || [];
-  const evidenceList = document.getElementById('evidenceList');
-  const mediaContainer = document.getElementById('detailMedia');
-  
-  if (items.length === 0) {
-    evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
-    mediaContainer.innerHTML = '<span class="placeholder">暂无媒体</span>';
-    return;
-  }
-  
-  // 分类证据
-  const thumbnails = items.filter(i => (i.item_type || i.type) === 'thumbnail');
-  const snapshots = items.filter(i => (i.item_type || i.type) === 'snapshot');
-  const clips = items.filter(i => (i.item_type || i.type) === 'clip');
-  
-  // 1. 顶部媒体区：优先显示缩略图，否则显示第一张截图
-  const previewItem = thumbnails[0] || snapshots[0];
-  if (previewItem) {
-    const previewKey = previewItem.evidence_key || previewItem.evidenceKey;
-    const previewUrl = `${EDGE_RUNTIME_URL}/api/evidence/${previewKey}`;
-    mediaContainer.innerHTML = `
-      <img src="${previewUrl}" alt="证据图片" 
-           style="max-width: 100%; max-height: 100%; object-fit: contain;"
-           onerror="this.parentNode.innerHTML='<span class=\\'placeholder\\'>图片加载失败</span>'">
-    `;
-    
-    // 如果有多张图片，添加导航点
-    const allImages = [...thumbnails, ...snapshots];
-    if (allImages.length > 1) {
-      const dots = allImages.map((_, i) => 
-        `<span class="media-dot ${i === 0 ? 'active' : ''}" onclick="showPreviewImage(${i})"></span>`
-      ).join('');
-      mediaContainer.innerHTML += `<div class="media-nav">${dots}</div>`;
-    }
-  } else if (clips.length > 0) {
-    // 没有图片，显示第一个视频
-    const clipKey = clips[0].evidence_key || clips[0].evidenceKey;
-    const clipUrl = `${EDGE_RUNTIME_URL}/api/evidence/${clipKey}`;
-    mediaContainer.innerHTML = `
-      <video controls playsinline style="max-width: 100%; max-height: 100%;">
-        <source src="${clipUrl}" type="video/mp4">
-      </video>
-    `;
-  } else {
-    mediaContainer.innerHTML = '<span class="placeholder">暂无媒体</span>';
-  }
-  
-  // 2. 底部证据列表：显示截图和视频
-  const displayItems = [...snapshots, ...clips];
-  
-  // 保存到 state 供 playEvidence 使用
-  state.currentManifest = { ...manifest, items: displayItems };
-  
-  if (displayItems.length === 0) {
-    evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
-    return;
-  }
-  
-  evidenceList.innerHTML = displayItems.map((item, idx) => {
-    const itemType = item.item_type || item.type;
-    const isVideo = itemType === 'clip';
-    const icon = isVideo ? '🎬' : '📸';
-    const name = isVideo ? '视频片段' : '截图';
-    const size = item.size_bytes ? formatSize(item.size_bytes) : '-';
-    
-    return `
-      <div class="evidence-item" onclick="playEvidence(${idx})">
-        <span class="evidence-icon">${icon}</span>
-        <div class="evidence-info">
-          <div class="evidence-name">${name}</div>
-          <div class="evidence-size">${size}</div>
-        </div>
-        <span style="color: var(--gray-400);">▶</span>
-      </div>
-    `;
-  }).join('');
-}
-
-// 切换预览图片
-function showPreviewImage(idx) {
-  const items = state.currentManifest?.items || [];
-  const thumbnails = items.filter(i => (i.item_type || i.type) === 'thumbnail');
-  const snapshots = items.filter(i => (i.item_type || i.type) === 'snapshot');
-  const allImages = [...thumbnails, ...snapshots];
-  
-  if (idx >= allImages.length) return;
-  
-  const item = allImages[idx];
-  const key = item.evidence_key || item.evidenceKey;
-  const url = `${EDGE_RUNTIME_URL}/api/evidence/${key}`;
-  
-  const mediaContainer = document.getElementById('detailMedia');
-  const img = mediaContainer.querySelector('img');
-  if (img) {
-    img.src = url;
-  }
-  
-  // 更新导航点
-  mediaContainer.querySelectorAll('.media-dot').forEach((dot, i) => {
-    dot.classList.toggle('active', i === idx);
-  });
-}
-
-async function playEvidence(idx) {
-  const items = state.currentManifest?.items || state.currentManifest?.manifest?.items || [];
-  if (idx >= items.length) return;
-  
-  const item = items[idx];
-  const mediaContainer = document.getElementById('detailMedia');
-  mediaContainer.innerHTML = '<span class="placeholder">加载中...</span>';
-  
-  try {
-    // evidence_key 就是文件名，如 "evidence_cam_back_inc_5ba1e2d1_xxx.mp4"
-    const evidenceKey = item.evidence_key || item.evidenceKey || item.itemId;
-    
-    // Edge Runtime 提供证据下载端点: /api/evidence/{evidence_key}
-    const downloadUrl = `${EDGE_RUNTIME_URL}/api/evidence/${evidenceKey}`;
-    const isVideo = item.item_type === 'clip' || item.type === 'clip' || item.kind === 'clip';
-    
-    console.log('[Evidence] Playing:', evidenceKey, 'isVideo:', isVideo, 'URL:', downloadUrl);
-    
-    if (isVideo) {
-      mediaContainer.innerHTML = `<video controls autoplay playsinline style="max-width: 100%; max-height: 100%;"><source src="${downloadUrl}" type="video/mp4">您的浏览器不支持视频播放</video>`;
-    } else {
-      mediaContainer.innerHTML = `<img src="${downloadUrl}" alt="证据图片" onerror="this.parentNode.innerHTML='<span class=\\'placeholder\\'>图片加载失败</span>'">`;
-    }
-    
-    if (items.length > 1) {
-      const dots = items.map((_, i) => `<span class="media-dot ${i === idx ? 'active' : ''}" onclick="playEvidence(${i})"></span>`).join('');
-      mediaContainer.innerHTML += `<div class="media-nav">${dots}</div>`;
-    }
-  } catch (e) {
-    console.error('Play evidence error:', e);
-    mediaContainer.innerHTML = `<span class="placeholder">加载失败: ${e.message}</span>`;
-  }
-}
-
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
-}
-
-// =============================================================================
-// Actions
-// =============================================================================
-
-function confirmEvent(action) {
-  state.pendingAction = action;
-  const modal = document.getElementById('confirmModal');
-  const title = document.getElementById('modalTitle');
-  const message = document.getElementById('modalMessage');
-  const btn = document.getElementById('modalConfirmBtn');
-  
-  if (action === 'safe') {
-    title.textContent = '确认安全';
-    message.textContent = '确定此事件为误报？系统将标记为已解决。';
-    btn.className = 'btn btn-success btn-sm';
-    btn.textContent = '确认安全';
-  } else {
-    title.textContent = '触发报警';
-    message.textContent = '确定要触发报警？系统将通知紧急联系人。';
-    btn.className = 'btn btn-danger btn-sm';
-    btn.textContent = '确认报警';
-  }
-  modal.classList.add('active');
-}
-
-function closeModal() {
-  document.getElementById('confirmModal').classList.remove('active');
-  state.pendingAction = null;
-}
-
-async function doConfirm() {
-  closeModal();
-  if (!state.currentEvent || !state.pendingAction) return;
-  
-  const eventId = state.currentEvent.eventId || state.currentEvent.id;
-  const isSafe = state.pendingAction === 'safe';
-  
-  try {
-    // 使用 incidents API 直接端点
-    const endpoint = isSafe 
-      ? `${EDGE_RUNTIME_URL}/api/incidents/${eventId}/resolve`
-      : `${EDGE_RUNTIME_URL}/api/incidents/${eventId}/cancel`;
-    
-    const body = isSafe 
-      ? { resolution: 'safe', note: '用户确认安全', actor_id: state.userId || 'local_user', actor_role: state.role, via: 'app' }
-      : { actor_id: state.userId || 'local_user', actor_role: state.role, via: 'app' };
-    
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || '操作失败');
-    }
-    
-    showToast(isSafe ? '✅ 已标记为安全' : '✅ 已取消');
-    await loadEvents();
-    showPage('events');
-  } catch (e) {
-    console.error('Confirm error:', e);
-    showToast('操作失败: ' + e.message);
-  }
-}
-
-/**
- * 标记 PRE 事件为已查看
- * PRE 状态的事件，打开详情即视为已处理
- */
-async function markEventAsViewed(eventId) {
-  // PRE 事件不需要特殊处理，只是本地标记
-  // 未来可以使用 RAHA API 或专门的 ack 端点
-  console.log('[Event] Viewed:', eventId);
-  return { success: true };
-}
-
-// =============================================================================
-// Live Stream
-// =============================================================================
-// Additional Actions (from nextActions)
-// =============================================================================
-
-function silenceSiren() {
-  // 调用 Edge API 静音警报
-  fetch(`${EDGE_RUNTIME_URL}/api/pipeline/silence`, { method: 'POST' })
-    .then(res => {
-      if (res.ok) {
-        state.sirenActive = false;
-        updateModeUI();
-        showToast('🔇 警报已静音');
-        // 刷新事件状态
-        if (state.currentEvent) {
-          loadEvents();
-        }
-      } else {
-        res.json().then(data => showToast('静音失败: ' + (data.detail || '未知错误')));
-      }
-    })
-    .catch(e => {
-      console.error('Silence siren error:', e);
-      showToast('静音失败: ' + e.message);
-    });
-}
-
-function requestHelp() {
-  // TODO: 实现请求协助功能 - 需要调用协作人通知
-  showToast('请求协助功能开发中');
-}
-
-// =============================================================================
-// Live View / Verification
-// =============================================================================
-
-let liveStreamActive = false;
-let liveStreamCamera = null;
-let liveStreamInterval = null;
-
-async function startVerification() {
-  document.getElementById('liveViewSection').style.display = 'block';
-  
-  try {
-    const res = await fetch(`${EDGE_URL}/api/live/cameras`);
+    const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const tabs = document.getElementById('liveViewTabs');
-    tabs.innerHTML = '';
-    
-    if (!data.cameras || data.cameras.length === 0) {
-      tabs.innerHTML = '<span style="color: #888; padding: 8px;">无可用摄像头</span>';
-      return;
-    }
-    
-    data.cameras.forEach((cam, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'live-view-tab' + (idx === 0 ? ' active' : '');
-      btn.textContent = cam.name || cam.cameraId;
-      btn.onclick = () => switchLiveCamera(cam.cameraId);
-      tabs.appendChild(btn);
-    });
-    
-    if (data.cameras.length > 0) switchLiveCamera(data.cameras[0].cameraId);
-  } catch (e) {
-    console.error('Failed to load cameras:', e);
-    document.getElementById('liveViewTabs').innerHTML = `<span style="color: #ff4444; padding: 8px;">无法连接 (${e.message})</span>`;
-  }
-}
-
-async function switchLiveCamera(cameraId) {
-  stopLiveView();
-  document.querySelectorAll('.live-view-tab').forEach(tab => { tab.classList.toggle('active', tab.textContent.includes(cameraId)); });
-  
-  liveStreamCamera = cameraId;
-  liveStreamActive = true;
-  
-  document.getElementById('liveViewPlaceholder').innerHTML = '<div class="spinner"></div>';
-  document.getElementById('liveViewStatusText').textContent = '连接中...';
-  
-  try {
-    const checkRes = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}`);
-    if (!checkRes.ok) throw new Error('Camera not available');
-    startSnapshotPolling(cameraId);
-  } catch (e) {
-    console.error('Live view error:', e);
-    document.getElementById('liveViewStatusText').textContent = '连接失败';
-    document.getElementById('liveViewStatus').className = 'live-view-status error';
-    document.getElementById('liveViewPlaceholder').innerHTML = `<span style="color: #ff4444;">${e.message}</span>`;
-  }
-}
-
-function startSnapshotPolling(cameraId) {
-  const img = document.getElementById('liveViewImg');
-  const placeholder = document.getElementById('liveViewPlaceholder');
-  const statusText = document.getElementById('liveViewStatusText');
-  const status = document.getElementById('liveViewStatus');
-  const stopBtn = document.getElementById('liveViewStopBtn');
-  
-  async function fetchSnapshot() {
-    if (!liveStreamActive) return;
-    const fetchStart = Date.now();
-    try {
-      const res = await fetch(`${EDGE_URL}/api/live/cameras/${cameraId}/snapshot?t=${Date.now()}`);
-      if (!res.ok) throw new Error('Snapshot failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      img.onload = () => URL.revokeObjectURL(url);
-      img.src = url;
-      img.style.display = 'block';
-      placeholder.style.display = 'none';
-      const latency = Date.now() - fetchStart;
-      statusText.textContent = `● 实时 (${latency}ms)`;
-      status.className = 'live-view-status connected';
-      stopBtn.style.display = 'inline-block';
-    } catch (e) {
-      console.error('Snapshot error:', e);
-      statusText.textContent = '连接中断...';
-    }
-  }
-  
-  fetchSnapshot();
-  liveStreamInterval = setInterval(fetchSnapshot, 2000);
-}
-
-function stopLiveView() {
-  liveStreamActive = false;
-  liveStreamCamera = null;
-  if (liveStreamInterval) { clearInterval(liveStreamInterval); liveStreamInterval = null; }
-  
-  document.getElementById('liveViewImg').src = '';
-  document.getElementById('liveViewImg').style.display = 'none';
-  document.getElementById('liveViewPlaceholder').style.display = 'block';
-  document.getElementById('liveViewPlaceholder').innerHTML = '<span>点击上方按钮查看实时画面</span>';
-  document.getElementById('liveViewStatusText').textContent = '已停止';
-  document.getElementById('liveViewStatus').className = 'live-view-status';
-  document.getElementById('liveViewStopBtn').style.display = 'none';
-}
-
-// =============================================================================
-// Mode Control
-// =============================================================================
-
-async function loadModeStatus() {
-  const statusEl = document.getElementById('modeStatus');
-  
-  try {
-    console.log('[Status] Fetching:', `${EDGE_RUNTIME_URL}/api/pipeline/status`);
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/status`);
-    
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    }
-    
-    const data = await res.json();
-    console.log('[Status] Mode:', data.mode, 'Alarm:', data.alarm_state);
-    
-    state.currentMode = data.mode || 'disarm';
-    state.alarmActive = data.alarm_state === 'TRIGGERED' || data.alarm_state === 'PENDING';
-    state.sirenActive = data.deterrent_active || false;
-    state.entryPoints = data.entry_points || {};
-    
+    let mode = (data.mode || 'disarmed').toLowerCase();
+    if (mode === 'disarm') mode = 'disarmed';
+    state.mode = mode;
+    state.threat = (data.alarm_state || 'none').toLowerCase();
     updateModeUI();
-    
+    updateDeviceStatus(data);
+    document.getElementById('connectionBadge').textContent = 'REMOTE';
+    document.getElementById('connectionBadge').className = 'header-badge remote';
   } catch (e) {
-    console.error('[Status] Error:', e.message);
-    if (statusEl) { 
-      statusEl.textContent = 'Edge 离线'; 
-      statusEl.className = 'mode-control-status'; 
-    }
+    console.error('Status error:', e);
+    document.getElementById('connectionBadge').textContent = 'OFFLINE';
+    document.getElementById('connectionBadge').className = 'header-badge offline';
   }
 }
 
 function updateModeUI() {
-  // 处理 night_occupied → night 映射
-  let normalizedMode = state.currentMode;
-  if (normalizedMode === 'night_occupied') normalizedMode = 'night';
-  
-  document.querySelectorAll('.mode-btn').forEach(btn => { btn.classList.toggle('active', btn.dataset.mode === normalizedMode); });
-  
-  const statusEl = document.getElementById('modeStatus');
-  if (statusEl) {
-    const modeMap = { 
-      'disarm': { text: '已撤防', class: 'disarmed' }, 
-      'home': { text: '在家模式', class: 'home' }, 
-      'away': { text: '离家模式', class: 'armed' },
-      'night': { text: '夜间模式', class: 'night' },
-      'night_occupied': { text: '夜间模式', class: 'night' }
-    };
-    const mode = modeMap[state.currentMode] || modeMap['disarm'];
-    statusEl.textContent = mode.text;
-    statusEl.className = 'mode-control-status ' + mode.class;
+  const cfg = MODE_CONFIG[state.mode] || MODE_CONFIG.disarmed;
+  document.getElementById('shieldCircle').className = `shield-circle ${state.mode}`;
+  document.getElementById('shieldIcon').textContent = cfg.icon;
+  document.getElementById('shieldLabel').textContent = cfg.label;
+  document.getElementById('shieldLabel').className = `shield-label ${state.mode}`;
+  document.getElementById('shieldDesc').textContent = cfg.desc;
+  const badge = document.getElementById('threatBadge');
+  if (state.threat !== 'none' && state.threat !== 'resolved' && state.threat !== 'canceled') {
+    badge.textContent = state.threat.toUpperCase();
+    badge.className = `threat-badge ${state.threat.includes('pre') ? 'pre' : state.threat}`;
+    badge.classList.remove('hidden');
+  } else { badge.classList.add('hidden'); }
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    const m = btn.dataset.mode;
+    btn.classList.remove('active', 'disarmed', 'home', 'away', 'night');
+    if (m === state.mode) btn.classList.add('active', m);
+  });
+}
+
+function updateDeviceStatus(data) {
+  const cams = data.cameras || {};
+  const online = Object.values(cams).filter(c => c.connected !== false).length;
+  const total = Object.keys(cams).length;
+  const camEl = document.getElementById('camerasStatus');
+  camEl.textContent = `${online} / ${total} 在线`;
+  camEl.className = `device-status ${online === total ? 'online' : 'offline'}`;
+  document.getElementById('zigbeeStatus').textContent = `${data.zigbee_devices || 0} 已连接`;
+  const runEl = document.getElementById('runningStatus');
+  runEl.textContent = data.running !== false ? '运行中' : '已停止';
+  runEl.className = `device-status ${data.running !== false ? 'online' : 'offline'}`;
+}
+
+async function switchMode(mode) {
+  if (mode === state.mode) return;
+  if (mode === 'disarmed') {
+    const pin = prompt('请输入安全密码:');
+    if (!pin) return;
+    try {
+      const res = await fetch(`${EDGE_URL}/api/pipeline/disarm`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({pin}) });
+      if (!res.ok) { showToast('密码错误'); return; }
+    } catch { showToast('操作失败'); return; }
+  } else {
+    try {
+      const res = await fetch(`${EDGE_URL}/api/pipeline/mode`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({mode}) });
+      if (!res.ok) { showToast('切换失败'); return; }
+    } catch { showToast('操作失败'); return; }
   }
-  
-  const alertActions = document.getElementById('alertActions');
-  if (alertActions) alertActions.style.display = state.currentMode !== 'disarm' ? 'flex' : 'none';
-  
-  const sirenBtn = document.getElementById('sirenBtn');
-  const silenceBtn = document.getElementById('silenceBtn');
-  if (sirenBtn && silenceBtn) { sirenBtn.disabled = state.sirenActive; silenceBtn.disabled = !state.sirenActive; }
+  state.mode = mode;
+  updateModeUI();
+  showToast(`已切换到${MODE_CONFIG[mode].label}模式`);
 }
 
-async function setMode(mode) {
+async function loadIncidents() {
+  const list = document.getElementById('eventList');
+  list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    if (mode === 'disarm' && state.currentMode !== 'disarm') {
-      const pin = prompt('请输入安全密码:');
-      if (!pin) return;
-      const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/disarm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
-      if (!res.ok) { const data = await res.json(); showToast(data.detail || '密码错误'); return; }
-    } else if (mode !== 'disarm') {
-      const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
-      if (!res.ok) { const data = await res.json(); showToast(data.detail || '设置失败'); return; }
-    }
-    state.currentMode = mode;
-    updateModeUI();
-    const modeNames = { 'disarm': '撤防', 'home': '在家', 'away': '离家', 'night': '夜间' };
-    showToast(`已切换到${modeNames[mode] || mode}模式`);
-  } catch (e) { console.error('Set mode error:', e); showToast('设置失败: ' + e.message); }
-}
-
-async function triggerSiren() {
-  try {
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/camera/deterrent/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siren: true, spotlight: true, duration: 30 }) });
-    if (res.ok) { state.sirenActive = true; updateModeUI(); showToast('🔊 警报已触发'); }
-    else showToast('触发失败');
-  } catch (e) { console.error('Trigger siren error:', e); showToast('触发失败: ' + e.message); }
-}
-
-async function silenceAlarm() {
-  try {
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/silence`, { method: 'POST' });
-    if (res.ok) { state.sirenActive = false; updateModeUI(); showToast('🔇 已静音'); }
-    else showToast('静音失败');
-  } catch (e) { console.error('Silence alarm error:', e); showToast('静音失败: ' + e.message); }
-}
-
-async function resolveTriggered(entryPointId) {
-  const confirmMsg = entryPointId ? `确认解除 ${entryPointId} 的警报状态？` : '确认解除所有警报状态？';
-  if (!window.confirm(confirmMsg)) return;
-  
-  try {
-    console.log('[Resolve] Resolving:', entryPointId);
-    
-    // 从 Entry Points 状态中获取 incident_id
-    const epData = state.entryPoints?.[entryPointId];
-    console.log('[Resolve] Entry point data:', epData);
-    
-    if (!epData || !epData.incident_id) {
-      showToast('未找到需要解除的警报事件');
-      return;
-    }
-    
-    const eventId = epData.incident_id;
-    console.log('[Resolve] Using eventId:', eventId);
-    
-    // 使用 incidents API 直接端点
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/resolve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        resolution: 'safe',
-        note: '用户远程解除',
-        actor_id: state.userId || 'local_user',
-        actor_role: state.role,
-        via: 'app',
-      }),
-    });
-    
+    const res = await fetch(`${EDGE_URL}/api/incidents?limit=50`);
+    if (!res.ok) throw new Error();
     const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || '解除失败');
-    }
-    
-    showToast('✅ 已解除警报');
-    loadModeStatus();
-    loadEvents();
-    
-  } catch (e) {
-    console.error('[Resolve] Error:', e);
-    showToast('解除失败: ' + e.message);
-  }
+    state.incidents = data.incidents || [];
+    try {
+      const statsRes = await fetch(`${EDGE_URL}/api/incidents/stats`);
+      if (statsRes.ok) state.stats = await statsRes.json();
+    } catch {}
+    renderIncidents();
+    updateEventBadge();
+    updateDashboardStats();
+  } catch { list.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><p>加载失败</p></div>'; }
 }
-// =============================================================================
-// Web Push Notifications
-// =============================================================================
 
-let pushSubscription = null;
-let swRegistration = null;
+function renderIncidents() {
+  const list = document.getElementById('eventList');
+  let filtered = [...state.incidents];
+  if (state.statusFilter === 'active') filtered = filtered.filter(i => i.is_active);
+  else if (state.statusFilter === 'resolved') filtered = filtered.filter(i => !i.is_active);
+  const now = new Date();
+  if (state.timeFilter === 'today') {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    filtered = filtered.filter(i => new Date(i.created_at) >= start);
+  } else if (state.timeFilter === 'week') {
+    const week = new Date(now.getTime() - 7*24*60*60*1000);
+    filtered = filtered.filter(i => new Date(i.created_at) >= week);
+  }
+  if (filtered.length === 0) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>暂无事件</p></div>'; return; }
+  list.innerHTML = filtered.map(i => {
+    const ts = i.threat_state || 'none';
+    const icon = getIcon(ts);
+    const {title} = genTitle(i);
+    const time = fmtTime(i.created_at);
+    const date = fmtDate(i.created_at);
+    const isToday = new Date(i.created_at).toDateString() === new Date().toDateString();
+    return `<div class="event-item ${ts.replace('_','-')}" onclick="showDetail('${i.incident_id}')">
+      <div class="event-icon">${icon}</div>
+      <div class="event-content"><div class="event-title">${title}</div><div class="event-meta"><span>${i.incident_id.slice(0,8)}</span>${i.evidence_count>0?`<span>📹 ${i.evidence_count}</span>`:''}</div></div>
+      <div class="event-time"><div class="event-time-main">${time}</div>${!isToday?`<div class="event-time-date">${date}</div>`:''}</div>
+    </div>`;
+  }).join('');
+}
 
-async function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) { console.log('[Push] SW not supported'); return null; }
+function getIcon(s) { return {'triggered':'🚨','pending':'⏳','pre_l1':'👁️','pre_l2':'👁️','pre_l3':'⚠️','resolved':'✓','canceled':'—','none':'·'}[s]||'·'; }
+function genTitle(i) {
+  const loc = {'Back':'后门','back':'后门','Front':'前门','front':'前门','Garage':'车库','garage':'车库'}[i.entry_point_name||i.entry_point_id]||i.entry_point_name||i.entry_point_id||'入口';
+  const ts = i.threat_state||'none';
+  const ended = ['resolved','canceled','none'].includes(ts);
+  if (!ended) {
+    if (ts==='triggered') return {title:`${loc} 警报`};
+    if (ts==='pending') return {title:`${loc} 门磁触发`};
+    if (ts.startsWith('pre')) return {title:`${loc} 检测到活动`};
+    return {title:`${loc} 事件`};
+  }
+  const end = {'resolved':'已处理','canceled':'已取消','none':'离开'}[ts]||'';
+  let peak = '活动记录';
+  if (i.trigger_reason==='entry_delay_expired') peak='警报触发';
+  else if (i.trigger_reason==='door_open') peak='门磁触发';
+  else if (i.trigger_reason==='person_detected') peak='核心区活动';
+  return {title:end?`${peak}-${end}`:peak};
+}
+
+function setStatusFilter(f) { state.statusFilter=f; document.querySelectorAll('.filter-btn.primary').forEach(b=>b.classList.toggle('active',b.dataset.filter===f)); renderIncidents(); }
+function setTimeFilter(f) { state.timeFilter=f; document.querySelectorAll('.filter-btn.secondary').forEach(b=>b.classList.toggle('active',b.dataset.time===f)); renderIncidents(); }
+function updateEventBadge() { const a=state.incidents.filter(i=>i.is_active).length; const b=document.getElementById('eventBadge'); if(a>0){b.textContent=a;b.classList.remove('hidden');}else{b.classList.add('hidden');} }
+function updateDashboardStats() { document.getElementById('statTotal').textContent=state.stats.total||0; document.getElementById('statActive').textContent=state.stats.active||0; }
+
+async function showDetail(id) {
+  const i = state.incidents.find(x=>x.incident_id===id);
+  if (!i) return;
+  state.selectedIncident = i;
+  document.getElementById('detailModal').classList.add('active');
+  document.getElementById('detailBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('detailFooter').innerHTML = '';
   try {
-    swRegistration = await navigator.serviceWorker.register('/sw.js');
-    console.log('[Push] SW registered:', swRegistration.scope);
-    
-    // 检测 Service Worker 更新
-    swRegistration.addEventListener('updatefound', () => {
-      const newWorker = swRegistration.installing;
-      console.log('[SW] Update found, installing...');
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          console.log('[SW] New version available, refreshing...');
-          // 新版本已安装，刷新页面
-          window.location.reload();
-        }
-      });
-    });
-    
-    // 强制检查更新
-    swRegistration.update();
-    
-    await navigator.serviceWorker.ready;
-    console.log('[Push] SW ready');
-    return swRegistration;
-  } catch (err) { console.error('[Push] SW registration failed:', err); return null; }
+    const [det, ev, tl] = await Promise.all([
+      fetch(`${EDGE_URL}/api/incidents/${id}`).then(r=>r.ok?r.json():i),
+      fetch(`${EDGE_URL}/api/incidents/${id}/evidence`).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]})),
+      fetch(`${EDGE_URL}/api/incidents/${id}/full-timeline`).then(r=>r.ok?r.json():{timeline:[]}).catch(()=>({timeline:[]}))
+    ]);
+    renderDetail(det, ev.items||[], tl.timeline||[]);
+    renderActions(det);
+  } catch { document.getElementById('detailBody').innerHTML='<div class="empty-state"><p>加载失败</p></div>'; }
 }
 
-// =============================================================================
-// Debug Panel - 可视化调试（iOS PWA 无法打开 console）
-// =============================================================================
-const debugLogs = [];
-const MAX_DEBUG_LOGS = 50;
-
-function toggleDebugPanel() {
-  const panel = document.getElementById('debugPanel');
-  if (panel) {
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    if (panel.style.display === 'block') {
-      renderDebugLogs();
-    }
+function renderDetail(i, ev, tl) {
+  const ts=i.threat_state||'none';
+  const loc={'Back':'后门','back':'后门','Front':'前门','front':'前门'}[i.entry_point_name||i.entry_point_id]||i.entry_point_name||i.entry_point_id||'入口';
+  const created=new Date(i.created_at).toLocaleString('zh-CN');
+  const triggerLabels={'entry_delay_expired':'入口延时超时','glass_break':'玻璃破碎','door_open':'门已打开','person_detected':'检测到人员'};
+  const stateLabels={'triggered':'已触发','pending':'入口延时','pre_l1':'观察中','pre_l2':'持续观察','pre_l3':'密切关注','resolved':'已处理','canceled':'已取消','none':'记录'};
+  let html=`<div class="detail-section"><h3>基本信息</h3>
+    <div class="detail-row"><span class="detail-label">事件ID</span><span class="detail-value">${i.incident_id.slice(0,12)}...</span></div>
+    <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value">${loc}</span></div>
+    <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value">${stateLabels[ts]||ts}</span></div>
+    <div class="detail-row"><span class="detail-label">触发原因</span><span class="detail-value">${triggerLabels[i.trigger_reason]||i.trigger_reason||'-'}</span></div>
+    <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value">${created}</span></div>
+  </div>`;
+  if (tl.length>0) {
+    html+=`<div class="detail-section"><h3>时间线</h3><div class="timeline">${tl.slice(0,10).map(e=>`<div class="timeline-item ${e.type||'signal'}"><div class="timeline-header"><span class="timeline-title">${e.title||e.event_type}</span><span class="timeline-time">${fmtTime(e.timestamp)}</span></div>${e.description?`<div class="timeline-desc">${e.description}</div>`:''}</div>`).join('')}</div></div>`;
   }
+  const vids=ev.filter(e=>e.item_type==='clip'||e.mime_type?.startsWith('video/'));
+  const snaps=ev.filter(e=>e.item_type==='snapshot');
+  if (vids.length>0||snaps.length>0) {
+    html+=`<div class="detail-section"><h3>证据</h3><div class="evidence-grid">${vids.map((v,idx)=>`<div class="evidence-item" onclick="playVideo('${v.evidence_key}')"><div class="evidence-thumb">🎬</div><div class="evidence-info"><div class="evidence-name">视频${idx+1}</div><div class="evidence-size">${fmtSize(v.size_bytes)}</div></div><div class="evidence-play">▶</div></div>`).join('')}${snaps.map((s,idx)=>`<div class="evidence-item" onclick="viewSnap('${s.evidence_key}')"><div class="evidence-thumb">📷</div><div class="evidence-info"><div class="evidence-name">截图${idx+1}</div><div class="evidence-size">${fmtSize(s.size_bytes)}</div></div></div>`).join('')}</div></div>`;
+  } else { html+=`<div class="detail-section"><h3>证据</h3><p style="color:var(--gray-400);text-align:center;padding:16px;">暂无证据</p></div>`; }
+  document.getElementById('detailBody').innerHTML=html;
 }
 
-function debugLog(type, ...args) {
-  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-  const time = new Date().toLocaleTimeString();
-  const color = type === 'error' ? '#f66' : type === 'warn' ? '#ff0' : '#0f0';
-  debugLogs.push({ time, type, msg, color });
-  if (debugLogs.length > MAX_DEBUG_LOGS) debugLogs.shift();
-  renderDebugLogs();
+function renderActions(i) {
+  const f=document.getElementById('detailFooter');
+  if (!i.is_active) { f.innerHTML='<p style="text-align:center;color:var(--gray-400);">事件已结束</p>'; return; }
+  const ts=i.threat_state;
+  if (ts==='pending') { f.innerHTML=`<div class="action-buttons"><button class="action-btn warning" onclick="showConfirm('disarm','撤防','确认撤防？')">🔓 撤防</button></div>`; }
+  else if (ts==='triggered') { f.innerHTML=`<div class="action-buttons"><div class="action-row"><button class="action-btn danger" onclick="showConfirm('silence','静音','确认静音？')">🔇 静音</button><button class="action-btn secondary" onclick="showConfirm('dismiss','误报','确认误报？')">❌ 误报</button></div><button class="action-btn primary" onclick="showConfirm('resolve','解决','确认解决？')">✓ 解决</button></div>`; }
+  else { f.innerHTML=`<div class="action-buttons"><div class="action-row"><button class="action-btn secondary" onclick="showConfirm('dismiss','忽略','确认忽略？')">忽略</button><button class="action-btn primary" onclick="showConfirm('resolve','解决','确认解决？')">解决</button></div></div>`; }
 }
 
-function renderDebugLogs() {
-  const logEl = document.getElementById('debugLog');
-  if (!logEl) return;
-  logEl.innerHTML = debugLogs.map(l => 
-    `<div style="color: ${l.color}; margin-bottom: 4px;">[${l.time}] ${l.msg}</div>`
-  ).join('');
-  logEl.scrollTop = logEl.scrollHeight;
-}
+function closeDetailModal() { document.getElementById('detailModal').classList.remove('active'); state.selectedIncident=null; }
+function showConfirm(act,title,msg) { state.pendingConfirm=act; document.getElementById('confirmTitle').textContent=title; document.getElementById('confirmMessage').textContent=msg; document.getElementById('confirmOverlay').classList.add('active'); }
+function closeConfirm() { state.pendingConfirm=null; document.getElementById('confirmOverlay').classList.remove('active'); }
 
-// 拦截 console 输出到调试面板
-const originalConsole = { log: console.log, error: console.error, warn: console.warn };
-console.log = function(...args) {
-  originalConsole.log.apply(console, args);
-  if (args[0] && String(args[0]).includes('[Status]') || String(args[0]).includes('[EntryPoints]')) {
-    debugLog('log', ...args);
-  }
-};
-console.error = function(...args) {
-  originalConsole.error.apply(console, args);
-  debugLog('error', ...args);
-};
-console.warn = function(...args) {
-  originalConsole.warn.apply(console, args);
-  debugLog('warn', ...args);
-};
-
-// 初始化调试信息
-debugLog('log', '🚀 Debug panel ready');
-debugLog('log', 'UA:', navigator.userAgent.slice(0, 60));
-
-// 测试 localStorage 是否可用
-try {
-  const testKey = '_ng_test_' + Date.now();
-  localStorage.setItem(testKey, 'test');
-  localStorage.removeItem(testKey);
-  debugLog('log', '✅ localStorage OK');
-} catch (e) {
-  debugLog('error', '❌ localStorage FAIL:', e.message);
-}
-
-function isStandalone() {
-  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-}
-
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-async function enablePushByUser() {
-  console.log('[Push] enablePushByUser called, isIOS:', isIOS(), 'isStandalone:', isStandalone());
-  
-  // iOS 必须从主屏幕启动
-  if (isIOS() && !isStandalone()) {
-    showToast('📱 请先"添加到主屏幕"，再从桌面图标打开');
-    return false;
-  }
-  
-  // 基本检查（同步，不影响用户手势）
-  if (!('Notification' in window)) { showToast('❌ 此浏览器不支持通知'); return false; }
-  if (!('serviceWorker' in navigator)) { showToast('❌ 此浏览器不支持 Service Worker'); return false; }
-  if (!('PushManager' in window)) { showToast('❌ 此浏览器不支持推送'); return false; }
-  
+async function executeConfirm() {
+  const act=state.pendingConfirm, i=state.selectedIncident;
+  closeConfirm();
+  if (!act||!i) return;
   try {
-    // ⚡ iOS 关键：requestPermission 必须是第一个 await
-    // 用户手势上下文在第一个 await 后可能丢失
-    console.log('[Push] Requesting permission (FIRST await)...');
-    const permission = await Notification.requestPermission();
-    console.log('[Push] Permission result:', permission);
-    
-    if (permission !== 'granted') { 
-      showToast('❌ 通知权限被拒绝'); 
-      return false; 
-    }
-    
-    // 权限已获得，现在可以做其他异步操作
-    console.log('[Push] Permission granted, registering SW...');
-    if (!swRegistration) {
-      swRegistration = await registerServiceWorker();
-      if (!swRegistration) { showToast('❌ Service Worker 注册失败'); return false; }
-    }
-    
-    // 获取现有订阅或创建新订阅
-    pushSubscription = await swRegistration.pushManager.getSubscription();
-    console.log('[Push] Existing subscription:', !!pushSubscription);
-    
-    if (!pushSubscription) {
-      console.log('[Push] Fetching VAPID key...');
-      const vapidResponse = await fetch(API_BASE + '/v1/push/vapid-public-key');
-      if (!vapidResponse.ok) { showToast('❌ 服务器未配置推送'); return false; }
-      const { vapidPublicKey } = await vapidResponse.json();
-      console.log('[Push] Got VAPID key');
-      
-      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-      pushSubscription = await swRegistration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
-      console.log('[Push] New subscription created');
-    }
-    
-    await syncSubscriptionWithServer(pushSubscription);
-    showToast('✅ 推送已启用');
-    updatePushButton(true);
-    return true;
-  } catch (err) { 
-    console.error('[Push] Error:', err); 
-    showToast('❌ 启用失败: ' + err.message); 
-    return false; 
-  }
+    let url,body;
+    if (act==='resolve') { url=`${EDGE_URL}/api/incidents/${i.incident_id}/resolve`; body={resolution:'safe',actor_id:'cloud',actor_role:'owner',via:'app'}; }
+    else if (act==='dismiss'||act==='disarm') { url=`${EDGE_URL}/api/incidents/${i.incident_id}/cancel`; body={actor_id:'cloud',actor_role:'owner',via:'app'}; }
+    else if (act==='silence') { url=`${EDGE_URL}/api/pipeline/silence`; body={}; }
+    else return;
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (!res.ok) { const d=await res.json(); showToast(d.detail||d.error||'失败'); return; }
+    showToast('操作成功');
+    closeDetailModal();
+    loadIncidents();
+    loadStatus();
+  } catch { showToast('操作失败'); }
 }
 
-async function syncSubscriptionWithServer(subscription) {
-  if (!state.jwt) { console.log('[Push] Not logged in'); return; }
+function playVideo(key) { document.getElementById('videoPlayer').src=`${EDGE_URL}/api/evidence/${key}`; document.getElementById('videoModal').classList.add('active'); }
+function closeVideoModal() { document.getElementById('videoModal').classList.remove('active'); document.getElementById('videoPlayer').pause(); document.getElementById('videoPlayer').src=''; }
+function viewSnap(key) { window.open(`${EDGE_URL}/api/evidence/${key}`,'_blank'); }
+
+async function loadCameras() {
+  const grid=document.getElementById('cameraGrid');
+  grid.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try {
-    const response = await fetch(API_BASE + '/v1/push/devices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.jwt },
-      body: JSON.stringify({
-        platform: 'web',
-        token: JSON.stringify(subscription.toJSON()),
-        deviceId: getDeviceId(),
-        appVersion: '1.0.0',
-        locale: navigator.language,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }),
-    });
-    if (response.ok) console.log('[Push] Subscription synced');
-    else console.error('[Push] Sync failed:', response.status);
-  } catch (err) { console.error('[Push] Sync error:', err); }
+    const res=await fetch(`${EDGE_URL}/api/live/cameras`);
+    if (!res.ok) throw new Error();
+    const data=await res.json();
+    state.cameras=data.cameras||[];
+    if (state.cameras.length===0) { grid.innerHTML='<p style="color:var(--gray-400);text-align:center;grid-column:1/-1;">没有摄像头</p>'; return; }
+    grid.innerHTML=state.cameras.map(c=>`<button class="camera-btn ${c.cameraId===state.selectedCamera?'active':''} ${!c.connected?'offline':''}" onclick="selectCamera('${c.cameraId}')"><div class="camera-name"><span class="camera-status ${c.connected?'online':'offline'}"></span><span>${c.name||c.cameraId}</span></div></button>`).join('');
+    if (!state.selectedCamera&&state.cameras.length>0) selectCamera(state.cameras[0].cameraId);
+  } catch { grid.innerHTML='<p style="color:var(--gray-400);text-align:center;grid-column:1/-1;">加载失败</p>'; }
 }
 
-function getDeviceId() {
-  let id = localStorage.getItem('ng_device_id');
-  if (!id) { id = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now(); localStorage.setItem('ng_device_id', id); }
-  return id;
+function selectCamera(id) {
+  state.selectedCamera=id;
+  document.querySelectorAll('.camera-btn').forEach(b=>b.classList.toggle('active',b.onclick.toString().includes(id)));
+  startSnapshots(id);
 }
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
+function startSnapshots(id) {
+  if (state.snapshotInterval) { clearInterval(state.snapshotInterval); state.snapshotInterval=null; }
+  const frame=document.getElementById('liveViewFrame');
+  const load=async()=>{
+    try {
+      const res=await fetch(`${EDGE_URL}/api/live/cameras/${id}/snapshot`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      frame.innerHTML=`<span class="live-view-badge">☁️ REMOTE</span><img src="${url}" alt="Live" onload="URL.revokeObjectURL(this.src)">`;
+    } catch(e) { frame.innerHTML=`<div class="live-view-placeholder"><div class="icon">📷</div><p>无法获取画面</p></div>`; }
+  };
+  load();
+  state.snapshotInterval=setInterval(load,500);
 }
 
-function updatePushButton(enabled) {
-  const btn = document.getElementById('pushToggleBtn');
-  if (btn) { btn.textContent = enabled ? '🔔' : '🔕'; btn.title = enabled ? '推送已启用' : '点击启用推送'; }
-}
+function fmtTime(t) { if(!t)return'-'; try{return new Date(t).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}catch{return t;} }
+function fmtDate(t) { if(!t)return''; try{return new Date(t).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});}catch{return'';} }
+function fmtSize(b) { if(!b)return'-'; if(b<1024)return b+' B'; if(b<1024*1024)return(b/1024).toFixed(1)+' KB'; return(b/1024/1024).toFixed(1)+' MB'; }
+function showToast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('visible'); setTimeout(()=>t.classList.remove('visible'),3000); }
 
-async function checkPushStatus() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    updatePushButton(!!subscription);
-    return !!subscription;
-  } catch (err) { console.error('[Push] Check error:', err); return false; }
-}
-
-if ('serviceWorker' in navigator) {
-  registerServiceWorker().then(() => checkPushStatus());
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    console.log('[Main] SW message:', event.data);
-    if (event.data && event.data.type === 'NOTIFICATION_CLICK' && event.data.data?.eventId) {
-      showEventDetail(event.data.data.eventId);
-    }
-  });
-  // 检测 SW 控制器变化（新版本激活时刷新页面）
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    console.log('[SW] Controller changed, reloading...');
-    window.location.reload();
-  });
-}
-
-// =============================================================================
-// UI
-// =============================================================================
-
-function showPage(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(page + 'Page').classList.add('active');
-  if (page === 'events') { loadEvents(); startRefresh(); } else stopRefresh();
-}
-
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 3000);
-}
-
-function startRefresh() { stopRefresh(); state.refreshTimer = setInterval(loadEvents, 30000); }
-function stopRefresh() { if (state.refreshTimer) { clearInterval(state.refreshTimer); state.refreshTimer = null; } }
-
-// =============================================================================
-// Init
-// =============================================================================
-
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('loginEmail').value;
-  const circleId = document.getElementById('loginCircleId').value;
-  const btn = e.target.querySelector('button');
-  btn.disabled = true; btn.textContent = '登录中...';
-  try { 
-    await login(email, circleId); 
-    state.userEmail = email;  // 保存邮箱
-    await initializeRole();   // L2: 初始化角色
-    showPage('events'); 
-  }
-  catch (err) { showToast('登录失败: ' + err.message); }
-  finally { btn.disabled = false; btn.textContent = '登录'; }
-});
-
-// 页面初始化时记录环境信息
-debugLog('log', '📱 isPWA:', isStandalone(), 'isIOS:', isIOS());
-debugLog('log', '🔗 EDGE_URL:', EDGE_URL);
-debugLog('log', '🔗 EDGE_RUNTIME_URL:', EDGE_RUNTIME_URL);
-debugLog('log', '🔐 hasJWT:', !!state.jwt, 'circleId:', state.circleId ? state.circleId.slice(0,8)+'...' : 'none');
-
-// loadModeStatus 调用 Edge API，不需要 JWT，始终执行
-debugLog('log', '▶️ Calling loadModeStatus (不需要JWT)...');
-loadModeStatus();
-setInterval(loadModeStatus, 30000);
-
-if (state.jwt && state.circleId) {
-  initializeRole();  // L2: 初始化角色
-  showPage('events');
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { loadEvents(); loadModeStatus(); }
-  });
-} else {
-  showPage('login');
-  debugLog('warn', '⚠️ No JWT/circleId, showing login (但入口点状态仍会加载)');
-}
+document.addEventListener('DOMContentLoaded',()=>{ loadStatus(); loadIncidents(); setInterval(loadStatus,5000); });
 </script>
 </body>
 </html>
