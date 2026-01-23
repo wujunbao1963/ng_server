@@ -509,12 +509,41 @@
     .empty-icon { font-size: 40px; margin-bottom: 12px; }
 
     .hidden { display: none !important; }
+
+    /* Header buttons */
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-btn { background: rgba(255,255,255,0.15); border: none; border-radius: 8px; padding: 8px 12px; color: white; cursor: pointer; font-size: 16px; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+    .header-btn:hover { background: rgba(255,255,255,0.25); }
+    .header-btn:active { transform: scale(0.95); }
+    .header-btn.refreshing { animation: spin 1s linear infinite; }
+
+    /* Settings Modal */
+    .settings-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: center; justify-content: center; padding: 16px; }
+    .settings-modal.active { display: flex; }
+    .settings-content { background: white; border-radius: 16px; max-width: 400px; width: 100%; max-height: 80vh; overflow-y: auto; }
+    .settings-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid var(--gray-200); }
+    .settings-header h3 { margin: 0; font-size: 18px; }
+    .settings-body { padding: 16px; }
+    .settings-section { margin-bottom: 20px; }
+    .settings-section h4 { font-size: 14px; color: var(--gray-600); margin-bottom: 8px; }
+    .settings-input { width: 100%; padding: 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 14px; margin-bottom: 8px; box-sizing: border-box; }
+    .settings-hint { font-size: 12px; color: var(--gray-500); margin-bottom: 12px; }
+    .settings-btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .settings-btn.primary { background: var(--primary); color: white; }
+    .settings-btn.secondary { background: var(--gray-100); color: var(--gray-700); }
+    .settings-status { padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 8px; }
+    .settings-status.success { background: #f0fdf4; color: #166534; }
+    .settings-status.error { background: #fef2f2; color: #991b1b; }
   </style>
 </head>
 <body>
   <header class="header">
     <div class="header-title"><span>🛡️</span> NeighborGuard</div>
-    <span id="connectionBadge" class="header-badge remote">REMOTE</span>
+    <div class="header-actions">
+      <button class="header-btn" onclick="refreshAll()" id="refreshBtn" title="刷新">🔄</button>
+      <button class="header-btn" onclick="openSettings()" title="设置">⚙️</button>
+      <span id="connectionBadge" class="header-badge remote">REMOTE</span>
+    </div>
   </header>
 
   <main class="main">
@@ -725,6 +754,48 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="settings-modal">
+    <div class="settings-content">
+      <div class="settings-header">
+        <h3>⚙️ 设置</h3>
+        <button class="modal-close" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h4>📱 手机推送通知 (ntfy)</h4>
+          <p class="settings-hint">
+            1. 在手机上安装 <a href="https://ntfy.sh" target="_blank">ntfy</a> App<br>
+            2. 订阅下方的 Topic 名称<br>
+            3. 有新事件时会自动推送到手机
+          </p>
+          <input type="text" id="ntfyTopic" class="settings-input" placeholder="输入 Topic 名称，如: ng-my-home">
+          <div class="settings-hint">建议使用唯一的名称，避免与他人冲突</div>
+          <button class="settings-btn primary" onclick="saveNtfyTopic()">保存 Topic</button>
+          <button class="settings-btn secondary" onclick="testNtfyPush()">发送测试通知</button>
+          <div id="ntfyStatus" class="settings-status hidden"></div>
+        </div>
+
+        <div class="settings-section">
+          <h4>🔄 自动刷新</h4>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+            <span>每 30 秒自动刷新</span>
+          </label>
+        </div>
+
+        <div class="settings-section">
+          <h4>🔔 新事件检测</h4>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="eventPolling" onchange="toggleEventPolling()">
+            <span>检测新事件并推送 (每 10 秒)</span>
+          </label>
+          <div id="pollingStatus" class="settings-hint" style="margin-top: 8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
 <script>
@@ -753,10 +824,205 @@ const state = {
   snapshotInterval: null,
   snapshotErrorCount: 0,
   snapshotDisabled: false,
+  lastKnownIncidentIds: new Set(),  // 用于检测新事件
 };
 
 // 当前快照 URL（用于释放）
 let currentBlobUrl = null;
+
+// ntfy 和轮询相关
+let autoRefreshInterval = null;
+let eventPollingInterval = null;
+
+// ========== Refresh & Settings ==========
+async function refreshAll() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('refreshing');
+  btn.disabled = true;
+  
+  try {
+    await Promise.all([loadStatus(), loadIncidents()]);
+    toast('已刷新');
+  } catch (e) {
+    toast('刷新失败');
+  } finally {
+    btn.classList.remove('refreshing');
+    btn.disabled = false;
+  }
+}
+
+function openSettings() {
+  // 加载保存的设置
+  const ntfyTopic = localStorage.getItem('ntfyTopic') || '';
+  document.getElementById('ntfyTopic').value = ntfyTopic;
+  document.getElementById('autoRefresh').checked = autoRefreshInterval !== null;
+  document.getElementById('eventPolling').checked = eventPollingInterval !== null;
+  updatePollingStatus();
+  
+  document.getElementById('settingsModal').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+function saveNtfyTopic() {
+  const topic = document.getElementById('ntfyTopic').value.trim();
+  if (!topic) {
+    showNtfyStatus('请输入 Topic 名称', 'error');
+    return;
+  }
+  localStorage.setItem('ntfyTopic', topic);
+  showNtfyStatus(`✅ 已保存 Topic: ${topic}`, 'success');
+}
+
+async function testNtfyPush() {
+  const topic = document.getElementById('ntfyTopic').value.trim() || localStorage.getItem('ntfyTopic');
+  if (!topic) {
+    showNtfyStatus('请先输入并保存 Topic', 'error');
+    return;
+  }
+  
+  try {
+    const res = await fetch(`https://ntfy.sh/${topic}`, {
+      method: 'POST',
+      headers: { 'Title': '🛡️ NeighborGuard 测试', 'Priority': 'default' },
+      body: '这是一条测试通知。如果你收到了，说明推送设置成功！'
+    });
+    
+    if (res.ok) {
+      showNtfyStatus('✅ 测试通知已发送，检查手机', 'success');
+    } else {
+      showNtfyStatus(`❌ 发送失败: ${res.status}`, 'error');
+    }
+  } catch (e) {
+    showNtfyStatus(`❌ 发送失败: ${e.message}`, 'error');
+  }
+}
+
+function showNtfyStatus(msg, type) {
+  const el = document.getElementById('ntfyStatus');
+  el.textContent = msg;
+  el.className = `settings-status ${type}`;
+  el.classList.remove('hidden');
+}
+
+function toggleAutoRefresh() {
+  const checked = document.getElementById('autoRefresh').checked;
+  if (checked) {
+    autoRefreshInterval = setInterval(async () => {
+      await loadStatus();
+      await loadIncidents();
+    }, 30000);
+  } else {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  }
+}
+
+function toggleEventPolling() {
+  const checked = document.getElementById('eventPolling').checked;
+  if (checked) {
+    // 初始化已知事件 ID
+    state.lastKnownIncidentIds = new Set(state.incidents.map(i => i.incident_id));
+    
+    eventPollingInterval = setInterval(checkForNewEvents, 10000);
+    updatePollingStatus();
+  } else {
+    if (eventPollingInterval) {
+      clearInterval(eventPollingInterval);
+      eventPollingInterval = null;
+    }
+    updatePollingStatus();
+  }
+}
+
+function updatePollingStatus() {
+  const el = document.getElementById('pollingStatus');
+  if (eventPollingInterval) {
+    const topic = localStorage.getItem('ntfyTopic');
+    el.textContent = topic ? `正在监听... Topic: ${topic}` : '正在监听... (未设置 Topic)';
+  } else {
+    el.textContent = '';
+  }
+}
+
+async function checkForNewEvents() {
+  try {
+    const res = await fetch(`${EDGE}/api/incidents?status=active&limit=10`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const newIncidents = data.items || data.incidents || [];
+    
+    // 检查是否有新事件
+    for (const inc of newIncidents) {
+      if (!state.lastKnownIncidentIds.has(inc.incident_id)) {
+        // 新事件！
+        console.log('[Polling] 发现新事件:', inc.incident_id);
+        
+        // 发送 ntfy 通知
+        await sendNtfyNotification(inc);
+        
+        // 更新 UI
+        await loadIncidents();
+        await loadStatus();
+        
+        // 添加到已知列表
+        state.lastKnownIncidentIds.add(inc.incident_id);
+      }
+    }
+    
+    // 更新已知事件列表
+    state.lastKnownIncidentIds = new Set(newIncidents.map(i => i.incident_id));
+    
+  } catch (e) {
+    console.error('[Polling] 检查新事件失败:', e);
+  }
+}
+
+async function sendNtfyNotification(incident) {
+  const topic = localStorage.getItem('ntfyTopic');
+  if (!topic) return;
+  
+  const loc = incident.entry_point_name || incident.entry_point_id || '未知';
+  const ts = incident.threat_state || 'none';
+  
+  let title, body, priority;
+  if (ts === 'triggered') {
+    title = '🚨 安全警报触发！';
+    body = `位置: ${loc}\n原因: ${incident.trigger_reason || '未知'}`;
+    priority = 'urgent';
+  } else if (ts === 'pending') {
+    title = '⏳ 入口延时';
+    body = `位置: ${loc}\n请在延时结束前处理`;
+    priority = 'high';
+  } else if (ts.startsWith('pre')) {
+    title = '👁️ 检测到活动';
+    body = `位置: ${loc}`;
+    priority = 'default';
+  } else {
+    title = '📋 新事件';
+    body = `位置: ${loc}`;
+    priority = 'low';
+  }
+  
+  try {
+    await fetch(`https://ntfy.sh/${topic}`, {
+      method: 'POST',
+      headers: { 
+        'Title': title, 
+        'Priority': priority,
+        'Tags': ts === 'triggered' ? 'rotating_light' : 'house'
+      },
+      body: body
+    });
+    console.log('[ntfy] 通知已发送');
+  } catch (e) {
+    console.error('[ntfy] 发送失败:', e);
+  }
+}
 
 // ========== Navigation ==========
 function showPage(page) {
@@ -1625,7 +1891,14 @@ function toast(msg) {
 document.addEventListener('DOMContentLoaded', () => {
   loadStatus();
   loadIncidents();
+  
+  // 默认 5 秒刷新状态
   setInterval(loadStatus, 5000);
+  
+  // 初始化已知事件列表（用于检测新事件）
+  setTimeout(() => {
+    state.lastKnownIncidentIds = new Set(state.incidents.map(i => i.incident_id));
+  }, 2000);
 });
 </script>
 </body>
