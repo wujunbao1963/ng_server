@@ -119,8 +119,12 @@ let LedgerIngestService = LedgerIngestService_1 = class LedgerIngestService {
         });
     }
     async getRecentEntries(circleId, edgeInstanceId, limit = 50) {
+        const where = { circleId };
+        if (edgeInstanceId) {
+            where.edgeInstanceId = edgeInstanceId;
+        }
         return this.repo.find({
-            where: { circleId, edgeInstanceId },
+            where,
             order: { ledgerSeq: 'DESC' },
             take: limit,
         });

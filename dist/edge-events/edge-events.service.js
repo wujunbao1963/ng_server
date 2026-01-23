@@ -21,16 +21,18 @@ const crypto = require("crypto");
 const ng_edge_event_entity_1 = require("./ng-edge-event.entity");
 const ng_edge_event_summary_raw_entity_1 = require("./ng-edge-event-summary-raw.entity");
 const ng_edge_ingest_audit_entity_1 = require("./ng-edge-ingest-audit.entity");
+const ng_ledger_entry_entity_1 = require("../ledger-ingest/ng-ledger-entry.entity");
 const stable_json_1 = require("../common/utils/stable-json");
 const notifications_service_1 = require("../notifications/notifications.service");
 const circles_service_1 = require("../circles/circles.service");
 const edge_commands_service_1 = require("./edge-commands.service");
 const event_viewmodel_service_1 = require("./event-viewmodel.service");
 let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
-    constructor(rawRepo, edgeRepo, auditRepo, dataSource, notificationsService, circlesService, commandsService, viewModelService) {
+    constructor(rawRepo, edgeRepo, auditRepo, ledgerRepo, dataSource, notificationsService, circlesService, commandsService, viewModelService) {
         this.rawRepo = rawRepo;
         this.edgeRepo = edgeRepo;
         this.auditRepo = auditRepo;
+        this.ledgerRepo = ledgerRepo;
         this.dataSource = dataSource;
         this.notificationsService = notificationsService;
         this.circlesService = circlesService;
@@ -294,8 +296,50 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         });
         if (result.applied) {
             await this.maybeCreateNotification(payload);
+            await this.writeLedgerEntry(payload, incomingSeq);
         }
         return result;
+    }
+    async writeLedgerEntry(payload, sequence) {
+        try {
+            const idempotencyKey = `${payload.edgeInstanceId}:${payload.eventId}:summary:${sequence}`;
+            const existing = await this.ledgerRepo.findOne({
+                where: { idempotencyKey },
+            });
+            if (existing) {
+                this.logger.debug(`Ledger entry already exists: ${idempotencyKey}`);
+                return;
+            }
+            const entry = this.ledgerRepo.create({
+                id: `${payload.edgeInstanceId}:${sequence}`,
+                edgeInstanceId: payload.edgeInstanceId,
+                circleId: payload.circleId,
+                ledgerSeq: sequence,
+                entryType: 'FSM_TRANSITION',
+                eventId: payload.eventId,
+                actorId: null,
+                actorRole: null,
+                deviceTime: new Date(payload.updatedAt),
+                monoTime: null,
+                timeQuality: 'SYNCED',
+                payload: {
+                    fromState: null,
+                    toState: payload.threatState,
+                    mode: payload.mode ?? null,
+                    reason: payload.triggerReason ?? 'none',
+                    entryPointId: payload.entryPointId ?? null,
+                    workflowClass: payload.workflowClass ?? null,
+                },
+                contractVersion: 'ng.edge.server/8.0',
+                edgeSpecVersion: payload.schemaVersion,
+                idempotencyKey,
+            });
+            await this.ledgerRepo.save(entry);
+            this.logger.log(`Ledger entry created: ${idempotencyKey}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to write ledger entry for ${payload.eventId}`, error instanceof Error ? error.stack : String(error));
+        }
     }
     async maybeCreateNotification(payload) {
         const workflowClass = payload.workflowClass;
@@ -361,7 +405,9 @@ exports.EdgeEventsService = EdgeEventsService = EdgeEventsService_1 = __decorate
     __param(0, (0, typeorm_1.InjectRepository)(ng_edge_event_summary_raw_entity_1.NgEdgeEventSummaryRaw)),
     __param(1, (0, typeorm_1.InjectRepository)(ng_edge_event_entity_1.NgEdgeEvent)),
     __param(2, (0, typeorm_1.InjectRepository)(ng_edge_ingest_audit_entity_1.NgEdgeIngestAudit)),
+    __param(3, (0, typeorm_1.InjectRepository)(ng_ledger_entry_entity_1.NgLedgerEntry)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.DataSource,

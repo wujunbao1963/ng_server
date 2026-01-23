@@ -217,15 +217,24 @@ export class LedgerIngestService {
   }
 
   /**
-   * Get recent entries for a device.
+   * Get recent entries for a circle (optionally filtered by device).
+   * 
+   * FIX: When edgeInstanceId is empty, query all entries for the circle.
    */
   async getRecentEntries(
     circleId: string,
     edgeInstanceId: string,
     limit = 50,
   ): Promise<NgLedgerEntry[]> {
+    const where: any = { circleId };
+    
+    // 只有当 edgeInstanceId 非空时才添加过滤条件
+    if (edgeInstanceId) {
+      where.edgeInstanceId = edgeInstanceId;
+    }
+    
     return this.repo.find({
-      where: { circleId, edgeInstanceId },
+      where,
       order: { ledgerSeq: 'DESC' },
       take: limit,
     });

@@ -20,6 +20,7 @@ const ng_edge_event_summary_raw_entity_1 = require("./ng-edge-event-summary-raw.
 const ng_incident_manifest_entity_1 = require("./ng-incident-manifest.entity");
 const ng_incident_manifest_raw_entity_1 = require("./ng-incident-manifest-raw.entity");
 const ng_edge_command_entity_1 = require("./ng-edge-command.entity");
+const ng_ledger_entry_entity_1 = require("../ledger-ingest/ng-ledger-entry.entity");
 const edge_events_controller_1 = require("./edge-events.controller");
 const edge_commands_controller_1 = require("./edge-commands.controller");
 const edge_events_service_1 = require("./edge-events.service");
@@ -44,6 +45,7 @@ exports.EdgeEventsModule = EdgeEventsModule = __decorate([
                 ng_incident_manifest_raw_entity_1.NgIncidentManifestRaw,
                 ng_incident_manifest_entity_1.NgIncidentManifest,
                 ng_edge_command_entity_1.NgEdgeCommand,
+                ng_ledger_entry_entity_1.NgLedgerEntry,
             ]),
         ],
         controllers: [edge_events_controller_1.EdgeEventsController, edge_commands_controller_1.EdgeCommandsController],

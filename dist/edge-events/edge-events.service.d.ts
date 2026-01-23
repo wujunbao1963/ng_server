@@ -2,6 +2,7 @@ import { DataSource, Repository } from 'typeorm';
 import { NgEdgeEvent } from './ng-edge-event.entity';
 import { NgEdgeEventSummaryRaw } from './ng-edge-event-summary-raw.entity';
 import { NgEdgeIngestAudit } from './ng-edge-ingest-audit.entity';
+import { NgLedgerEntry } from '../ledger-ingest/ng-ledger-entry.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CirclesService } from '../circles/circles.service';
 import { EdgeCommandsService } from './edge-commands.service';
@@ -25,13 +26,14 @@ export declare class EdgeEventsService {
     private readonly rawRepo;
     private readonly edgeRepo;
     private readonly auditRepo;
+    private readonly ledgerRepo;
     private readonly dataSource;
     private readonly notificationsService;
     private readonly circlesService;
     private readonly commandsService;
     private readonly viewModelService;
     private readonly logger;
-    constructor(rawRepo: Repository<NgEdgeEventSummaryRaw>, edgeRepo: Repository<NgEdgeEvent>, auditRepo: Repository<NgEdgeIngestAudit>, dataSource: DataSource, notificationsService: NotificationsService, circlesService: CirclesService, commandsService: EdgeCommandsService, viewModelService: EventViewModelService);
+    constructor(rawRepo: Repository<NgEdgeEventSummaryRaw>, edgeRepo: Repository<NgEdgeEvent>, auditRepo: Repository<NgEdgeIngestAudit>, ledgerRepo: Repository<NgLedgerEntry>, dataSource: DataSource, notificationsService: NotificationsService, circlesService: CirclesService, commandsService: EdgeCommandsService, viewModelService: EventViewModelService);
     listEvents(circleId: string, limit?: number): Promise<{
         items: EventViewModel[];
         nextCursor: string | null;
@@ -48,5 +50,6 @@ export declare class EdgeEventsService {
     private generateTitle;
     private extractSummaryFields;
     storeSummaryUpsert(payload: EdgeEventSummaryUpsertV77): Promise<EdgeSummaryUpsertResult>;
+    private writeLedgerEntry;
     private maybeCreateNotification;
 }

@@ -19,21 +19,21 @@ __decorate([
     __metadata("design:type", String)
 ], NgEdgeCommand.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'uuid' }),
+    (0, typeorm_1.Column)({ type: 'uuid', name: 'circle_id' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], NgEdgeCommand.prototype, "circleId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 100 }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, name: 'edge_instance_id' }),
     (0, typeorm_1.Index)(),
     __metadata("design:type", String)
 ], NgEdgeCommand.prototype, "edgeInstanceId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 50 }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, name: 'command_type' }),
     __metadata("design:type", String)
 ], NgEdgeCommand.prototype, "commandType", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true, name: 'command_payload' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "commandPayload", void 0);
 __decorate([
@@ -42,31 +42,31 @@ __decorate([
     __metadata("design:type", String)
 ], NgEdgeCommand.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'uuid', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'uuid', nullable: true, name: 'triggered_by_user_id' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "triggeredByUserId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true, name: 'event_id' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "eventId", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.CreateDateColumn)({ name: 'created_at' }),
     __metadata("design:type", Date)
 ], NgEdgeCommand.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true, name: 'delivered_at' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "deliveredAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true, name: 'executed_at' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "executedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamptz' }),
+    (0, typeorm_1.Column)({ type: 'timestamptz', name: 'expires_at' }),
     __metadata("design:type", Date)
 ], NgEdgeCommand.prototype, "expiresAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'text', nullable: true, name: 'result_message' }),
     __metadata("design:type", Object)
 ], NgEdgeCommand.prototype, "resultMessage", void 0);
 exports.NgEdgeCommand = NgEdgeCommand = __decorate([
