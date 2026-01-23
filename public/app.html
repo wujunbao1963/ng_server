@@ -1266,18 +1266,26 @@ async function renderEvidence(manifest) {
   const items = manifest.items || manifest.manifest?.items || [];
   const evidenceList = document.getElementById('evidenceList');
   
-  if (items.length === 0) {
+  // 过滤掉缩略图，只显示主要证据
+  const mainItems = items.filter(item => (item.item_type || item.type) !== 'thumbnail');
+  
+  if (mainItems.length === 0) {
     evidenceList.innerHTML = '<p style="color: var(--gray-500); font-size: 14px;">暂无证据文件</p>';
     document.getElementById('detailMedia').innerHTML = '<span class="placeholder">暂无媒体</span>';
     return;
   }
   
-  evidenceList.innerHTML = items.map((item, idx) => {
-    const icon = item.type === 'clip' || item.kind === 'clip' ? '🎬' : '📸';
-    const name = item.type === 'clip' || item.kind === 'clip' ? '视频片段' : '截图';
-    const size = item.sizeBytesApprox ? formatSize(item.sizeBytesApprox) : '-';
+  evidenceList.innerHTML = mainItems.map((item, idx) => {
+    const itemType = item.item_type || item.type || item.kind;
+    const isVideo = itemType === 'clip';
+    const icon = isVideo ? '🎬' : '📸';
+    const name = isVideo ? '视频片段' : '截图';
+    const size = item.size_bytes ? formatSize(item.size_bytes) : (item.sizeBytesApprox ? formatSize(item.sizeBytesApprox) : '-');
     return `<div class="evidence-item" onclick="playEvidence(${idx})"><span class="evidence-icon">${icon}</span><div class="evidence-info"><div class="evidence-name">${name}</div><div class="evidence-size">${size}</div></div><span style="color: var(--gray-400);">▶</span></div>`;
   }).join('');
+  
+  // 更新 state.currentManifest 以过滤后的数据
+  state.currentManifest = { ...manifest, items: mainItems };
   
   await playEvidence(0);
 }
@@ -1291,18 +1299,19 @@ async function playEvidence(idx) {
   mediaContainer.innerHTML = '<span class="placeholder">加载中...</span>';
   
   try {
-    const eventId = state.currentEvent.eventId;
-    const evidenceKey = item.evidenceKey || item.evidence_key || item.itemId;
+    // evidence_key 就是文件名，如 "evidence_cam_back_inc_5ba1e2d1_xxx.mp4"
+    const evidenceKey = item.evidence_key || item.evidenceKey || item.itemId;
     
-    // Edge-First: 从证据服务获取下载 URL
-    // 证据服务 (EDGE_URL) 存储实际的媒体文件
-    const downloadUrl = `${EDGE_URL}/api/evidence/${eventId}/${evidenceKey}`;
-    const isVideo = item.type === 'clip' || item.kind === 'clip';
+    // Edge Runtime 提供证据下载端点: /api/evidence/{evidence_key}
+    const downloadUrl = `${EDGE_RUNTIME_URL}/api/evidence/${evidenceKey}`;
+    const isVideo = item.item_type === 'clip' || item.type === 'clip' || item.kind === 'clip';
+    
+    console.log('[Evidence] Playing:', evidenceKey, 'isVideo:', isVideo, 'URL:', downloadUrl);
     
     if (isVideo) {
       mediaContainer.innerHTML = `<video controls autoplay playsinline style="max-width: 100%; max-height: 100%;"><source src="${downloadUrl}" type="video/mp4">您的浏览器不支持视频播放</video>`;
     } else {
-      mediaContainer.innerHTML = `<img src="${downloadUrl}" alt="证据图片">`;
+      mediaContainer.innerHTML = `<img src="${downloadUrl}" alt="证据图片" onerror="this.parentNode.innerHTML='<span class=\\'placeholder\\'>图片加载失败</span>'">`;
     }
     
     if (items.length > 1) {
@@ -1356,29 +1365,30 @@ async function doConfirm() {
   if (!state.currentEvent || !state.pendingAction) return;
   
   const eventId = state.currentEvent.eventId || state.currentEvent.id;
-  const action = state.pendingAction === 'safe' ? 'RESOLVE' : 'DISMISS';
-  const note = state.pendingAction === 'safe' ? '用户确认安全' : '用户触发报警';
+  const isSafe = state.pendingAction === 'safe';
   
   try {
-    // Edge-First: 通过 Edge RAHA API 处理事件
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
+    // 使用 incidents API 直接端点
+    const endpoint = isSafe 
+      ? `${EDGE_RUNTIME_URL}/api/incidents/${eventId}/resolve`
+      : `${EDGE_RUNTIME_URL}/api/incidents/${eventId}/cancel`;
+    
+    const body = isSafe 
+      ? { resolution: 'safe', note: '用户确认安全', actor_id: state.userId || 'local_user', actor_role: state.role, via: 'app' }
+      : { actor_id: state.userId || 'local_user', actor_role: state.role, via: 'app' };
+    
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: action,
-        incidentId: eventId,
-        actorRole: state.role,
-        actorId: state.userId || 'local_user',
-        note: note,
-      }),
+      body: JSON.stringify(body),
     });
     
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || data.message || `HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || '操作失败');
     }
     
-    showToast(state.pendingAction === 'safe' ? '✅ 已标记为安全' : '⚠️ 已确认警报');
+    showToast(isSafe ? '✅ 已标记为安全' : '✅ 已取消');
     await loadEvents();
     showPage('events');
   } catch (e) {
@@ -1392,20 +1402,10 @@ async function doConfirm() {
  * PRE 状态的事件，打开详情即视为已处理
  */
 async function markEventAsViewed(eventId) {
-  // Edge-First: 通过 Edge RAHA API 标记已查看
-  const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: 'ACK',
-      incidentId: eventId,
-      actorRole: state.role,
-      actorId: state.userId || 'local_user',
-      note: '用户已查看',
-    }),
-  });
-  if (!res.ok) throw new Error(`RAHA failed: ${res.status}`);
-  return res.json();
+  // PRE 事件不需要特殊处理，只是本地标记
+  // 未来可以使用 RAHA API 或专门的 ack 端点
+  console.log('[Event] Viewed:', eventId);
+  return { success: true };
 }
 
 // =============================================================================
@@ -1770,22 +1770,22 @@ async function resolveTriggered(entryPointId) {
     const eventId = epData.incident_id;
     console.log('[Resolve] Using eventId:', eventId);
     
-    // Edge-First: 通过 Edge RAHA API 解除警报
-    const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
+    // 使用 incidents API 直接端点
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'RESOLVE',
-        incidentId: eventId,
-        actorRole: state.role,
-        actorId: state.userId || 'local_user',
+        resolution: 'safe',
         note: '用户远程解除',
+        actor_id: state.userId || 'local_user',
+        actor_role: state.role,
+        via: 'app',
       }),
     });
     
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || data.message || `HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || '解除失败');
     }
     
     showToast('✅ 已解除警报');
