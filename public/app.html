@@ -690,7 +690,13 @@
   <div id="detailModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 class="modal-title">事件详情</h2>
+        <div id="detailTitleContainer" style="display: flex; align-items: center; gap: 12px;">
+          <span id="detailIcon" style="font-size: 24px;">📋</span>
+          <div>
+            <h2 id="detailTitle" class="modal-title" style="margin: 0; font-size: 18px;">事件详情</h2>
+            <p id="detailSubtitle" style="margin: 4px 0 0; font-size: 13px; color: var(--gray-500);"></p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body" id="detailBody"><div class="loading"><div class="spinner"></div></div></div>
@@ -767,11 +773,14 @@ async function loadStatus() {
     console.log('Status data:', data);
     console.log('house_mode:', data.house_mode, 'house_mode_raw:', data.house_mode_raw);
 
-    // Mode - house_mode 可能是大写，需要转小写
+    // Mode - 处理各种格式: NIGHT, night, night_occupied 等
     let rawMode = data.house_mode_raw || data.house_mode || 'disarmed';
-    console.log('rawMode before toLowerCase:', rawMode);
+    console.log('rawMode before processing:', rawMode);
     let mode = String(rawMode).toLowerCase();
-    console.log('mode after toLowerCase:', mode);
+    
+    // 移除 _occupied, _unoccupied 等后缀
+    mode = mode.replace(/_occupied|_unoccupied|_armed/g, '');
+    console.log('mode after cleanup:', mode);
     
     if (mode === 'disarm') mode = 'disarmed';
     if (!['disarmed', 'home', 'away', 'night'].includes(mode)) {
@@ -983,7 +992,7 @@ async function loadIncidents() {
 
 function renderRecentEvents() {
   const el = document.getElementById('recentEvents');
-  const items = state.incidents.slice(0, 10);
+  const items = state.incidents.slice(0, 4);  // 只显示 4 个
   if (items.length === 0) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>暂无事件</p></div>';
     return;
@@ -1153,6 +1162,16 @@ async function showDetail(id) {
   if (!i) return;
   state.selectedIncident = i;
 
+  // 更新模态框标题
+  const { icon, title } = getEventDisplay(i);
+  const loc = getLocation(i);
+  const time = getRelativeTime(i.created_at);
+  const type = getEventType(i);
+  
+  document.getElementById('detailIcon').textContent = icon;
+  document.getElementById('detailTitle').textContent = title;
+  document.getElementById('detailSubtitle').textContent = `${loc}·${time}·${type}`;
+
   document.getElementById('detailModal').classList.add('active');
   document.getElementById('detailBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   document.getElementById('detailFooter').innerHTML = '';
@@ -1277,29 +1296,63 @@ async function doConfirm() {
   if (!action || !i) return;
 
   try {
-    let url, body;
+    // 使用 RAHA API (驼峰命名)
+    const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    let rahaAction;
+    
     if (action === 'resolve') {
-      url = `${EDGE}/api/incidents/${i.incident_id}/resolve`;
-      body = { resolution: 'safe', actor_id: 'cloud', actor_role: 'owner', via: 'app' };
-    } else if (action === 'dismiss' || action === 'disarm') {
-      url = `${EDGE}/api/incidents/${i.incident_id}/cancel`;
-      body = { actor_id: 'cloud', actor_role: 'owner', via: 'app' };
+      rahaAction = 'RESOLVE';
+    } else if (action === 'dismiss') {
+      rahaAction = 'DISMISS';
+    } else if (action === 'disarm') {
+      rahaAction = 'DISARM';
     } else if (action === 'silence') {
-      url = `${EDGE}/api/pipeline/silence`;
-      body = {};
-    } else return;
-
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const d = await res.json();
-      toast(d.detail || d.error || '失败');
+      rahaAction = 'STOP_SIREN';
+    } else {
+      console.error('Unknown action:', action);
       return;
     }
+
+    const body = {
+      requestId: requestId,
+      eventId: i.incident_id,
+      actorId: 'cloud_user',
+      actorRole: 'owner',
+      action: rahaAction
+    };
+    
+    console.log('RAHA request:', body);
+    
+    const res = await fetch(`${EDGE}/api/raha/execute`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(body) 
+    });
+    
+    const data = await res.json().catch(() => ({}));
+    console.log('RAHA response:', res.status, data);
+    
+    if (!res.ok) {
+      toast(data.detail || data.error || JSON.stringify(data) || '失败');
+      return;
+    }
+    
+    if (data.accepted === false) {
+      toast(data.rejectedCode || '操作被拒绝');
+      return;
+    }
+    
     toast('操作成功');
     closeModal();
-    loadIncidents();
-    loadStatus();
-  } catch { toast('操作失败'); }
+    // 延迟刷新让 Edge 处理完成
+    setTimeout(() => {
+      loadIncidents();
+      loadStatus();
+    }, 500);
+  } catch (e) { 
+    console.error('RAHA error:', e);
+    toast('操作失败'); 
+  }
 }
 
 function playVideo(key) {
