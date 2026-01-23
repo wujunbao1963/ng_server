@@ -362,6 +362,124 @@
       .events-container { max-width: 600px; margin: 0 auto; }
       .detail-container { max-width: 800px; margin: 0 auto; }
     }
+    
+    /* ===== L2 Role-based UI Styles ===== */
+    
+    /* 角色徽章 */
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: white;
+    }
+    .role-badge.owner { background: #2563eb; }
+    .role-badge.caretaker { background: #7c3aed; }
+    .role-badge.acting_owner { background: #d97706; }
+    .role-badge.witness { background: #6b7280; }
+    
+    /* 角色 Header Banner */
+    .role-banner {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-bottom: 1px solid #bae6fd;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .role-banner.caretaker { background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border-color: #d8b4fe; }
+    .role-banner.acting_owner { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-color: #fcd34d; }
+    .role-banner.witness { background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-color: #d1d5db; }
+    
+    .role-banner-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .role-banner-icon { font-size: 16px; }
+    
+    /* Resolver 指示器 */
+    .resolver-indicator {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .resolver-indicator.is-me {
+      background: var(--success-bg);
+      border-color: var(--success);
+    }
+    .resolver-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .resolver-name { font-weight: 500; }
+    .resolver-role { font-size: 12px; color: var(--gray-500); }
+    
+    /* Take Over 按钮 */
+    .btn-takeover {
+      background: white;
+      border: 1px solid var(--warning);
+      color: var(--warning);
+      font-size: 12px;
+      padding: 4px 12px;
+    }
+    .btn-takeover:hover {
+      background: var(--warning);
+      color: white;
+    }
+    
+    /* 只读状态覆盖 */
+    .readonly-overlay {
+      position: relative;
+    }
+    .readonly-overlay::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.6);
+      pointer-events: all;
+      cursor: not-allowed;
+    }
+    .readonly-notice {
+      background: var(--gray-100);
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      color: var(--gray-500);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    
+    /* 历史范围提示 */
+    .history-notice {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* 操作按钮禁用样式 */
+    .action-bar .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -378,11 +496,11 @@
         </div>
         <div class="form-group">
           <label class="form-label">Circle ID (可选)</label>
-          <input type="text" id="loginCircleId" class="form-input" value="597ea1b8-2400-45fb-b519-f070b6a2fda8" placeholder="留空则使用默认">
+          <input type="text" id="loginCircleId" class="form-input" value="a793c5c7-f458-44d5-994e-84cef6635172" placeholder="留空则使用默认">
         </div>
         <button type="submit" class="btn btn-primary">登录</button>
       </form>
-      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">v7.7.1 测试版</p>
+      <p style="margin-top: 16px; font-size: 12px; color: var(--gray-500); text-align: center;">v8.0.0-L2 测试版</p>
     </div>
   </div>
   
@@ -390,10 +508,20 @@
     <div class="header">
       <h1>🏠 NeighborGuard</h1>
       <div class="header-right">
+        <span id="headerRoleBadge" class="role-badge owner" style="display: none;">业主</span>
         <button class="btn-icon" id="pushToggleBtn" onclick="enablePushByUser()" title="开启推送通知">🔕</button>
         <button class="btn-icon" onclick="loadEvents()" title="刷新">🔄</button>
         <button class="btn-icon" onclick="logout()" title="登出">👤</button>
       </div>
+    </div>
+    
+    <!-- L2: 角色 Banner (非 owner 时显示) -->
+    <div id="roleBanner" class="role-banner" style="display: none;">
+      <div class="role-banner-text">
+        <span class="role-banner-icon">👤</span>
+        <span>您正在以 <strong id="roleBannerName">看护者</strong> 身份操作</span>
+      </div>
+      <span id="roleBannerCircle" class="role-badge">Home</span>
     </div>
     
     <div class="events-container">
@@ -544,7 +672,17 @@ const state = {
   currentMode: 'disarm',
   alarmActive: false,
   sirenActive: false,
-  entryPoints: {},  // 新增：入口点状态
+  entryPoints: {},
+  
+  // ===== L2 角色相关状态 =====
+  userId: localStorage.getItem('ng_userId') || '',
+  userEmail: localStorage.getItem('ng_userEmail') || '',
+  role: localStorage.getItem('ng_role') || 'owner',  // owner | caretaker | acting_owner | witness
+  roleName: '',           // 角色显示名称
+  roleValidUntil: null,   // 角色有效期
+  circleName: '',         // 圈子名称
+  activeResolver: null,   // 当前事件的活跃 resolver { role, id, name }
+  isResolver: false,      // 当前用户是否是 resolver
 };
 
 const API_BASE = window.location.origin;
@@ -560,6 +698,12 @@ async function api(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (state.jwt && !options.noAuth) headers['Authorization'] = `Bearer ${state.jwt}`;
   
+  // L2: 添加角色相关 headers (用于 RAHA 请求)
+  if (state.role && !options.noRole) {
+    headers['X-Actor-Role'] = state.role;
+    if (state.userId) headers['X-Actor-Id'] = state.userId;
+  }
+  
   const res = await fetch(url, {
     method: options.method || 'GET',
     headers,
@@ -571,6 +715,168 @@ async function api(path, options = {}) {
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
   if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
   return data;
+}
+
+// =============================================================================
+// L2 Role & Permission Helpers
+// =============================================================================
+
+// 角色显示名称映射
+const ROLE_NAMES = {
+  'owner': '业主',
+  'caretaker': '看护者', 
+  'acting_owner': '临时代理',
+  'witness': '见证者'
+};
+
+// 角色徽章颜色
+const ROLE_COLORS = {
+  'owner': '#2563eb',      // 蓝色
+  'caretaker': '#7c3aed',  // 紫色
+  'acting_owner': '#d97706', // 橙色
+  'witness': '#6b7280'     // 灰色
+};
+
+// 获取角色显示名称
+function getRoleName(role) {
+  return ROLE_NAMES[role] || role;
+}
+
+// 获取角色颜色
+function getRoleColor(role) {
+  return ROLE_COLORS[role] || '#6b7280';
+}
+
+// 权限检查: 是否可以解决事件
+function canResolve() {
+  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
+}
+
+// 权限检查: 是否可以切换模式
+function canChangeMode() {
+  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
+}
+
+// 权限检查: 是否可以静音警报
+function canSilenceSiren() {
+  return ['owner', 'caretaker', 'acting_owner'].includes(state.role);
+}
+
+// 权限检查: 是否可以管理角色
+function canManageRoles() {
+  return state.role === 'owner';
+}
+
+// 权限检查: 是否可以导出证据
+function canExportEvidence() {
+  return ['owner', 'caretaker'].includes(state.role);
+}
+
+// 权限检查: 是否可以查看历史 (返回可查看天数)
+function getHistoryAccessDays() {
+  switch (state.role) {
+    case 'owner': return Infinity;
+    case 'caretaker': return 7;
+    case 'acting_owner': return 1;
+    case 'witness': return 0;
+    default: return 0;
+  }
+}
+
+// 过滤事件列表 (基于角色的历史访问范围)
+function filterEventsByRole(events) {
+  const days = getHistoryAccessDays();
+  if (days === Infinity) return events;
+  if (days === 0) return events.filter(e => e.status === 'OPEN' || e.threatState === 'TRIGGERED' || e.threatState === 'PENDING');
+  
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return events.filter(e => {
+    const eventDate = new Date(e.createdAt || e.timestamp);
+    return eventDate >= cutoff || e.status === 'OPEN';
+  });
+}
+
+// 保存角色到本地存储
+function saveRoleToStorage() {
+  localStorage.setItem('ng_userId', state.userId);
+  localStorage.setItem('ng_userEmail', state.userEmail);
+  localStorage.setItem('ng_role', state.role);
+}
+
+// 清除角色信息
+function clearRoleFromStorage() {
+  localStorage.removeItem('ng_userId');
+  localStorage.removeItem('ng_userEmail');
+  localStorage.removeItem('ng_role');
+}
+
+// 更新角色 UI 显示
+function updateRoleUI() {
+  const roleBadge = document.getElementById('headerRoleBadge');
+  const roleBanner = document.getElementById('roleBanner');
+  const roleBannerName = document.getElementById('roleBannerName');
+  const roleBannerCircle = document.getElementById('roleBannerCircle');
+  
+  // 更新 header 徽章
+  if (roleBadge) {
+    roleBadge.textContent = getRoleName(state.role);
+    roleBadge.className = `role-badge ${state.role}`;
+    roleBadge.style.display = 'inline-flex';
+  }
+  
+  // 更新角色 banner (非 owner 时显示)
+  if (roleBanner) {
+    if (state.role !== 'owner') {
+      roleBanner.style.display = 'flex';
+      roleBanner.className = `role-banner ${state.role}`;
+      if (roleBannerName) roleBannerName.textContent = getRoleName(state.role);
+      if (roleBannerCircle) {
+        roleBannerCircle.textContent = state.circleName || 'Home';
+        roleBannerCircle.className = `role-badge ${state.role}`;
+      }
+    } else {
+      roleBanner.style.display = 'none';
+    }
+  }
+  
+  // 更新操作按钮状态
+  updateActionButtonsForRole();
+}
+
+// 根据角色更新操作按钮
+function updateActionButtonsForRole() {
+  // 模式按钮
+  const modeButtons = document.querySelectorAll('.mode-btn');
+  modeButtons.forEach(btn => {
+    btn.disabled = !canChangeMode();
+  });
+  
+  // 事件详情页的操作按钮会在 showEventDetail 中处理
+}
+
+// 初始化角色 (登录后调用)
+async function initializeRole() {
+  // 目前简单处理：本地用户默认为 owner
+  // TODO: 未来从 Server API 获取实际角色 GET /api/circles/:id/my-role
+  state.role = 'owner';
+  state.roleName = getRoleName(state.role);
+  state.userEmail = localStorage.getItem('ng_userEmail') || '';
+  
+  // 尝试获取 circle 信息
+  try {
+    const circles = await api('/api/circles');
+    if (circles && circles.length > 0) {
+      const circle = circles.find(c => (c.id || c.circleId) === state.circleId) || circles[0];
+      state.circleName = circle.name || 'Home';
+    }
+  } catch (e) {
+    console.log('Failed to get circle info:', e);
+    state.circleName = 'Home';
+  }
+  
+  saveRoleToStorage();
+  updateRoleUI();
 }
 
 // =============================================================================
@@ -603,8 +909,12 @@ function logout() {
   state.jwt = '';
   state.circleId = '';
   state.events = [];
+  state.role = 'owner';  // 重置角色
+  state.userId = '';
+  state.userEmail = '';
   localStorage.removeItem('ng_jwt');
   localStorage.removeItem('ng_circleId');
+  clearRoleFromStorage();  // L2: 清除角色信息
   stopRefresh();
   showPage('login');
 }
@@ -1642,7 +1952,12 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   const circleId = document.getElementById('loginCircleId').value;
   const btn = e.target.querySelector('button');
   btn.disabled = true; btn.textContent = '登录中...';
-  try { await login(email, circleId); showPage('events'); }
+  try { 
+    await login(email, circleId); 
+    state.userEmail = email;  // 保存邮箱
+    await initializeRole();   // L2: 初始化角色
+    showPage('events'); 
+  }
   catch (err) { showToast('登录失败: ' + err.message); }
   finally { btn.disabled = false; btn.textContent = '登录'; }
 });
@@ -1658,6 +1973,7 @@ loadModeStatus();
 setInterval(loadModeStatus, 30000);
 
 if (state.jwt && state.circleId) {
+  initializeRole();  // L2: 初始化角色
   showPage('events');
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { loadEvents(); loadModeStatus(); }
