@@ -687,7 +687,10 @@ const state = {
 
 const API_BASE = window.location.origin;
 const BASE_URL = window.location.origin;
-const EDGE_URL = 'https://evidence.neighbor-guard.com';
+
+// Edge 服务端点
+const EDGE_URL = 'https://evidence.neighbor-guard.com';        // 证据服务 (快照、视频)
+const EDGE_RUNTIME_URL = 'https://edge.neighbor-guard.com';    // 主 Edge Runtime (L2: incidents, raha, ledger)
 
 // =============================================================================
 // API
@@ -925,14 +928,80 @@ function logout() {
 
 async function loadEvents() {
   try {
-    const data = await api(`/api/circles/${state.circleId}/edge/events`);
-    state.events = data.items || data.events || (Array.isArray(data) ? data : []);
+    // Edge-First: Edge 是唯一数据源
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/incidents?limit=50`);
+    if (!res.ok) throw new Error(`Edge API error: ${res.status}`);
+    
+    const data = await res.json();
+    const events = data.items || data.incidents || (Array.isArray(data) ? data : []);
+    
+    // 转换 Edge 格式到 UI 格式
+    state.events = filterEventsByRole(events.map(normalizeEdgeEvent));
+    
+    console.log('[Events] Loaded from Edge:', state.events.length, 'events');
     renderEvents();
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
   } catch (e) {
     console.error('Load events error:', e);
-    if (e.message.includes('401') || e.message.includes('Unauthorized')) logout();
+    showToast('加载事件失败: ' + e.message);
   }
+}
+
+// 将 Edge 事件格式转换为 UI 格式
+function normalizeEdgeEvent(event) {
+  const threatState = (event.threat_state || 'none').toUpperCase();
+  const isResolved = event.is_terminal || threatState === 'RESOLVED' || threatState === 'CANCELED';
+  const isPending = threatState === 'PENDING';
+  const isTriggered = threatState === 'TRIGGERED';
+  const isPre = threatState.startsWith('PRE');
+  
+  // 生成标题
+  const location = event.entry_point_name || event.entry_point_id || '入口';
+  let title = `【${location}】`;
+  if (isTriggered) title += '未确认开门事件，已进入警报';
+  else if (isPending) title += '等待确认中';
+  else if (threatState === 'CANCELED') title += '已解除本次等待确认';
+  else if (isPre) title += '检测到活动';
+  else if (event.workflow_class === 'LOGISTICS') title += '访客/快递';
+  else title += '安全事件';
+  
+  // 状态标签
+  const statusLabels = {
+    'NONE': '正常', 'PRE': '轻度威胁', 'PRE_L1': '轻度威胁', 'PRE_L2': '重度威胁',
+    'PENDING': '等待确认', 'TRIGGERED': '正在报警', 'RESOLVED': '已解决', 'CANCELED': '已撤防'
+  };
+  
+  return {
+    eventId: event.incident_id,
+    threatState: threatState,
+    status: isResolved ? 'RESOLVED' : 'OPEN',
+    workflowClass: event.workflow_class || 'SECURITY_HEAVY',
+    entryPointId: event.entry_point_id,
+    entryPoint: { label: location },
+    createdAt: event.created_at,
+    updatedAt: event.updated_at,
+    occurredAt: event.created_at,
+    timeText: formatTime(event.created_at),
+    title: title,
+    headlineText: title,
+    statusLabel: statusLabels[threatState] || '安全事件',
+    triggerReason: event.trigger_reason,
+    mode: event.house_mode,
+    
+    // L2 字段
+    peakThreatState: event.peak_threat_state,
+    activeResolverId: event.active_resolver_id,
+    activeResolverRole: event.active_resolver_role,
+    lockEpoch: event.lock_epoch,
+    lockExpiresAt: event.lock_expires_at,
+    resolvedById: event.resolved_by_id,
+    resolvedByRole: event.resolved_by_role,
+    resolution: event.resolution,
+    isActive: event.is_active,
+    isTerminal: event.is_terminal,
+    evidenceStatus: event.evidence_status,
+    evidenceCount: event.evidence_count,
+  };
 }
 
 function renderEvents() {
@@ -1125,7 +1194,8 @@ async function showEventDetail(eventId) {
   showPage('detail');
   
   try {
-    const manifest = await api(`/api/circles/${state.circleId}/events/${eventId}/incident/manifest`);
+    // Edge-First: 从 Edge 获取证据 manifest
+    const manifest = await fetch(`${EDGE_RUNTIME_URL}/api/incidents/${eventId}/evidence`).then(r => r.json());
     state.currentManifest = manifest;
     renderEvidence(manifest);
   } catch (e) {
@@ -1222,10 +1292,11 @@ async function playEvidence(idx) {
   
   try {
     const eventId = state.currentEvent.eventId;
-    const evidenceKey = item.evidenceKey;
-    const ticketRes = await api(`/api/circles/${state.circleId}/events/${eventId}/evidence/tickets`, { method: 'POST', body: { evidenceKey, ttlSec: 600 } });
-    const ticketId = ticketRes.ticketId || ticketRes.id;
-    const downloadUrl = `${BASE_URL}/api/evidence/tickets/${ticketId}/download`;
+    const evidenceKey = item.evidenceKey || item.evidence_key || item.itemId;
+    
+    // Edge-First: 从证据服务获取下载 URL
+    // 证据服务 (EDGE_URL) 存储实际的媒体文件
+    const downloadUrl = `${EDGE_URL}/api/evidence/${eventId}/${evidenceKey}`;
     const isVideo = item.type === 'clip' || item.kind === 'clip';
     
     if (isVideo) {
@@ -1285,15 +1356,29 @@ async function doConfirm() {
   if (!state.currentEvent || !state.pendingAction) return;
   
   const eventId = state.currentEvent.eventId || state.currentEvent.id;
-  const newStatus = state.pendingAction === 'safe' ? 'RESOLVED' : 'ACKED';
+  const action = state.pendingAction === 'safe' ? 'RESOLVE' : 'DISMISS';
   const note = state.pendingAction === 'safe' ? '用户确认安全' : '用户触发报警';
   
   try {
-    await api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
-      method: 'PATCH',
-      body: { status: newStatus, note: note, clientRequestId: `web-${Date.now()}` },
+    // Edge-First: 通过 Edge RAHA API 处理事件
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: action,
+        incidentId: eventId,
+        actorRole: state.role,
+        actorId: state.userId || 'local_user',
+        note: note,
+      }),
     });
-    showToast(state.pendingAction === 'safe' ? '已标记为安全' : '已确认警报');
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || data.message || `HTTP ${res.status}`);
+    }
+    
+    showToast(state.pendingAction === 'safe' ? '✅ 已标记为安全' : '⚠️ 已确认警报');
     await loadEvents();
     showPage('events');
   } catch (e) {
@@ -1307,10 +1392,20 @@ async function doConfirm() {
  * PRE 状态的事件，打开详情即视为已处理
  */
 async function markEventAsViewed(eventId) {
-  return api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
-    method: 'PATCH',
-    body: { status: 'ACKED', note: '用户已查看', clientRequestId: `view-${Date.now()}` },
+  // Edge-First: 通过 Edge RAHA API 标记已查看
+  const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'ACK',
+      incidentId: eventId,
+      actorRole: state.role,
+      actorId: state.userId || 'local_user',
+      note: '用户已查看',
+    }),
   });
+  if (!res.ok) throw new Error(`RAHA failed: ${res.status}`);
+  return res.json();
 }
 
 // =============================================================================
@@ -1321,7 +1416,7 @@ async function markEventAsViewed(eventId) {
 
 function silenceSiren() {
   // 调用 Edge API 静音警报
-  fetch(`${EDGE_URL}/api/pipeline/silence`, { method: 'POST' })
+  fetch(`${EDGE_RUNTIME_URL}/api/pipeline/silence`, { method: 'POST' })
     .then(res => {
       if (res.ok) {
         state.sirenActive = false;
@@ -1477,9 +1572,9 @@ async function loadModeStatus() {
   }
   
   try {
-    console.log('[Status] Fetching:', `${EDGE_URL}/api/pipeline/status`);
+    console.log('[Status] Fetching:', `${EDGE_RUNTIME_URL}/api/pipeline/status`);
     const startTime = Date.now();
-    const res = await fetch(`${EDGE_URL}/api/pipeline/status`);
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/status`);
     const elapsed = Date.now() - startTime;
     console.log('[Status] Response:', res.status, 'in', elapsed, 'ms');
     
@@ -1517,7 +1612,7 @@ async function loadModeStatus() {
           <div style="color: var(--gray-500); font-size: 11px; word-break: break-all;">
             ${isPWA ? '模式: PWA' : '模式: Safari'}<br>
             错误: ${errorMsg.slice(0, 100)}<br>
-            URL: ${EDGE_URL.slice(0, 30)}...
+            URL: ${EDGE_RUNTIME_URL.slice(0, 30)}...
           </div>
         </div>
       `;
@@ -1627,10 +1722,10 @@ async function setMode(mode) {
     if (mode === 'disarm' && state.currentMode !== 'disarm') {
       const pin = prompt('请输入安全密码:');
       if (!pin) return;
-      const res = await fetch(`${EDGE_URL}/api/pipeline/disarm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+      const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/disarm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
       if (!res.ok) { const data = await res.json(); showToast(data.detail || '密码错误'); return; }
     } else if (mode !== 'disarm') {
-      const res = await fetch(`${EDGE_URL}/api/pipeline/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
+      const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
       if (!res.ok) { const data = await res.json(); showToast(data.detail || '设置失败'); return; }
     }
     state.currentMode = mode;
@@ -1642,7 +1737,7 @@ async function setMode(mode) {
 
 async function triggerSiren() {
   try {
-    const res = await fetch(`${EDGE_URL}/api/camera/deterrent/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siren: true, spotlight: true, duration: 30 }) });
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/camera/deterrent/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siren: true, spotlight: true, duration: 30 }) });
     if (res.ok) { state.sirenActive = true; updateModeUI(); showToast('🔊 警报已触发'); }
     else showToast('触发失败');
   } catch (e) { console.error('Trigger siren error:', e); showToast('触发失败: ' + e.message); }
@@ -1650,7 +1745,7 @@ async function triggerSiren() {
 
 async function silenceAlarm() {
   try {
-    const res = await fetch(`${EDGE_URL}/api/pipeline/silence`, { method: 'POST' });
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/pipeline/silence`, { method: 'POST' });
     if (res.ok) { state.sirenActive = false; updateModeUI(); showToast('🔇 已静音'); }
     else showToast('静音失败');
   } catch (e) { console.error('Silence alarm error:', e); showToast('静音失败: ' + e.message); }
@@ -1675,10 +1770,23 @@ async function resolveTriggered(entryPointId) {
     const eventId = epData.incident_id;
     console.log('[Resolve] Using eventId:', eventId);
     
-    await api(`/api/circles/${state.circleId}/edge/events/${eventId}/status`, {
-      method: 'PATCH',
-      body: { status: 'RESOLVED', note: '用户远程解除' },
+    // Edge-First: 通过 Edge RAHA API 解除警报
+    const res = await fetch(`${EDGE_RUNTIME_URL}/api/raha`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'RESOLVE',
+        incidentId: eventId,
+        actorRole: state.role,
+        actorId: state.userId || 'local_user',
+        note: '用户远程解除',
+      }),
     });
+    
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || data.message || `HTTP ${res.status}`);
+    }
     
     showToast('✅ 已解除警报');
     loadModeStatus();
@@ -1965,6 +2073,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 // 页面初始化时记录环境信息
 debugLog('log', '📱 isPWA:', isStandalone(), 'isIOS:', isIOS());
 debugLog('log', '🔗 EDGE_URL:', EDGE_URL);
+debugLog('log', '🔗 EDGE_RUNTIME_URL:', EDGE_RUNTIME_URL);
 debugLog('log', '🔐 hasJWT:', !!state.jwt, 'circleId:', state.circleId ? state.circleId.slice(0,8)+'...' : 'none');
 
 // loadModeStatus 调用 Edge API，不需要 JWT，始终执行
