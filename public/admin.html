@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>NeighborGuard L2</title>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-900);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    .header {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-title { font-size: 18px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .main { padding: 16px; max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-warning { background: var(--warning); color: white; }
+    .btn-outline { background: white; border: 1px solid var(--gray-300); color: var(--gray-700); }
+    .btn-outline:hover:not(:disabled) { background: var(--gray-50); }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-icon { padding: 8px; background: transparent; border: none; cursor: pointer; font-size: 18px; border-radius: var(--radius); }
+    .btn-icon:hover { background: var(--gray-100); }
+    .btn-block { width: 100%; }
+
+    /* Forms */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: var(--gray-700); }
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      font-size: 14px;
+      transition: border-color 0.2s;
+      background: white;
+      color: var(--gray-900);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .form-input::placeholder { color: var(--gray-400); }
+    .form-hint { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+    select.form-input { cursor: pointer; }
+    textarea.form-input { resize: vertical; min-height: 80px; }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--gray-100);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-body { padding: 16px; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-owner { background: #dbeafe; color: #1e40af; }
+    .badge-caretaker { background: #dcfce7; color: #166534; }
+    .badge-acting_owner { background: #fef3c7; color: #92400e; }
+    .badge-witness { background: #f1f5f9; color: #475569; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+
+    /* List Items */
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item:hover { background: var(--gray-50); }
+    .list-item-left { display: flex; align-items: center; gap: 12px; }
+    .list-item-icon { font-size: 24px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--gray-100); border-radius: var(--radius); }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-weight: 500; }
+    .list-item-subtitle { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+    .list-item-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+    @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+    .stat-card { background: white; border-radius: var(--radius-lg); padding: 16px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--primary); }
+    .stat-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-body { padding: 16px; }
+    .modal-footer { padding: 12px 16px; background: var(--gray-50); display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* Toast */
+    .toast-container { position: fixed; top: 16px; right: 16px; z-index: 2000; }
+    .toast {
+      background: var(--gray-800);
+      color: white;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Pages */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Login */
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-box {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+    .login-logo { text-align: center; margin-bottom: 24px; }
+    .login-logo-icon { font-size: 48px; }
+    .login-title { font-size: 24px; font-weight: 700; margin-top: 8px; }
+    .login-subtitle { font-size: 14px; color: var(--gray-500); margin-top: 4px; }
+    .login-tabs { display: flex; margin-bottom: 24px; border-bottom: 1px solid var(--gray-200); }
+    .login-tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; color: var(--gray-500); }
+    .login-tab.active { border-bottom-color: var(--primary); color: var(--primary); }
+    .login-footer { margin-top: 24px; text-align: center; font-size: 13px; color: var(--gray-500); }
+
+    /* Empty State */
+    .empty-state { text-align: center; padding: 48px 24px; }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { margin-bottom: 8px; }
+    .empty-state p { color: var(--gray-500); margin-bottom: 16px; }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Nav Tabs */
+    .nav-tabs { display: flex; background: white; border-bottom: 1px solid var(--gray-200); overflow-x: auto; }
+    .nav-tab { padding: 12px 16px; font-size: 14px; font-weight: 500; color: var(--gray-500); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; }
+    .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Bottom Nav */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      padding: 8px 0;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      z-index: 100;
+    }
+    @media (min-width: 768px) { .bottom-nav { display: none; } }
+    .bottom-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; cursor: pointer; color: var(--gray-500); font-size: 11px; }
+    .bottom-nav-item.active { color: var(--primary); }
+    .bottom-nav-icon { font-size: 20px; }
+
+    /* Task Status */
+    .task-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius); font-size: 13px; font-weight: 500; }
+    .task-status.created { background: var(--gray-100); color: var(--gray-600); }
+    .task-status.offered { background: #dbeafe; color: #1e40af; }
+    .task-status.claimed { background: #fef3c7; color: #92400e; }
+    .task-status.arrived { background: #dcfce7; color: #166534; }
+    .task-status.submitted { background: #f3e8ff; color: #6b21a8; }
+    .task-status.closed, .task-status.canceled { background: var(--gray-100); color: var(--gray-500); }
+
+    /* Helpers */
+    .mt-2 { margin-top: 8px; }
+    .mt-4 { margin-top: 16px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-4 { margin-bottom: 16px; }
+    .text-center { text-align: center; }
+    .text-muted { color: var(--gray-500); }
+    .text-sm { font-size: 13px; }
+    .flex { display: flex; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    .gap-2 { gap: 8px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- =====================================================================
+         Login Page
+         ===================================================================== -->
+    <div id="loginPage" class="page active">
+      <div class="login-container">
+        <div class="login-box">
+          <div class="login-logo">
+            <div class="login-logo-icon">🛡️</div>
+            <h1 class="login-title">NeighborGuard</h1>
+            <p class="login-subtitle">智能社区安防系统</p>
+          </div>
+          <div class="login-tabs">
+            <div class="login-tab active" onclick="switchLoginTab('login')">登录</div>
+            <div class="login-tab" onclick="switchLoginTab('register')">注册</div>
+          </div>
+          <!-- Login Form -->
+          <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="on">
+            <div class="form-group">
+              <label class="form-label">邮箱</label>
+              <input type="email" id="loginEmail" name="email" class="form-input" placeholder="your@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">密码</label>
+              <input type="password" id="loginPassword" name="password" class="form-input" placeholder="输入密码" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">登录</button>
+          </form>
+          <!-- Register Form -->
+          <form id="registerForm" class="hidden" onsubmit="handleRegister(event)" autocomplete="on">
+            <div class="form-group">
+              <label class="form-label">邮箱</label>
+              <input type="email" id="regEmail" name="email" class="form-input" placeholder="your@email.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">密码</label>
+              <input type="password" id="regPassword" name="password" class="form-input" placeholder="至少 6 位" required minlength="6" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label class="form-label">显示名称</label>
+              <input type="text" id="regDisplayName" name="displayName" class="form-input" placeholder="您的名字" autocomplete="name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">邀请码</label>
+              <input type="text" id="regInviteCode" name="inviteCode" class="form-input" placeholder="邀请码" value="587585" required autocomplete="off">
+              <p class="form-hint">内测阶段需要邀请码</p>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">注册</button>
+          </form>
+          <div class="login-footer">
+            <a href="#" onclick="showDevLogin(); return false;">快速填充测试账号</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         Main App
+         ===================================================================== -->
+    <div id="mainApp" class="page">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-left">
+          <span class="header-title">🛡️ NeighborGuard</span>
+          <span id="headerRole" class="badge badge-owner"></span>
+        </div>
+        <div class="header-right">
+          <span id="headerUser" class="text-sm text-muted"></span>
+          <button class="btn-icon" onclick="logout()" title="退出">🚪</button>
+        </div>
+      </div>
+      <!-- Nav Tabs (Desktop) -->
+      <div class="nav-tabs" id="navTabs"></div>
+      <!-- Content -->
+      <div class="main" id="mainContent"></div>
+      <!-- Bottom Nav (Mobile) -->
+      <div class="bottom-nav" id="bottomNav"></div>
+    </div>
+
+    <!-- =====================================================================
+         Modals
+         ===================================================================== -->
+    <!-- Create Circle Modal -->
+    <div id="createCircleModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">创建安防圈</span>
+          <button class="btn-icon" onclick="closeModal('createCircleModal')">✕</button>
+        </div>
+        <form onsubmit="handleCreateCircle(event)">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">圈子名称 *</label>
+              <input type="text" id="circleName" class="form-input" placeholder="例: 我的家" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">地址</label>
+              <input type="text" id="circleAddress" class="form-input" placeholder="街道地址">
+            </div>
+            <div class="form-group">
+              <label class="form-label">城市</label>
+              <input type="text" id="circleCity" class="form-input" placeholder="城市">
+            </div>
+            <div class="flex gap-2">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">纬度</label>
+                <input type="number" step="any" id="circleLat" class="form-input" placeholder="51.0447">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">经度</label>
+                <input type="number" step="any" id="circleLng" class="form-input" placeholder="-114.0719">
+              </div>
+            </div>
+            <p class="text-sm text-muted">GPS 坐标用于 Witness 到达验证</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('createCircleModal')">取消</button>
+            <button type="submit" class="btn btn-primary">创建</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="addMemberModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">添加成员</span>
+          <button class="btn-icon" onclick="closeModal('addMemberModal')">✕</button>
+        </div>
+        <form onsubmit="handleAddMember(event)">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">邮箱 *</label>
+              <input type="email" id="memberEmail" class="form-input" placeholder="member@example.com" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">角色 *</label>
+              <select id="memberRole" class="form-input" required>
+                <option value="caretaker">看护者 (Caretaker)</option>
+                <option value="acting_owner">临时代理 (Acting Owner)</option>
+                <option value="witness">见证者 (Witness)</option>
+              </select>
+              <p class="form-hint">看护者: 可处理事件 | 临时代理: 仅当前事件 | 见证者: 仅任务范围</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('addMemberModal')">取消</button>
+            <button type="submit" class="btn btn-primary">添加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Create Task Modal -->
+    <div id="createTaskModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">创建 Witness 任务</span>
+          <button class="btn-icon" onclick="closeModal('createTaskModal')">✕</button>
+        </div>
+        <form onsubmit="handleCreateTask(event)">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">任务标题 *</label>
+              <input type="text" id="taskTitle" class="form-input" placeholder="例: 检查前门" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">任务描述</label>
+              <textarea id="taskDescription" class="form-input" rows="3" placeholder="详细说明任务要求..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('createTaskModal')">取消</button>
+            <button type="submit" class="btn btn-primary">创建并发布</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Binding Info Modal -->
+    <div id="bindingInfoModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">Edge 绑定信息</span>
+          <button class="btn-icon" onclick="closeModal('bindingInfoModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-4">请将以下信息输入到 Edge Manager UI 完成绑定:</p>
+          <div class="card">
+            <div class="card-body">
+              <div class="form-group"><label class="form-label">Server URL</label><input type="text" id="bindingServerUrl" class="form-input" readonly></div>
+              <div class="form-group"><label class="form-label">Circle ID</label><input type="text" id="bindingCircleId" class="form-input" readonly></div>
+              <div class="form-group"><label class="form-label">Device ID</label><input type="text" id="bindingDeviceId" class="form-input" readonly></div>
+              <div class="form-group"><label class="form-label">Device Key</label><input type="text" id="bindingDeviceKey" class="form-input" readonly></div>
+            </div>
+          </div>
+          <p class="text-sm text-muted mt-4">⚠️ Device Key 仅显示一次，请妥善保存</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="copyBindingInfo()">📋 复制</button>
+          <button class="btn btn-primary" onclick="closeModal('bindingInfoModal')">完成</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+// =============================================================================
+// Configuration
+// =============================================================================
+const API_BASE = localStorage.getItem('ng_api_base') || 'https://ngserver-refactorphase1-foundation-85ba.up.railway.app';
+
+// =============================================================================
+// State
+// =============================================================================
+const state = {
+  jwt: localStorage.getItem('ng_jwt'),
+  user: JSON.parse(localStorage.getItem('ng_user') || 'null'),
+  circles: [],
+  currentCircle: null,
+  currentTab: 'circles',
+  members: [],
+  tasks: [],
+};
+
+// =============================================================================
+// API Client
+// =============================================================================
+async function api(endpoint, options = {}) {
+  const url = `${API_BASE}${endpoint}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(state.jwt && { 'Authorization': `Bearer ${state.jwt}` }),
+  };
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...headers, ...options.headers },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+    return data;
+  } catch (e) {
+    console.error('API Error:', e);
+    throw e;
+  }
+}
+
+// =============================================================================
+// Toast
+// =============================================================================
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// =============================================================================
+// Modal
+// =============================================================================
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// =============================================================================
+// Login/Register
+// =============================================================================
+function switchLoginTab(tab) {
+  document.querySelectorAll('.login-tab').forEach(t => t.classList.toggle('active', t.textContent.includes(tab === 'login' ? '登录' : '注册')));
+  document.getElementById('loginForm').classList.toggle('hidden', tab !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', tab !== 'register');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+    onLoginSuccess(data);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const email = document.getElementById('regEmail').value;
+  const password = document.getElementById('regPassword').value;
+  const displayName = document.getElementById('regDisplayName').value;
+  const inviteCode = document.getElementById('regInviteCode').value;
+  try {
+    const data = await api('/api/auth/register', { method: 'POST', body: { email, password, displayName, inviteCode } });
+    onLoginSuccess(data);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function showDevLogin() { 
+  // Dev login 在当前服务器版本不可用，使用快速注册代替
+  const timestamp = Date.now();
+  document.getElementById('regEmail').value = `dev${timestamp}@test.com`;
+  document.getElementById('regPassword').value = 'dev123456';
+  document.getElementById('regDisplayName').value = 'Dev User';
+  document.getElementById('regInviteCode').value = '587585';
+  switchLoginTab('register');
+  toast('已填充测试账号信息，点击注册即可', 'success');
+}
+
+function onLoginSuccess(data) {
+  state.jwt = data.accessToken;
+  state.user = data.user;
+  localStorage.setItem('ng_jwt', data.accessToken);
+  localStorage.setItem('ng_user', JSON.stringify(data.user));
+  toast('登录成功', 'success');
+  showMainApp();
+}
+
+function logout() {
+  state.jwt = null;
+  state.user = null;
+  state.circles = [];
+  state.currentCircle = null;
+  localStorage.removeItem('ng_jwt');
+  localStorage.removeItem('ng_user');
+  document.getElementById('loginPage').classList.add('active');
+  document.getElementById('mainApp').classList.remove('active');
+  toast('已退出', 'success');
+}
+
+// =============================================================================
+// Main App
+// =============================================================================
+async function showMainApp() {
+  document.getElementById('loginPage').classList.remove('active');
+  document.getElementById('mainApp').classList.add('active');
+  
+  // Update header
+  document.getElementById('headerUser').textContent = state.user?.email || '';
+  updateRoleBadge();
+  
+  // Build navigation
+  buildNavigation();
+  
+  // Load data
+  await loadCircles();
+  renderCurrentTab();
+}
+
+function updateRoleBadge() {
+  const badge = document.getElementById('headerRole');
+  const role = state.currentCircle?.role || (state.user?.isOwnerGranted ? 'owner' : 'user');
+  const labels = { owner: '🏠 Owner', caretaker: '🛡️ Caretaker', acting_owner: '⏱️ Acting', witness: '👁️ Witness', user: '👤 User' };
+  badge.textContent = labels[role] || role;
+  badge.className = `badge badge-${role}`;
+}
+
+function buildNavigation() {
+  const isOwner = state.user?.isOwnerGranted;
+  const tabs = [
+    { id: 'circles', icon: '🏘️', label: '圈子' },
+    ...(state.currentCircle ? [
+      { id: 'members', icon: '👥', label: '成员' },
+      { id: 'tasks', icon: '📋', label: '任务' },
+      { id: 'edge', icon: '📡', label: 'Edge' },
+    ] : []),
+  ];
+  
+  // Desktop nav
+  document.getElementById('navTabs').innerHTML = tabs.map(t => 
+    `<div class="nav-tab ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</div>`
+  ).join('');
+  
+  // Mobile nav
+  document.getElementById('bottomNav').innerHTML = tabs.map(t => 
+    `<div class="bottom-nav-item ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
+      <span class="bottom-nav-icon">${t.icon}</span>
+      <span>${t.label}</span>
+    </div>`
+  ).join('');
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  buildNavigation();
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  const content = document.getElementById('mainContent');
+  switch (state.currentTab) {
+    case 'circles': renderCirclesPage(content); break;
+    case 'members': renderMembersPage(content); break;
+    case 'tasks': renderTasksPage(content); break;
+    case 'edge': renderEdgePage(content); break;
+    default: content.innerHTML = '<p>Unknown tab</p>';
+  }
+}
+
+// =============================================================================
+// Circles Page
+// =============================================================================
+async function loadCircles() {
+  try {
+    const data = await api('/api/circles');
+    state.circles = data.circles || [];
+  } catch (err) {
+    console.error('Load circles error:', err);
+    state.circles = [];
+  }
+}
+
+function renderCirclesPage(container) {
+  const canCreate = state.user?.isOwnerGranted;
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>我的安防圈</h2>
+      ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">+ 创建圈子</button>' : ''}
+    </div>
+    ${state.circles.length === 0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">🏘️</div>
+        <h3>还没有安防圈</h3>
+        <p>${canCreate ? '创建您的第一个安防圈来开始使用' : '等待 Owner 邀请您加入'}</p>
+        ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">创建圈子</button>' : ''}
+      </div>
+    ` : `
+      <div class="card">
+        ${state.circles.map(c => `
+          <div class="list-item" onclick="selectCircle('${c.id}')">
+            <div class="list-item-left">
+              <div class="list-item-icon">🏠</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${c.name}</div>
+                <div class="list-item-subtitle">${c.address || c.city || 'No address'}</div>
+              </div>
+            </div>
+            <div class="list-item-right">
+              <span class="badge badge-${c.role}">${c.role}</span>
+              ${state.currentCircle?.id === c.id ? '<span class="badge badge-success">✓ 当前</span>' : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  `;
+}
+
+async function handleCreateCircle(e) {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('circleName').value,
+    address: document.getElementById('circleAddress').value || undefined,
+    city: document.getElementById('circleCity').value || undefined,
+    latitude: parseFloat(document.getElementById('circleLat').value) || undefined,
+    longitude: parseFloat(document.getElementById('circleLng').value) || undefined,
+  };
+  try {
+    await api('/api/circles', { method: 'POST', body });
+    closeModal('createCircleModal');
+    toast('圈子创建成功', 'success');
+    await loadCircles();
+    renderCurrentTab();
+    // Clear form
+    document.getElementById('circleName').value = '';
+    document.getElementById('circleAddress').value = '';
+    document.getElementById('circleCity').value = '';
+    document.getElementById('circleLat').value = '';
+    document.getElementById('circleLng').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function selectCircle(id) {
+  const circle = state.circles.find(c => c.id === id);
+  if (circle) {
+    state.currentCircle = circle;
+    updateRoleBadge();
+    buildNavigation();
+    switchTab('members');
+    await loadMembers();
+    toast(`已选择: ${circle.name}`, 'success');
+  }
+}
+
+// =============================================================================
+// Members Page
+// =============================================================================
+async function loadMembers() {
+  if (!state.currentCircle) return;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/members`);
+    state.members = data.members || [];
+  } catch (err) {
+    console.error('Load members error:', err);
+    state.members = [];
+  }
+}
+
+function renderMembersPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  const isOwner = state.currentCircle.role === 'owner';
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <div>
+        <h2>${state.currentCircle.name} - 成员</h2>
+        <p class="text-sm text-muted">${state.members.length} 位成员</p>
+      </div>
+      ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
+    </div>
+    ${state.members.length === 0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <h3>暂无成员</h3>
+        <p>添加成员来协助管理您的安防圈</p>
+      </div>
+    ` : `
+      <div class="card">
+        ${state.members.map(m => `
+          <div class="list-item">
+            <div class="list-item-left">
+              <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'witness' ? '👁️' : '👤'}</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${m.displayName || m.email}</div>
+                <div class="list-item-subtitle">${m.email}</div>
+              </div>
+            </div>
+            <div class="list-item-right">
+              <span class="badge badge-${m.role}">${m.role}</span>
+              ${isOwner && m.role !== 'owner' ? `<button class="btn btn-sm btn-danger" onclick="removeMember('${m.userId}')">移除</button>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  `;
+}
+
+async function handleAddMember(e) {
+  e.preventDefault();
+  const email = document.getElementById('memberEmail').value;
+  const role = document.getElementById('memberRole').value;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/members`, { method: 'POST', body: { email, role } });
+    closeModal('addMemberModal');
+    toast('成员添加成功', 'success');
+    await loadMembers();
+    renderCurrentTab();
+    document.getElementById('memberEmail').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function removeMember(userId) {
+  if (!confirm('确定要移除此成员吗？')) return;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/members/${userId}`, { method: 'DELETE' });
+    toast('成员已移除', 'success');
+    await loadMembers();
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// =============================================================================
+// Tasks Page
+// =============================================================================
+async function loadTasks() {
+  if (!state.currentCircle) return;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`);
+    state.tasks = data.tasks || [];
+  } catch (err) {
+    console.error('Load tasks error:', err);
+    state.tasks = [];
+  }
+}
+
+function renderTasksPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  loadTasks().then(() => {
+    const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(state.currentCircle.role);
+    const statusLabels = { created: '已创建', offered: '已发布', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已关闭', canceled: '已取消' };
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <div>
+          <h2>Witness 任务</h2>
+          <p class="text-sm text-muted">${state.tasks.length} 个任务</p>
+        </div>
+        ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openModal(\'createTaskModal\')">+ 创建任务</button>' : ''}
+      </div>
+      ${state.tasks.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>暂无任务</h3>
+          <p>创建任务邀请 Witness 协助现场查看</p>
+        </div>
+      ` : `
+        <div class="card">
+          ${state.tasks.map(t => `
+            <div class="list-item">
+              <div class="list-item-left">
+                <div class="list-item-content">
+                  <div class="list-item-title">${t.title || 'Task'}</div>
+                  <div class="list-item-subtitle">${t.description || ''}</div>
+                </div>
+              </div>
+              <div class="list-item-right">
+                <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
+                ${t.status === 'created' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-primary" onclick="offerTask('${t.id}')">发布</button>` : ''}
+                ${t.status === 'submitted' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    `;
+  });
+}
+
+async function handleCreateTask(e) {
+  e.preventDefault();
+  const title = document.getElementById('taskTitle').value;
+  const description = document.getElementById('taskDescription').value;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { method: 'POST', body: { title, description } });
+    // Auto offer
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${data.task.id}/offer`, { method: 'POST' });
+    closeModal('createTaskModal');
+    toast('任务已创建并发布', 'success');
+    renderCurrentTab();
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDescription').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function offerTask(id) {
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/offer`, { method: 'POST' });
+    toast('任务已发布', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function closeTask(id) {
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/close`, { method: 'POST' });
+    toast('任务已关闭', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// =============================================================================
+// Edge Page
+// =============================================================================
+async function loadBindingStatus() {
+  if (!state.currentCircle) return null;
+  try {
+    return await api(`/api/circles/${state.currentCircle.id}/edge/binding-status`);
+  } catch (err) {
+    console.error('Load binding status error:', err);
+    return null;
+  }
+}
+
+function renderEdgePage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  loadBindingStatus().then(status => {
+    const isOwner = state.currentCircle.role === 'owner';
+    const hasBound = status?.hasBoundDevice;
+    const device = status?.device;
+    
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <h2>Edge 设备</h2>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          ${hasBound ? `
+            <div class="flex-between mb-4">
+              <div>
+                <h3>✅ 设备已绑定</h3>
+                <p class="text-sm text-muted">Device ID: ${device?.deviceId || 'N/A'}</p>
+                <p class="text-sm text-muted">状态: ${device?.bindingStatus || 'N/A'}</p>
+              </div>
+              ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
+            </div>
+          ` : `
+            <div class="empty-state">
+              <div class="empty-icon">📡</div>
+              <h3>未绑定 Edge 设备</h3>
+              <p>绑定 Edge 设备以启用本地安防功能</p>
+              ${isOwner ? '<button class="btn btn-primary" onclick="generateBinding()">生成绑定信息</button>' : '<p class="text-muted">请联系 Owner 绑定设备</p>'}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  });
+}
+
+async function generateBinding() {
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/edge/generate-binding`, { method: 'POST' });
+    document.getElementById('bindingServerUrl').value = data.serverUrl;
+    document.getElementById('bindingCircleId').value = data.circleId;
+    document.getElementById('bindingDeviceId').value = data.deviceId;
+    document.getElementById('bindingDeviceKey').value = data.deviceKey;
+    openModal('bindingInfoModal');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function revokeBinding() {
+  if (!confirm('确定要撤销 Edge 绑定吗？')) return;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/edge/binding`, { method: 'DELETE' });
+    toast('绑定已撤销', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function copyBindingInfo() {
+  const info = `Server URL: ${document.getElementById('bindingServerUrl').value}
+Circle ID: ${document.getElementById('bindingCircleId').value}
+Device ID: ${document.getElementById('bindingDeviceId').value}
+Device Key: ${document.getElementById('bindingDeviceKey').value}`;
+  navigator.clipboard.writeText(info);
+  toast('已复制到剪贴板', 'success');
+}
+
+// =============================================================================
+// Init
+// =============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  if (state.jwt && state.user) {
+    showMainApp();
+  }
+});
+  </script>
+</body>
+</html>
