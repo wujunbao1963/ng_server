@@ -1,4 +1,4 @@
-import { AdminService, CreateUserDto, UpdateUserDto, CreateCircleDto, UpdateCircleDto } from './admin.service';
+import { AdminService, CreateUserDto, UpdateUserDto } from './admin.service';
 import { EvidenceTicketsService } from '../evidence-tickets/evidence-tickets.service';
 export declare class AdminController {
     private readonly adminService;
@@ -8,6 +8,7 @@ export declare class AdminController {
         users: {
             total: number;
             admins: number;
+            owners: number;
         };
         circles: {
             total: number;
@@ -25,21 +26,13 @@ export declare class AdminController {
     getUser(id: string): Promise<{
         user: import("../auth/ng-user.entity").NgUser;
         roles: {
-            circleName: string;
             id: string;
             circleId: string;
-            userId: string;
+            circleName: string;
             role: string;
-            email: string | null;
-            displayName: string | null;
             validFrom: Date;
             validUntil: Date | null;
             suspended: boolean;
-            pinHash: string | null;
-            permissions: string[] | null;
-            syncVersion: number;
-            createdAt: Date;
-            updatedAt: Date;
         }[];
     }>;
     createUser(dto: CreateUserDto): Promise<{
@@ -52,25 +45,30 @@ export declare class AdminController {
         deleted: boolean;
         userId: string;
     }>;
+    grantOwner(id: string): Promise<{
+        user: import("../auth/ng-user.entity").NgUser;
+        changed: boolean;
+        message: string;
+    }>;
+    revokeOwner(id: string): Promise<{
+        user: import("../auth/ng-user.entity").NgUser;
+        changed: boolean;
+        message: string;
+    }>;
     listCircles(limit?: string, offset?: string): Promise<{
         circles: {
-            memberCount: number;
-            ownerEmail: string | null;
-            ownerName: string | null;
             id: string;
             name: string;
             propertyType: string | null;
             address: string | null;
             city: string | null;
-            state: string | null;
-            postalCode: string | null;
-            country: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            proximityRadiusM: number;
-            settings: Record<string, any>;
             createdAt: Date;
-            updatedAt: Date;
+            memberCount: number;
+            owner: {
+                userId: string;
+                email: string | null;
+                displayName: string | null;
+            } | null;
         }[];
         total: number;
         limit: number;
@@ -78,18 +76,16 @@ export declare class AdminController {
     }>;
     getCircle(id: string): Promise<{
         circle: import("../circles/ng-circle.entity").NgCircle;
-        roles: import("../roles/ng-role.entity").NgRole[];
-    }>;
-    createCircle(dto: CreateCircleDto): Promise<{
-        circle: import("../circles/ng-circle.entity").NgCircle;
-        ownerRole: import("../roles/ng-role.entity").NgRole;
-    }>;
-    updateCircle(id: string, dto: UpdateCircleDto): Promise<{
-        circle: import("../circles/ng-circle.entity").NgCircle;
-    }>;
-    deleteCircle(id: string): Promise<{
-        deleted: boolean;
-        circleId: string;
+        roles: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: Date;
+            validUntil: Date | null;
+            suspended: boolean;
+        }[];
     }>;
     cleanupExpiredTickets(): Promise<{
         deletedTickets: number;

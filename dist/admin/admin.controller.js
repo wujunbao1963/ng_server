@@ -46,6 +46,12 @@ let AdminController = class AdminController {
     async deleteUser(id) {
         return this.adminService.deleteUser(id);
     }
+    async grantOwner(id) {
+        return this.adminService.grantOwner(id);
+    }
+    async revokeOwner(id) {
+        return this.adminService.revokeOwner(id);
+    }
     async listCircles(limit, offset) {
         return this.adminService.listCircles({
             limit: limit ? parseInt(limit, 10) : undefined,
@@ -54,16 +60,6 @@ let AdminController = class AdminController {
     }
     async getCircle(id) {
         return this.adminService.getCircle(id);
-    }
-    async createCircle(dto) {
-        return this.adminService.createCircle(dto);
-    }
-    async updateCircle(id, dto) {
-        const circle = await this.adminService.updateCircle(id, dto);
-        return { circle };
-    }
-    async deleteCircle(id) {
-        return this.adminService.deleteCircle(id);
     }
     async cleanupExpiredTickets() {
         const result = await this.evidenceTickets.purgeExpired();
@@ -115,6 +111,20 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "deleteUser", null);
 __decorate([
+    (0, common_1.Post)('users/:id/grant-owner'),
+    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "grantOwner", null);
+__decorate([
+    (0, common_1.Delete)('users/:id/grant-owner'),
+    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "revokeOwner", null);
+__decorate([
     (0, common_1.Get)('circles'),
     __param(0, (0, common_1.Query)('limit')),
     __param(1, (0, common_1.Query)('offset')),
@@ -129,28 +139,6 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getCircle", null);
-__decorate([
-    (0, common_1.Post)('circles'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "createCircle", null);
-__decorate([
-    (0, common_1.Patch)('circles/:id'),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "updateCircle", null);
-__decorate([
-    (0, common_1.Delete)('circles/:id'),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "deleteCircle", null);
 __decorate([
     (0, common_1.Post)('maintenance/evidence/cleanup'),
     __metadata("design:type", Function),

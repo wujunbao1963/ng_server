@@ -51,8 +51,13 @@ let AdminService = class AdminService {
             : [];
         const circleMap = new Map(circles.map(c => [c.id, c]));
         const rolesWithCircle = roles.map(r => ({
-            ...r,
+            id: r.id,
+            circleId: r.circleId,
             circleName: circleMap.get(r.circleId)?.name ?? 'Unknown',
+            role: r.role,
+            validFrom: r.validFrom,
+            validUntil: r.validUntil,
+            suspended: r.suspended,
         }));
         return { user, roles: rolesWithCircle };
     }
@@ -66,6 +71,7 @@ let AdminService = class AdminService {
             email: dto.email,
             displayName: dto.displayName ?? null,
             isAdmin: dto.isAdmin ?? false,
+            canCreateCircle: false,
         });
         await this.usersRepo.save(user);
         return user;
@@ -89,9 +95,49 @@ let AdminService = class AdminService {
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
+        const ownerRoles = await this.rolesRepo.find({
+            where: { userId, role: 'owner' },
+        });
+        if (ownerRoles.length > 0) {
+            const circleIds = ownerRoles.map(r => r.circleId);
+            throw new common_1.BadRequestException(`Cannot delete user who is Owner of ${ownerRoles.length} circle(s). ` +
+                `User must delete their circles first or transfer ownership. ` +
+                `Circle IDs: ${circleIds.join(', ')}`);
+        }
         await this.rolesRepo.delete({ userId });
         await this.usersRepo.delete({ id: userId });
         return { deleted: true, userId };
+    }
+    async grantOwner(userId) {
+        const user = await this.usersRepo.findOne({ where: { id: userId } });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (user.canCreateCircle) {
+            return { user, changed: false, message: 'User already has owner permission' };
+        }
+        user.canCreateCircle = true;
+        await this.usersRepo.save(user);
+        return { user, changed: true, message: 'Owner permission granted' };
+    }
+    async revokeOwner(userId) {
+        const user = await this.usersRepo.findOne({ where: { id: userId } });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (!user.canCreateCircle) {
+            return { user, changed: false, message: 'User does not have owner permission' };
+        }
+        const ownerRoles = await this.rolesRepo.find({
+            where: { userId, role: 'owner' },
+        });
+        if (ownerRoles.length > 0) {
+            throw new common_1.BadRequestException(`Cannot revoke owner permission. User owns ${ownerRoles.length} circle(s). ` +
+                `User must delete their circles first.`);
+        }
+        user.canCreateCircle = false;
+        await this.usersRepo.save(user);
+        return { user, changed: true, message: 'Owner permission revoked' };
     }
     async listCircles(opts) {
         const limit = opts?.limit ?? 100;
@@ -103,14 +149,26 @@ let AdminService = class AdminService {
         });
         const circlesWithStats = await Promise.all(circles.map(async (circle) => {
             const memberCount = await this.rolesRepo.count({ where: { circleId: circle.id } });
-            const owner = await this.rolesRepo.findOne({
+            const ownerRole = await this.rolesRepo.findOne({
                 where: { circleId: circle.id, role: 'owner' },
             });
+            let ownerUser = null;
+            if (ownerRole) {
+                ownerUser = await this.usersRepo.findOne({ where: { id: ownerRole.userId } }) ?? null;
+            }
             return {
-                ...circle,
+                id: circle.id,
+                name: circle.name,
+                propertyType: circle.propertyType,
+                address: circle.address,
+                city: circle.city,
+                createdAt: circle.createdAt,
                 memberCount,
-                ownerEmail: owner?.email ?? null,
-                ownerName: owner?.displayName ?? null,
+                owner: ownerRole ? {
+                    userId: ownerRole.userId,
+                    email: ownerUser?.email ?? ownerRole.email,
+                    displayName: ownerUser?.displayName ?? ownerRole.displayName,
+                } : null,
             };
         }));
         return { circles: circlesWithStats, total, limit, offset };
@@ -124,60 +182,35 @@ let AdminService = class AdminService {
             where: { circleId },
             order: { createdAt: 'ASC' },
         });
-        return { circle, roles };
-    }
-    async createCircle(dto) {
-        const owner = await this.usersRepo.findOne({ where: { id: dto.ownerUserId } });
-        if (!owner) {
-            throw new common_1.BadRequestException('Owner user not found');
-        }
-        const circle = this.circlesRepo.create({
-            id: (0, crypto_1.randomUUID)(),
-            name: dto.name,
-        });
-        await this.circlesRepo.save(circle);
-        const role = this.rolesRepo.create({
-            id: (0, crypto_1.randomUUID)(),
-            circleId: circle.id,
-            userId: owner.id,
-            role: 'owner',
-            email: owner.email,
-            displayName: owner.displayName,
-            validFrom: new Date(),
-            validUntil: null,
-            suspended: false,
-            syncVersion: 1,
-        });
-        await this.rolesRepo.save(role);
-        return { circle, ownerRole: role };
-    }
-    async updateCircle(circleId, dto) {
-        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-        if (!circle) {
-            throw new common_1.NotFoundException('Circle not found');
-        }
-        if (dto.name !== undefined) {
-            circle.name = dto.name;
-        }
-        await this.circlesRepo.save(circle);
-        return circle;
-    }
-    async deleteCircle(circleId) {
-        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-        if (!circle) {
-            throw new common_1.NotFoundException('Circle not found');
-        }
-        await this.rolesRepo.delete({ circleId });
-        await this.circlesRepo.delete({ id: circleId });
-        return { deleted: true, circleId };
+        const userIds = [...new Set(roles.map(r => r.userId))];
+        const users = userIds.length > 0
+            ? await this.usersRepo.findByIds(userIds)
+            : [];
+        const userMap = new Map(users.map(u => [u.id, u]));
+        const rolesWithUser = roles.map(r => ({
+            id: r.id,
+            userId: r.userId,
+            email: userMap.get(r.userId)?.email ?? r.email,
+            displayName: userMap.get(r.userId)?.displayName ?? r.displayName,
+            role: r.role,
+            validFrom: r.validFrom,
+            validUntil: r.validUntil,
+            suspended: r.suspended,
+        }));
+        return { circle, roles: rolesWithUser };
     }
     async getStats() {
         const userCount = await this.usersRepo.count();
         const adminCount = await this.usersRepo.count({ where: { isAdmin: true } });
+        const ownerCount = await this.usersRepo.count({ where: { canCreateCircle: true } });
         const circleCount = await this.circlesRepo.count();
         const roleCount = await this.rolesRepo.count();
         return {
-            users: { total: userCount, admins: adminCount },
+            users: {
+                total: userCount,
+                admins: adminCount,
+                owners: ownerCount,
+            },
             circles: { total: circleCount },
             roles: { total: roleCount },
         };

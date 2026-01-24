@@ -4,14 +4,16 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NgUser } from './ng-user.entity';
-import { AuthController } from './auth.controller';
+import { NgRole } from '../roles/ng-role.entity';
+import { NgCircle } from '../circles/ng-circle.entity';
+import { AuthController, CircleAuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([NgUser]),
+    TypeOrmModule.forFeature([NgUser, NgRole, NgCircle]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -23,8 +25,8 @@ import { JwtStrategy } from './jwt.strategy';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, CircleAuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [JwtModule],
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

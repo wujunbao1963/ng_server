@@ -11,13 +11,6 @@ export interface UpdateUserDto {
     displayName?: string;
     isAdmin?: boolean;
 }
-export interface CreateCircleDto {
-    name: string;
-    ownerUserId: string;
-}
-export interface UpdateCircleDto {
-    name?: string;
-}
 export declare class AdminService {
     private readonly usersRepo;
     private readonly circlesRepo;
@@ -35,21 +28,13 @@ export declare class AdminService {
     getUser(userId: string): Promise<{
         user: NgUser;
         roles: {
-            circleName: string;
             id: string;
             circleId: string;
-            userId: string;
+            circleName: string;
             role: string;
-            email: string | null;
-            displayName: string | null;
             validFrom: Date;
             validUntil: Date | null;
             suspended: boolean;
-            pinHash: string | null;
-            permissions: string[] | null;
-            syncVersion: number;
-            createdAt: Date;
-            updatedAt: Date;
         }[];
     }>;
     createUser(dto: CreateUserDto): Promise<NgUser>;
@@ -58,28 +43,33 @@ export declare class AdminService {
         deleted: boolean;
         userId: string;
     }>;
+    grantOwner(userId: string): Promise<{
+        user: NgUser;
+        changed: boolean;
+        message: string;
+    }>;
+    revokeOwner(userId: string): Promise<{
+        user: NgUser;
+        changed: boolean;
+        message: string;
+    }>;
     listCircles(opts?: {
         limit?: number;
         offset?: number;
     }): Promise<{
         circles: {
-            memberCount: number;
-            ownerEmail: string | null;
-            ownerName: string | null;
             id: string;
             name: string;
             propertyType: string | null;
             address: string | null;
             city: string | null;
-            state: string | null;
-            postalCode: string | null;
-            country: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            proximityRadiusM: number;
-            settings: Record<string, any>;
             createdAt: Date;
-            updatedAt: Date;
+            memberCount: number;
+            owner: {
+                userId: string;
+                email: string | null;
+                displayName: string | null;
+            } | null;
         }[];
         total: number;
         limit: number;
@@ -87,21 +77,22 @@ export declare class AdminService {
     }>;
     getCircle(circleId: string): Promise<{
         circle: NgCircle;
-        roles: NgRole[];
-    }>;
-    createCircle(dto: CreateCircleDto): Promise<{
-        circle: NgCircle;
-        ownerRole: NgRole;
-    }>;
-    updateCircle(circleId: string, dto: UpdateCircleDto): Promise<NgCircle>;
-    deleteCircle(circleId: string): Promise<{
-        deleted: boolean;
-        circleId: string;
+        roles: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: Date;
+            validUntil: Date | null;
+            suspended: boolean;
+        }[];
     }>;
     getStats(): Promise<{
         users: {
             total: number;
             admins: number;
+            owners: number;
         };
         circles: {
             total: number;

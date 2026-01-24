@@ -26,19 +26,23 @@ export interface UpdateUserDto {
   isAdmin?: boolean;
 }
 
-export interface CreateCircleDto {
-  name: string;
-  ownerUserId: string;
-}
-
-export interface UpdateCircleDto {
-  name?: string;
-}
-
 // ============================================================================
 // Service
 // ============================================================================
 
+/**
+ * Admin Service - SuperAdmin 系统级管理
+ * 
+ * SuperAdmin 权限:
+ * - 管理 Users (创建/删除/修改)
+ * - 设定/解除用户的 Owner 权限 (canCreateCircle)
+ * - 查看所有 Circles (只读)
+ * - 系统统计
+ * 
+ * SuperAdmin 不能:
+ * - 创建/删除 Circle (Owner 职责)
+ * - 管理 Circle 内部角色 (Owner 职责)
+ */
 @Injectable()
 export class AdminService {
   constructor(
@@ -94,8 +98,13 @@ export class AdminService {
     const circleMap = new Map(circles.map(c => [c.id, c]));
 
     const rolesWithCircle = roles.map(r => ({
-      ...r,
+      id: r.id,
+      circleId: r.circleId,
       circleName: circleMap.get(r.circleId)?.name ?? 'Unknown',
+      role: r.role,
+      validFrom: r.validFrom,
+      validUntil: r.validUntil,
+      suspended: r.suspended,
     }));
 
     return { user, roles: rolesWithCircle };
@@ -116,6 +125,7 @@ export class AdminService {
       email: dto.email,
       displayName: dto.displayName ?? null,
       isAdmin: dto.isAdmin ?? false,
+      canCreateCircle: false, // 默认不能创建 Circle
     });
 
     await this.usersRepo.save(user);
@@ -144,7 +154,7 @@ export class AdminService {
 
   /**
    * 删除用户
-   * 注意：会级联删除用户的所有角色
+   * 注意：如果用户是 Circle Owner，不能删除
    */
   async deleteUser(userId: string) {
     const user = await this.usersRepo.findOne({ where: { id: userId } });
@@ -152,7 +162,21 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    // 先删除用户的所有角色
+    // 检查用户是否是任何 Circle 的 Owner
+    const ownerRoles = await this.rolesRepo.find({
+      where: { userId, role: 'owner' },
+    });
+
+    if (ownerRoles.length > 0) {
+      const circleIds = ownerRoles.map(r => r.circleId);
+      throw new BadRequestException(
+        `Cannot delete user who is Owner of ${ownerRoles.length} circle(s). ` +
+        `User must delete their circles first or transfer ownership. ` +
+        `Circle IDs: ${circleIds.join(', ')}`
+      );
+    }
+
+    // 删除用户的所有非 Owner 角色
     await this.rolesRepo.delete({ userId });
 
     // 删除用户
@@ -162,11 +186,71 @@ export class AdminService {
   }
 
   // ==========================================================================
-  // 圈子管理
+  // Owner 权限管理
   // ==========================================================================
 
   /**
-   * 列出所有圈子
+   * 授予用户 Owner 权限 (canCreateCircle = true)
+   * 
+   * POST /api/admin/users/:userId/grant-owner
+   */
+  async grantOwner(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.canCreateCircle) {
+      return { user, changed: false, message: 'User already has owner permission' };
+    }
+
+    user.canCreateCircle = true;
+    await this.usersRepo.save(user);
+
+    return { user, changed: true, message: 'Owner permission granted' };
+  }
+
+  /**
+   * 撤销用户 Owner 权限 (canCreateCircle = false)
+   * 
+   * DELETE /api/admin/users/:userId/grant-owner
+   * 
+   * 注意：如果用户已有 Circle，不能撤销
+   */
+  async revokeOwner(userId: string) {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.canCreateCircle) {
+      return { user, changed: false, message: 'User does not have owner permission' };
+    }
+
+    // 检查用户是否已有 Circle
+    const ownerRoles = await this.rolesRepo.find({
+      where: { userId, role: 'owner' },
+    });
+
+    if (ownerRoles.length > 0) {
+      throw new BadRequestException(
+        `Cannot revoke owner permission. User owns ${ownerRoles.length} circle(s). ` +
+        `User must delete their circles first.`
+      );
+    }
+
+    user.canCreateCircle = false;
+    await this.usersRepo.save(user);
+
+    return { user, changed: true, message: 'Owner permission revoked' };
+  }
+
+  // ==========================================================================
+  // 圈子查看 (只读)
+  // ==========================================================================
+
+  /**
+   * 列出所有圈子 (只读)
    */
   async listCircles(opts?: { limit?: number; offset?: number }) {
     const limit = opts?.limit ?? 100;
@@ -182,14 +266,28 @@ export class AdminService {
     const circlesWithStats = await Promise.all(
       circles.map(async (circle) => {
         const memberCount = await this.rolesRepo.count({ where: { circleId: circle.id } });
-        const owner = await this.rolesRepo.findOne({
+        const ownerRole = await this.rolesRepo.findOne({
           where: { circleId: circle.id, role: 'owner' },
         });
+        
+        let ownerUser: NgUser | null = null;
+        if (ownerRole) {
+          ownerUser = await this.usersRepo.findOne({ where: { id: ownerRole.userId } }) ?? null;
+        }
+
         return {
-          ...circle,
+          id: circle.id,
+          name: circle.name,
+          propertyType: circle.propertyType,
+          address: circle.address,
+          city: circle.city,
+          createdAt: circle.createdAt,
           memberCount,
-          ownerEmail: owner?.email ?? null,
-          ownerName: owner?.displayName ?? null,
+          owner: ownerRole ? {
+            userId: ownerRole.userId,
+            email: ownerUser?.email ?? ownerRole.email,
+            displayName: ownerUser?.displayName ?? ownerRole.displayName,
+          } : null,
         };
       }),
     );
@@ -198,7 +296,7 @@ export class AdminService {
   }
 
   /**
-   * 获取圈子详情
+   * 获取圈子详情 (只读)
    */
   async getCircle(circleId: string) {
     const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
@@ -212,78 +310,25 @@ export class AdminService {
       order: { createdAt: 'ASC' },
     });
 
-    return { circle, roles };
-  }
+    // 获取成员的用户信息
+    const userIds = [...new Set(roles.map(r => r.userId))];
+    const users = userIds.length > 0
+      ? await this.usersRepo.findByIds(userIds)
+      : [];
+    const userMap = new Map(users.map(u => [u.id, u]));
 
-  /**
-   * 创建圈子（管理员创建，指定 owner）
-   */
-  async createCircle(dto: CreateCircleDto) {
-    // 验证 owner 用户存在
-    const owner = await this.usersRepo.findOne({ where: { id: dto.ownerUserId } });
-    if (!owner) {
-      throw new BadRequestException('Owner user not found');
-    }
+    const rolesWithUser = roles.map(r => ({
+      id: r.id,
+      userId: r.userId,
+      email: userMap.get(r.userId)?.email ?? r.email,
+      displayName: userMap.get(r.userId)?.displayName ?? r.displayName,
+      role: r.role,
+      validFrom: r.validFrom,
+      validUntil: r.validUntil,
+      suspended: r.suspended,
+    }));
 
-    // 创建圈子
-    const circle = this.circlesRepo.create({
-      id: randomUUID(),
-      name: dto.name,
-    });
-    await this.circlesRepo.save(circle);
-
-    // 创建 owner 角色
-    const role = this.rolesRepo.create({
-      id: randomUUID(),
-      circleId: circle.id,
-      userId: owner.id,
-      role: 'owner',
-      email: owner.email,
-      displayName: owner.displayName,
-      validFrom: new Date(),
-      validUntil: null, // owner 永久有效
-      suspended: false,
-      syncVersion: 1,
-    });
-    await this.rolesRepo.save(role);
-
-    return { circle, ownerRole: role };
-  }
-
-  /**
-   * 更新圈子
-   */
-  async updateCircle(circleId: string, dto: UpdateCircleDto) {
-    const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-    if (!circle) {
-      throw new NotFoundException('Circle not found');
-    }
-
-    if (dto.name !== undefined) {
-      circle.name = dto.name;
-    }
-
-    await this.circlesRepo.save(circle);
-    return circle;
-  }
-
-  /**
-   * 删除圈子
-   * 注意：会级联删除圈子的所有角色
-   */
-  async deleteCircle(circleId: string) {
-    const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-    if (!circle) {
-      throw new NotFoundException('Circle not found');
-    }
-
-    // 先删除圈子的所有角色
-    await this.rolesRepo.delete({ circleId });
-
-    // 删除圈子
-    await this.circlesRepo.delete({ id: circleId });
-
-    return { deleted: true, circleId };
+    return { circle, roles: rolesWithUser };
   }
 
   // ==========================================================================
@@ -296,11 +341,16 @@ export class AdminService {
   async getStats() {
     const userCount = await this.usersRepo.count();
     const adminCount = await this.usersRepo.count({ where: { isAdmin: true } });
+    const ownerCount = await this.usersRepo.count({ where: { canCreateCircle: true } });
     const circleCount = await this.circlesRepo.count();
     const roleCount = await this.rolesRepo.count();
 
     return {
-      users: { total: userCount, admins: adminCount },
+      users: { 
+        total: userCount, 
+        admins: adminCount,
+        owners: ownerCount,
+      },
       circles: { total: circleCount },
       roles: { total: roleCount },
     };
