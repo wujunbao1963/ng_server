@@ -1207,27 +1207,30 @@ function renderMembersPage(container) {
     container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
     return;
   }
-  const isOwner = state.currentCircle.role === 'owner';
-  container.innerHTML = `
-    <div class="flex-between mb-4">
-      <div>
-        <h2>${state.currentCircle.name} - 成员</h2>
-        <p class="text-sm text-muted">${state.members.length} 位成员</p>
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  loadMembers().then(() => {
+    const isOwner = state.currentCircle.role === 'owner';
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <div>
+          <h2>${state.currentCircle.name} - 成员</h2>
+          <p class="text-sm text-muted">${state.members.length} 位成员</p>
+        </div>
+        ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
       </div>
-      ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
-    </div>
-    ${state.members.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">👥</div>
-        <h3>暂无成员</h3>
-        <p>添加成员来协助管理您的安防圈</p>
-      </div>
-    ` : `
-      <div class="card">
-        ${state.members.map(m => `
-          <div class="list-item">
-            <div class="list-item-left">
-              <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'witness' ? '👁️' : '👤'}</div>
+      ${state.members.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">👥</div>
+          <h3>暂无成员</h3>
+          <p>添加成员来协助管理您的安防圈</p>
+        </div>
+      ` : `
+        <div class="card">
+          ${state.members.map(m => `
+            <div class="list-item">
+              <div class="list-item-left">
+                <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'witness' ? '👁️' : '👤'}</div>
               <div class="list-item-content">
                 <div class="list-item-title">${m.displayName || m.email}</div>
                 <div class="list-item-subtitle">${m.email}</div>
@@ -1242,6 +1245,7 @@ function renderMembersPage(container) {
       </div>
     `}
   `;
+  });
 }
 
 async function handleAddMember(e) {
@@ -1291,6 +1295,7 @@ function renderTasksPage(container) {
     container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
     return;
   }
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   loadTasks().then(() => {
     const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(state.currentCircle.role);
     const statusLabels = { created: '已创建', offered: '已发布', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已关闭', canceled: '已取消' };
