@@ -29,6 +29,8 @@ import { RolesModule } from './roles/roles.module';
 // Phase 6: RAHA Forwarding
 import { RahaActionsModule } from './raha-actions/raha-actions.module';
 
+import { WitnessTasksModule } from './witness-tasks/witness-tasks.module';
+
 @Module({
   imports: [
     // Infrastructure (global - provides ClockPort, PushProviderPort)
@@ -92,6 +94,7 @@ import { RahaActionsModule } from './raha-actions/raha-actions.module';
     
     // Phase 6: RAHA Forwarding
     RahaActionsModule,
+    WitnessTasksModule,  // ← 添加这行    
   ],
   providers: [
     // Global interceptor for request tracking

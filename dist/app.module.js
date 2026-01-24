@@ -33,6 +33,7 @@ const request_id_interceptor_1 = require("./infra/interceptors/request-id.interc
 const ledger_ingest_module_1 = require("./ledger-ingest/ledger-ingest.module");
 const roles_module_1 = require("./roles/roles.module");
 const raha_actions_module_1 = require("./raha-actions/raha-actions.module");
+const witness_tasks_module_1 = require("./witness-tasks/witness-tasks.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -83,6 +84,7 @@ exports.AppModule = AppModule = __decorate([
             ledger_ingest_module_1.LedgerIngestModule,
             roles_module_1.RolesModule,
             raha_actions_module_1.RahaActionsModule,
+            witness_tasks_module_1.WitnessTasksModule,
         ],
         providers: [
             { provide: core_1.APP_INTERCEPTOR, useClass: request_id_interceptor_1.RequestIdInterceptor },
