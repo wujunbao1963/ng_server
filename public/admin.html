@@ -1552,8 +1552,11 @@ function renderDashboardPage(container) {
   }
   
   state.edgeUrl = edgeUrl;
+  const role = state.currentCircle?.role || 'user';
+  const roleBanner = getRoleBanner(role);
   
   container.innerHTML = `
+    ${roleBanner}
     <div class="flex-between mb-4">
       <h2>📊 仪表盘</h2>
       <div class="flex gap-2">
@@ -1768,8 +1771,11 @@ function renderEventsPage(container) {
   }
   
   state.edgeUrl = edgeUrl;
+  const role = state.currentCircle?.role || 'user';
+  const roleBanner = getRoleBanner(role);
   
   container.innerHTML = `
+    ${roleBanner}
     <div class="flex-between mb-4">
       <h2>🔔 事件</h2>
       <button class="btn btn-sm btn-outline" onclick="loadEdgeEvents()">🔄 刷新</button>
@@ -2147,6 +2153,62 @@ function formatDateTime(timestamp) {
   if (!timestamp) return '-';
   const d = new Date(timestamp);
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function getRoleBanner(role) {
+  const roleConfig = {
+    owner: {
+      icon: '👑',
+      label: 'Owner',
+      desc: '完全控制权限',
+      color: '#dbeafe',
+      textColor: '#1e40af'
+    },
+    caretaker: {
+      icon: '🛡️',
+      label: 'Caretaker',
+      desc: '可查看 7 天内事件，可处理事件',
+      color: '#dcfce7',
+      textColor: '#166534'
+    },
+    acting_owner: {
+      icon: '⏱️',
+      label: 'Acting Owner',
+      desc: '仅可查看 24 小时内事件',
+      color: '#fef3c7',
+      textColor: '#92400e'
+    },
+    witness: {
+      icon: '👁️',
+      label: 'Witness',
+      desc: '仅限任务范围内查看',
+      color: '#f1f5f9',
+      textColor: '#475569'
+    }
+  };
+  
+  const cfg = roleConfig[role];
+  if (!cfg || role === 'owner') return ''; // Owner 不显示提示
+  
+  return `
+    <div style="
+      background: ${cfg.color}; 
+      color: ${cfg.textColor}; 
+      padding: 10px 16px; 
+      border-radius: 8px; 
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    ">
+      <span style="font-size: 20px;">${cfg.icon}</span>
+      <div>
+        <strong>当前身份: ${cfg.label}</strong>
+        <span style="margin-left: 8px; opacity: 0.85;">${cfg.desc}</span>
+      </div>
+    </div>
+  `;
 }
 
 // =============================================================================
