@@ -12,7 +12,7 @@ import { NgHttpError, NgErrorCodes } from '../common/errors/ng-http-error';
 // Constants (§15 File Constraints)
 // ============================================================================
 
-const ALLOWED_MEDIA_TYPES = {
+const ALLOWED_MEDIA_TYPES: Record<string, string[]> = {
   video: ['mp4', 'mov', 'webm'],
   image: ['jpg', 'jpeg', 'png', 'heic', 'webp'],
   audio: ['m4a', 'aac', 'mp3', 'wav'],
@@ -122,7 +122,7 @@ export class OsheService {
     );
 
     // 验证文件约束 (§15)
-    this.validateFileConstraints(dto, circleId, dto.eventId);
+    await this.validateFileConstraints(dto, circleId, dto.eventId);
 
     // 检查时间戳差异 (§16)
     const serverReceivedAt = new Date();

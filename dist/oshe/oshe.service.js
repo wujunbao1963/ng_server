@@ -46,7 +46,7 @@ let OsheService = class OsheService {
         this.validateTimeWindow(eventContext);
         const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
         const proximityResult = await this.validatePresence(dto.latitude, dto.longitude, dto.accuracy, circle?.latitude ?? null, circle?.longitude ?? null, circle?.proximityRadiusM ?? 50, dto.presenceVerificationDegraded);
-        this.validateFileConstraints(dto, circleId, dto.eventId);
+        await this.validateFileConstraints(dto, circleId, dto.eventId);
         const serverReceivedAt = new Date();
         const capturedAt = new Date(dto.capturedAt);
         const timestampDiscrepancy = Math.abs(serverReceivedAt.getTime() - capturedAt.getTime()) > TIMESTAMP_DISCREPANCY_THRESHOLD_MS;
