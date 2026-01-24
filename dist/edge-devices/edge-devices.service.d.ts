@@ -13,11 +13,49 @@ export type RegisterEdgeDeviceResponse = {
         topomap: boolean;
     };
 };
+export type EdgeBindingInfo = {
+    circleId: string;
+    circleName: string;
+    deviceId: string;
+    deviceKey: string;
+    serverUrl: string;
+    generatedAt: string;
+    expiresAt: string;
+};
 export declare class EdgeDevicesService {
     private readonly repo;
     private readonly config;
     private readonly circles;
     constructor(repo: Repository<NgEdgeDevice>, config: ConfigService, circles: CirclesService);
+    generateBinding(userId: string, circleId: string): Promise<EdgeBindingInfo>;
+    getBindingStatus(userId: string, circleId: string): Promise<{
+        hasBoundDevice: boolean;
+        device: {
+            deviceId: string;
+            name: string | null;
+            enabled: boolean;
+            pairedAt: string;
+            lastSeenAt: string | null;
+            bindingStatus: string;
+        } | null;
+    }>;
+    confirmBinding(deviceId: string, dto: {
+        deviceName?: string;
+        capabilities?: {
+            fusion?: boolean;
+            evidenceUpload?: boolean;
+            topomap?: boolean;
+        };
+        platform?: string;
+        softwareVersion?: string;
+    }): Promise<{
+        confirmed: boolean;
+        deviceId: string;
+    }>;
+    revokeBinding(userId: string, circleId: string): Promise<{
+        revoked: boolean;
+        deviceId: string;
+    }>;
     register(userId: string, circleId: string, dto: RegisterEdgeDeviceDto): Promise<RegisterEdgeDeviceResponse>;
     list(userId: string, circleId: string): Promise<Array<{
         deviceId: string;

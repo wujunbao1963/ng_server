@@ -20,6 +20,7 @@ const crypto = require("crypto");
 const config_1 = require("@nestjs/config");
 const ng_edge_device_entity_1 = require("./ng-edge-device.entity");
 const circles_service_1 = require("../circles/circles.service");
+const ng_http_error_1 = require("../common/errors/ng-http-error");
 function genDeviceKey() {
     const bytes = crypto.randomBytes(32);
     return bytes.toString('base64');
@@ -33,8 +34,157 @@ let EdgeDevicesService = class EdgeDevicesService {
         this.config = config;
         this.circles = circles;
     }
+    async generateBinding(userId, circleId) {
+        await this.circles.mustHaveRole(userId, circleId, ['owner']);
+        const existingDevice = await this.repo.findOne({
+            where: { circleId, revokedAt: (0, typeorm_2.IsNull)() },
+        });
+        if (existingDevice) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 409,
+                error: 'Conflict',
+                code: 'CONFLICT',
+                message: 'Circle already has an active Edge device. Revoke it first to bind a new one.',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+                details: {
+                    existingDeviceId: existingDevice.id,
+                    existingDeviceName: existingDevice.name,
+                },
+            });
+        }
+        const circleDetail = await this.circles.getCircleDetail(userId, circleId);
+        const deviceId = crypto.randomUUID();
+        const deviceKey = genDeviceKey();
+        const pepper = this.config.get('DEVICE_KEY_PEPPER') ?? 'dev-pepper';
+        const deviceKeyHash = hmacSha256Hex(pepper, deviceKey);
+        const entity = this.repo.create({
+            id: deviceId,
+            circleId,
+            name: 'Pending Binding',
+            deviceKeyHash,
+            capabilities: {
+                fusion: false,
+                evidenceUpload: false,
+                topomap: false,
+            },
+            metadata: {
+                bindingStatus: 'pending',
+                generatedAt: new Date().toISOString(),
+                generatedBy: userId,
+            },
+            revokedAt: null,
+            lastSeenAt: null,
+        });
+        await this.repo.save(entity);
+        const serverUrl = this.config.get('SERVER_URL')
+            ?? this.config.get('RAILWAY_PUBLIC_DOMAIN')
+            ? `https://${this.config.get('RAILWAY_PUBLIC_DOMAIN')}`
+            : 'http://localhost:3000';
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        return {
+            circleId,
+            circleName: circleDetail.circle.name,
+            deviceId,
+            deviceKey,
+            serverUrl,
+            generatedAt: now.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+        };
+    }
+    async getBindingStatus(userId, circleId) {
+        await this.circles.mustHaveRole(userId, circleId, ['owner', 'caretaker']);
+        const device = await this.repo.findOne({
+            where: { circleId, revokedAt: (0, typeorm_2.IsNull)() },
+        });
+        if (!device) {
+            return { hasBoundDevice: false, device: null };
+        }
+        return {
+            hasBoundDevice: true,
+            device: {
+                deviceId: device.id,
+                name: device.name,
+                enabled: device.revokedAt == null,
+                pairedAt: device.createdAt.toISOString(),
+                lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+                bindingStatus: device.metadata?.bindingStatus ?? 'active',
+            },
+        };
+    }
+    async confirmBinding(deviceId, dto) {
+        const device = await this.repo.findOne({ where: { id: deviceId } });
+        if (!device) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 404,
+                error: 'Not Found',
+                code: ng_http_error_1.NgErrorCodes.NOT_FOUND,
+                message: 'Device not found',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        device.name = dto.deviceName ?? device.name;
+        device.capabilities = {
+            fusion: dto.capabilities?.fusion ?? false,
+            evidenceUpload: dto.capabilities?.evidenceUpload ?? false,
+            topomap: dto.capabilities?.topomap ?? false,
+        };
+        device.metadata = {
+            ...device.metadata,
+            bindingStatus: 'active',
+            confirmedAt: new Date().toISOString(),
+            platform: dto.platform ?? device.metadata?.platform,
+            softwareVersion: dto.softwareVersion ?? device.metadata?.softwareVersion,
+        };
+        device.lastSeenAt = new Date();
+        await this.repo.save(device);
+        return { confirmed: true, deviceId };
+    }
+    async revokeBinding(userId, circleId) {
+        await this.circles.mustHaveRole(userId, circleId, ['owner']);
+        const device = await this.repo.findOne({
+            where: { circleId, revokedAt: (0, typeorm_2.IsNull)() },
+        });
+        if (!device) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 404,
+                error: 'Not Found',
+                code: ng_http_error_1.NgErrorCodes.NOT_FOUND,
+                message: 'No active Edge device found',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+            });
+        }
+        device.revokedAt = new Date();
+        device.metadata = {
+            ...device.metadata,
+            bindingStatus: 'revoked',
+            revokedAt: new Date().toISOString(),
+            revokedBy: userId,
+        };
+        await this.repo.save(device);
+        return { revoked: true, deviceId: device.id };
+    }
     async register(userId, circleId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['owner', 'household']);
+        await this.circles.mustHaveRole(userId, circleId, ['owner']);
+        const existingDevice = await this.repo.findOne({
+            where: { circleId, revokedAt: (0, typeorm_2.IsNull)() },
+        });
+        if (existingDevice) {
+            throw new ng_http_error_1.NgHttpError({
+                statusCode: 409,
+                error: 'Conflict',
+                code: 'CONFLICT',
+                message: 'Circle already has an active Edge device. Revoke it first.',
+                timestamp: new Date().toISOString(),
+                retryable: false,
+                details: {
+                    existingDeviceId: existingDevice.id,
+                },
+            });
+        }
         const deviceId = crypto.randomUUID();
         const deviceKey = genDeviceKey();
         const pepper = this.config.get('DEVICE_KEY_PEPPER') ?? 'dev-pepper';
@@ -49,6 +199,7 @@ let EdgeDevicesService = class EdgeDevicesService {
             haInstanceId: dto.haInstanceId ?? null,
             softwareVersion: dto.softwareVersion ?? null,
             publicKey: dto.publicKey ?? null,
+            bindingStatus: 'active',
         };
         const entity = this.repo.create({
             id: deviceId,
@@ -69,7 +220,7 @@ let EdgeDevicesService = class EdgeDevicesService {
         };
     }
     async list(userId, circleId) {
-        await this.circles.mustHaveRole(userId, circleId, ['owner', 'household']);
+        await this.circles.mustHaveRole(userId, circleId, ['owner', 'caretaker']);
         const rows = await this.repo.find({
             where: { circleId },
             order: { createdAt: 'ASC' },

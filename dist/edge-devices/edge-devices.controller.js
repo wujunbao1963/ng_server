@@ -25,6 +25,15 @@ let EdgeDevicesController = class EdgeDevicesController {
         this.edgeDevices = edgeDevices;
         this.contracts = contracts;
     }
+    async generateBinding(circleId, req) {
+        return this.edgeDevices.generateBinding(req.user.userId, circleId);
+    }
+    async getBindingStatus(circleId, req) {
+        return this.edgeDevices.getBindingStatus(req.user.userId, circleId);
+    }
+    async revokeBinding(circleId, req) {
+        return this.edgeDevices.revokeBinding(req.user.userId, circleId);
+    }
     async register(circleId, body, req) {
         const vr = this.contracts.validateDeviceRegisterRequest(body);
         if (!vr.ok)
@@ -61,7 +70,31 @@ let EdgeDevicesController = class EdgeDevicesController {
 };
 exports.EdgeDevicesController = EdgeDevicesController;
 __decorate([
-    (0, common_1.Post)(),
+    (0, common_1.Post)('generate-binding'),
+    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], EdgeDevicesController.prototype, "generateBinding", null);
+__decorate([
+    (0, common_1.Get)('binding-status'),
+    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], EdgeDevicesController.prototype, "getBindingStatus", null);
+__decorate([
+    (0, common_1.Delete)('binding'),
+    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], EdgeDevicesController.prototype, "revokeBinding", null);
+__decorate([
+    (0, common_1.Post)('devices'),
     __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -70,7 +103,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], EdgeDevicesController.prototype, "register", null);
 __decorate([
-    (0, common_1.Get)(),
+    (0, common_1.Get)('devices'),
     __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -78,7 +111,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], EdgeDevicesController.prototype, "list", null);
 __decorate([
-    (0, common_1.Patch)(':deviceId'),
+    (0, common_1.Patch)('devices/:deviceId'),
     __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(1, (0, common_1.Param)('deviceId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(2, (0, common_1.Body)()),
@@ -88,7 +121,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], EdgeDevicesController.prototype, "setEnabled", null);
 __decorate([
-    (0, common_1.Post)(':deviceId/rotate-key'),
+    (0, common_1.Post)('devices/:deviceId/rotate-key'),
     __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(1, (0, common_1.Param)('deviceId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(2, (0, common_1.Req)()),
@@ -97,7 +130,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], EdgeDevicesController.prototype, "rotateKey", null);
 exports.EdgeDevicesController = EdgeDevicesController = __decorate([
-    (0, common_1.Controller)('api/circles/:circleId/edge/devices'),
+    (0, common_1.Controller)('api/circles/:circleId/edge'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:paramtypes", [edge_devices_service_1.EdgeDevicesService,
         contracts_validator_service_1.ContractsValidatorService])

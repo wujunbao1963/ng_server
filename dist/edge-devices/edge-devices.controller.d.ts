@@ -7,6 +7,28 @@ export declare class EdgeDevicesController {
     private readonly edgeDevices;
     private readonly contracts;
     constructor(edgeDevices: EdgeDevicesService, contracts: ContractsValidatorService);
+    generateBinding(circleId: string, req: {
+        user: JwtUser;
+    }): Promise<import("./edge-devices.service").EdgeBindingInfo>;
+    getBindingStatus(circleId: string, req: {
+        user: JwtUser;
+    }): Promise<{
+        hasBoundDevice: boolean;
+        device: {
+            deviceId: string;
+            name: string | null;
+            enabled: boolean;
+            pairedAt: string;
+            lastSeenAt: string | null;
+            bindingStatus: string;
+        } | null;
+    }>;
+    revokeBinding(circleId: string, req: {
+        user: JwtUser;
+    }): Promise<{
+        revoked: boolean;
+        deviceId: string;
+    }>;
     register(circleId: string, body: RegisterEdgeDeviceDto, req: {
         user: JwtUser;
     }): Promise<import("./edge-devices.service").RegisterEdgeDeviceResponse>;
