@@ -128,6 +128,7 @@
       font-size: 12px;
       font-weight: 500;
     }
+    .badge-admin { background: #fef3c7; color: #92400e; }
     .badge-owner { background: #dbeafe; color: #1e40af; }
     .badge-caretaker { background: #dcfce7; color: #166534; }
     .badge-acting_owner { background: #fef3c7; color: #92400e; }
@@ -522,6 +523,7 @@ const state = {
   currentTab: 'circles',
   members: [],
   tasks: [],
+  users: [],  // SuperAdmin: 用户列表
 };
 
 // =============================================================================
@@ -644,6 +646,12 @@ async function showMainApp() {
   document.getElementById('headerUser').textContent = state.user?.email || '';
   updateRoleBadge();
   
+  // Admin 用户默认显示用户管理页
+  if (state.user?.isAdmin) {
+    state.currentTab = 'users';
+    await loadUsers();
+  }
+  
   // Build navigation
   buildNavigation();
   
@@ -654,15 +662,27 @@ async function showMainApp() {
 
 function updateRoleBadge() {
   const badge = document.getElementById('headerRole');
-  const role = state.currentCircle?.role || (state.user?.isOwnerGranted ? 'owner' : 'user');
-  const labels = { owner: '🏠 Owner', caretaker: '🛡️ Caretaker', acting_owner: '⏱️ Acting', witness: '👁️ Witness', user: '👤 User' };
+  let role;
+  if (state.user?.isAdmin) {
+    role = 'admin';
+  } else if (state.currentCircle?.role) {
+    role = state.currentCircle.role;
+  } else if (state.user?.canCreateCircle) {
+    role = 'owner';
+  } else {
+    role = 'user';
+  }
+  const labels = { admin: '👑 Admin', owner: '🏠 Owner', caretaker: '🛡️ Caretaker', acting_owner: '⏱️ Acting', witness: '👁️ Witness', user: '👤 User' };
   badge.textContent = labels[role] || role;
   badge.className = `badge badge-${role}`;
 }
 
 function buildNavigation() {
-  const isOwner = state.user?.isOwnerGranted;
+  const isOwner = state.user?.canCreateCircle;
+  const isAdmin = state.user?.isAdmin;
   const tabs = [
+    // SuperAdmin 专用标签
+    ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户管理' }] : []),
     { id: 'circles', icon: '🏘️', label: '圈子' },
     ...(state.currentCircle ? [
       { id: 'members', icon: '👥', label: '成员' },
@@ -694,11 +714,146 @@ function switchTab(tab) {
 function renderCurrentTab() {
   const content = document.getElementById('mainContent');
   switch (state.currentTab) {
+    case 'users': renderUsersPage(content); break;
     case 'circles': renderCirclesPage(content); break;
     case 'members': renderMembersPage(content); break;
     case 'tasks': renderTasksPage(content); break;
     case 'edge': renderEdgePage(content); break;
     default: content.innerHTML = '<p>Unknown tab</p>';
+  }
+}
+
+// =============================================================================
+// Users Page (SuperAdmin Only)
+// =============================================================================
+async function loadUsers() {
+  if (!state.user?.isAdmin) return;
+  try {
+    const data = await api('/api/admin/users');
+    state.users = data.users || [];
+  } catch (err) {
+    console.error('Load users error:', err);
+    // 如果 API 不存在，显示提示
+    state.users = [];
+  }
+}
+
+function renderUsersPage(container) {
+  if (!state.user?.isAdmin) {
+    container.innerHTML = '<div class="empty-state"><h3>无权访问</h3><p>仅 SuperAdmin 可访问此页面</p></div>';
+    return;
+  }
+  
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>👤 用户管理</h2>
+      <button class="btn btn-outline" onclick="loadUsers().then(() => renderUsersPage(document.getElementById('mainContent')))">🔄 刷新</button>
+    </div>
+    
+    <div class="card mb-4">
+      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+        <strong>授予 Owner 权限</strong>
+        <p class="text-muted" style="font-size: 12px; margin-top: 4px;">输入用户邮箱，授予其创建 Circle 的权限</p>
+      </div>
+      <form onsubmit="handleGrantOwner(event)" style="padding: 16px; display: flex; gap: 12px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label class="form-label">用户邮箱</label>
+          <input type="email" id="grantOwnerEmail" class="form-input" placeholder="user@example.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary">授予权限</button>
+      </form>
+    </div>
+    
+    <div class="card">
+      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+        <strong>已注册用户</strong>
+        <span class="badge badge-info" style="margin-left: 8px;">${state.users.length}</span>
+      </div>
+      ${state.users.length === 0 ? `
+        <div style="padding: 32px; text-align: center; color: var(--gray-500);">
+          <p>暂无用户数据</p>
+          <p style="font-size: 12px;">如果您刚部署，请先用 curl 调用 /api/admin/users 确认 API 可用</p>
+        </div>
+      ` : `
+        ${state.users.map(u => `
+          <div class="list-item">
+            <div class="list-item-left">
+              <div class="list-item-icon">${u.isAdmin ? '👑' : u.canCreateCircle ? '🏠' : '👤'}</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${u.email}</div>
+                <div class="list-item-subtitle">
+                  ${u.displayName || 'No name'} · 
+                  注册于 ${new Date(u.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+            <div class="list-item-right" style="display: flex; gap: 8px; align-items: center;">
+              ${u.isAdmin ? '<span class="badge badge-warning">Admin</span>' : ''}
+              ${u.canCreateCircle ? '<span class="badge badge-success">Owner权限</span>' : '<span class="badge badge-secondary">普通用户</span>'}
+              ${!u.isAdmin && u.canCreateCircle ? `<button class="btn btn-sm btn-danger" onclick="handleRevokeOwner('${u.id}')">撤销</button>` : ''}
+              ${!u.isAdmin && !u.canCreateCircle ? `<button class="btn btn-sm btn-primary" onclick="handleGrantOwnerById('${u.id}')">授予</button>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      `}
+    </div>
+  `;
+}
+
+async function handleGrantOwner(e) {
+  e.preventDefault();
+  const email = document.getElementById('grantOwnerEmail').value.trim();
+  if (!email) return;
+  
+  // 先从用户列表查找
+  let user = state.users.find(u => u.email === email);
+  
+  // 如果列表中没有，尝试刷新列表
+  if (!user) {
+    await loadUsers();
+    user = state.users.find(u => u.email === email);
+  }
+  
+  if (!user) {
+    toast(`找不到用户: ${email}`, 'error');
+    return;
+  }
+  
+  try {
+    await api(`/api/admin/users/${user.id}/grant-owner`, { method: 'POST' });
+    toast('已授予 Owner 权限', 'success');
+    document.getElementById('grantOwnerEmail').value = '';
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '授权失败', 'error');
+  }
+}
+
+async function handleGrantOwnerById(userId) {
+  try {
+    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'POST' });
+    toast('已授予 Owner 权限', 'success');
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '授权失败', 'error');
+  }
+}
+
+async function handleRevokeOwner(userId) {
+  const user = state.users.find(u => u.id === userId);
+  if (!user) return;
+  
+  if (!confirm(`确定要撤销 ${user.email} 的 Owner 权限吗？`)) return;
+  
+  try {
+    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'DELETE' });
+    toast(`已撤销 ${user.email} 的 Owner 权限`, 'success');
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '撤销失败', 'error');
   }
 }
 
@@ -716,7 +871,7 @@ async function loadCircles() {
 }
 
 function renderCirclesPage(container) {
-  const canCreate = state.user?.isOwnerGranted;
+  const canCreate = state.user?.canCreateCircle;
   container.innerHTML = `
     <div class="flex-between mb-4">
       <h2>我的安防圈</h2>
