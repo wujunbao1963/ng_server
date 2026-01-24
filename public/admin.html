@@ -136,8 +136,6 @@
     .badge-success { background: #dcfce7; color: #166534; }
     .badge-warning { background: #fef3c7; color: #92400e; }
     .badge-danger { background: #fee2e2; color: #991b1b; }
-    .badge-info { background: #dbeafe; color: #1e40af; }
-    .badge-secondary { background: var(--gray-100); color: var(--gray-600); }
 
     /* List Items */
     .list-item {
@@ -248,7 +246,7 @@
     .empty-state p { color: var(--gray-500); margin-bottom: 16px; }
 
     /* Loading */
-    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; flex-direction: column; gap: 12px; }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; }
     .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -328,10 +326,7 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .mode-btn:hover:not(.active):not(:disabled) { 
-      border-color: var(--gray-400);
-      background: var(--gray-50);
-    }
+    .mode-btn:hover:not(.active):not(:disabled) { border-color: var(--gray-400); background: var(--gray-50); }
     .mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .mode-btn.active.disarmed { background: var(--gray-100); border-color: var(--gray-400); }
     .mode-btn.active.home { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
@@ -426,26 +421,6 @@
     }
     .quick-btn:hover { background: var(--gray-100); }
     .quick-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-
-    /* Live Video */
-    .camera-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 8px;
-    }
-    .camera-item {
-      padding: 12px;
-      background: var(--gray-50);
-      border-radius: var(--radius);
-      text-align: center;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: all 0.2s;
-    }
-    .camera-item:hover { background: var(--gray-100); }
-    .camera-item.selected { border-color: var(--primary); background: #eff6ff; }
-    .camera-item .camera-name { font-size: 13px; font-weight: 500; margin-top: 4px; }
-    .camera-item .camera-status { font-size: 11px; color: var(--gray-500); }
 
     /* Helpers */
     .mt-2 { margin-top: 8px; }
@@ -755,21 +730,18 @@ const state = {
   currentTab: 'circles',
   members: [],
   tasks: [],
-  users: [],
-  // Edge state
+  users: [],  // SuperAdmin: 用户列表
+  // Edge state (NEW)
   edgeUrl: null,
   edgeConnected: false,
   currentMode: 'disarmed',
   events: [],
   eventsFilter: 'all',
-  cameras: [],
-  selectedCamera: null,
 };
 
 // Refresh intervals
 let statusRefreshInterval = null;
 let eventsRefreshInterval = null;
-let snapshotInterval = null;
 
 // =============================================================================
 // API Client
@@ -848,28 +820,36 @@ async function handleRegister(e) {
   }
 }
 
+function showDevLogin() { 
+  // Dev login 在当前服务器版本不可用，使用快速注册代替
+  const timestamp = Date.now();
+  document.getElementById('regEmail').value = `dev${timestamp}@test.com`;
+  document.getElementById('regPassword').value = 'dev123456';
+  document.getElementById('regDisplayName').value = 'Dev User';
+  document.getElementById('regInviteCode').value = '587585';
+  switchLoginTab('register');
+  toast('已填充测试账号信息，点击注册即可', 'success');
+}
+
 function onLoginSuccess(data) {
-  state.jwt = data.token;
+  state.jwt = data.accessToken;
   state.user = data.user;
-  localStorage.setItem('ng_jwt', data.token);
+  localStorage.setItem('ng_jwt', data.accessToken);
   localStorage.setItem('ng_user', JSON.stringify(data.user));
+  toast('登录成功', 'success');
   showMainApp();
 }
 
 function logout() {
   state.jwt = null;
   state.user = null;
+  state.circles = [];
   state.currentCircle = null;
   localStorage.removeItem('ng_jwt');
   localStorage.removeItem('ng_user');
-  stopAllIntervals();
   document.getElementById('loginPage').classList.add('active');
   document.getElementById('mainApp').classList.remove('active');
-}
-
-function showDevLogin() {
-  document.getElementById('loginEmail').value = 'owner@test.com';
-  document.getElementById('loginPassword').value = 'test123';
+  toast('已退出', 'success');
 }
 
 // =============================================================================
@@ -878,30 +858,32 @@ function showDevLogin() {
 async function showMainApp() {
   document.getElementById('loginPage').classList.remove('active');
   document.getElementById('mainApp').classList.add('active');
+  
+  // Update header
   document.getElementById('headerUser').textContent = state.user?.email || '';
   updateRoleBadge();
-  await loadCircles();
-  buildNavigation();
-  renderCurrentTab();
-}
-
-async function loadCircles() {
-  try {
-    const data = await api('/api/circles');
-    state.circles = data.circles || [];
-  } catch (err) {
-    console.error('Load circles error:', err);
-    state.circles = [];
+  
+  // Admin 用户默认显示用户管理页
+  if (state.user?.isAdmin) {
+    state.currentTab = 'users';
+    await loadUsers();
   }
+  
+  // Build navigation
+  buildNavigation();
+  
+  // Load data
+  await loadCircles();
+  renderCurrentTab();
 }
 
 function updateRoleBadge() {
   const badge = document.getElementById('headerRole');
-  let role = 'user';
-  if (state.currentCircle) {
-    role = state.currentCircle.role || 'user';
-  } else if (state.user?.isAdmin) {
+  let role;
+  if (state.user?.isAdmin) {
     role = 'admin';
+  } else if (state.currentCircle?.role) {
+    role = state.currentCircle.role;
   } else if (state.user?.canCreateCircle) {
     role = 'owner';
   } else {
@@ -919,7 +901,8 @@ function buildNavigation() {
   const canViewDashboard = ['owner', 'caretaker', 'acting_owner'].includes(role);
   
   const tabs = [
-    ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户' }] : []),
+    // SuperAdmin 专用标签
+    ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户管理' }] : []),
     { id: 'circles', icon: '🏘️', label: '圈子' },
     ...(state.currentCircle ? [
       ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
@@ -930,10 +913,12 @@ function buildNavigation() {
     ] : []),
   ];
   
+  // Desktop nav
   document.getElementById('navTabs').innerHTML = tabs.map(t => 
     `<div class="nav-tab ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</div>`
   ).join('');
   
+  // Mobile nav
   document.getElementById('bottomNav').innerHTML = tabs.map(t => 
     `<div class="bottom-nav-item ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
       <span class="bottom-nav-icon">${t.icon}</span>
@@ -947,7 +932,6 @@ function switchTab(tab) {
   if (state.currentTab === 'dashboard' || state.currentTab === 'events') {
     stopAllIntervals();
   }
-  
   state.currentTab = tab;
   buildNavigation();
   renderCurrentTab();
@@ -968,7 +952,512 @@ function renderCurrentTab() {
 }
 
 // =============================================================================
-// Edge URL Management
+// Users Page (SuperAdmin Only)
+// =============================================================================
+async function loadUsers() {
+  if (!state.user?.isAdmin) return;
+  try {
+    const data = await api('/api/admin/users');
+    state.users = data.users || [];
+  } catch (err) {
+    console.error('Load users error:', err);
+    // 如果 API 不存在，显示提示
+    state.users = [];
+  }
+}
+
+function renderUsersPage(container) {
+  if (!state.user?.isAdmin) {
+    container.innerHTML = '<div class="empty-state"><h3>无权访问</h3><p>仅 SuperAdmin 可访问此页面</p></div>';
+    return;
+  }
+  
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>👤 用户管理</h2>
+      <button class="btn btn-outline" onclick="loadUsers().then(() => renderUsersPage(document.getElementById('mainContent')))">🔄 刷新</button>
+    </div>
+    
+    <div class="card mb-4">
+      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+        <strong>授予 Owner 权限</strong>
+        <p class="text-muted" style="font-size: 12px; margin-top: 4px;">输入用户邮箱，授予其创建 Circle 的权限</p>
+      </div>
+      <form onsubmit="handleGrantOwner(event)" style="padding: 16px; display: flex; gap: 12px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <label class="form-label">用户邮箱</label>
+          <input type="email" id="grantOwnerEmail" class="form-input" placeholder="user@example.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary">授予权限</button>
+      </form>
+    </div>
+    
+    <div class="card">
+      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+        <strong>已注册用户</strong>
+        <span class="badge badge-info" style="margin-left: 8px;">${state.users.length}</span>
+      </div>
+      ${state.users.length === 0 ? `
+        <div style="padding: 32px; text-align: center; color: var(--gray-500);">
+          <p>暂无用户数据</p>
+          <p style="font-size: 12px;">如果您刚部署，请先用 curl 调用 /api/admin/users 确认 API 可用</p>
+        </div>
+      ` : `
+        ${state.users.map(u => `
+          <div class="list-item">
+            <div class="list-item-left">
+              <div class="list-item-icon">${u.isAdmin ? '👑' : u.canCreateCircle ? '🏠' : '👤'}</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${u.email}</div>
+                <div class="list-item-subtitle">
+                  ${u.displayName || 'No name'} · 
+                  注册于 ${new Date(u.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+            <div class="list-item-right" style="display: flex; gap: 8px; align-items: center;">
+              ${u.isAdmin ? '<span class="badge badge-warning">Admin</span>' : ''}
+              ${u.canCreateCircle ? '<span class="badge badge-success">Owner权限</span>' : '<span class="badge badge-secondary">普通用户</span>'}
+              ${!u.isAdmin && u.canCreateCircle ? `<button class="btn btn-sm btn-danger" onclick="handleRevokeOwner('${u.id}')">撤销</button>` : ''}
+              ${!u.isAdmin && !u.canCreateCircle ? `<button class="btn btn-sm btn-primary" onclick="handleGrantOwnerById('${u.id}')">授予</button>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      `}
+    </div>
+  `;
+}
+
+async function handleGrantOwner(e) {
+  e.preventDefault();
+  const email = document.getElementById('grantOwnerEmail').value.trim();
+  if (!email) return;
+  
+  // 先从用户列表查找
+  let user = state.users.find(u => u.email === email);
+  
+  // 如果列表中没有，尝试刷新列表
+  if (!user) {
+    await loadUsers();
+    user = state.users.find(u => u.email === email);
+  }
+  
+  if (!user) {
+    toast(`找不到用户: ${email}`, 'error');
+    return;
+  }
+  
+  try {
+    await api(`/api/admin/users/${user.id}/grant-owner`, { method: 'POST' });
+    toast('已授予 Owner 权限', 'success');
+    document.getElementById('grantOwnerEmail').value = '';
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '授权失败', 'error');
+  }
+}
+
+async function handleGrantOwnerById(userId) {
+  try {
+    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'POST' });
+    toast('已授予 Owner 权限', 'success');
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '授权失败', 'error');
+  }
+}
+
+async function handleRevokeOwner(userId) {
+  const user = state.users.find(u => u.id === userId);
+  if (!user) return;
+  
+  if (!confirm(`确定要撤销 ${user.email} 的 Owner 权限吗？`)) return;
+  
+  try {
+    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'DELETE' });
+    toast(`已撤销 ${user.email} 的 Owner 权限`, 'success');
+    await loadUsers();
+    renderUsersPage(document.getElementById('mainContent'));
+  } catch (err) {
+    toast(err.message || '撤销失败', 'error');
+  }
+}
+
+// =============================================================================
+// Circles Page
+// =============================================================================
+async function loadCircles() {
+  try {
+    const data = await api('/api/circles');
+    state.circles = data.circles || [];
+  } catch (err) {
+    console.error('Load circles error:', err);
+    state.circles = [];
+  }
+}
+
+function renderCirclesPage(container) {
+  const canCreate = state.user?.canCreateCircle;
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>我的安防圈</h2>
+      ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">+ 创建圈子</button>' : ''}
+    </div>
+    ${state.circles.length === 0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">🏘️</div>
+        <h3>还没有安防圈</h3>
+        <p>${canCreate ? '创建您的第一个安防圈来开始使用' : '等待 Owner 邀请您加入'}</p>
+        ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">创建圈子</button>' : ''}
+      </div>
+    ` : `
+      <div class="card">
+        ${state.circles.map(c => `
+          <div class="list-item" onclick="selectCircle('${c.id}')">
+            <div class="list-item-left">
+              <div class="list-item-icon">🏠</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${c.name}</div>
+                <div class="list-item-subtitle">${c.address || c.city || 'No address'}</div>
+              </div>
+            </div>
+            <div class="list-item-right">
+              <span class="badge badge-${c.role}">${c.role}</span>
+              ${state.currentCircle?.id === c.id ? '<span class="badge badge-success">✓ 当前</span>' : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  `;
+}
+
+async function handleCreateCircle(e) {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('circleName').value,
+    address: document.getElementById('circleAddress').value || undefined,
+    city: document.getElementById('circleCity').value || undefined,
+    latitude: parseFloat(document.getElementById('circleLat').value) || undefined,
+    longitude: parseFloat(document.getElementById('circleLng').value) || undefined,
+  };
+  try {
+    await api('/api/circles', { method: 'POST', body });
+    closeModal('createCircleModal');
+    toast('圈子创建成功', 'success');
+    await loadCircles();
+    renderCurrentTab();
+    // Clear form
+    document.getElementById('circleName').value = '';
+    document.getElementById('circleAddress').value = '';
+    document.getElementById('circleCity').value = '';
+    document.getElementById('circleLat').value = '';
+    document.getElementById('circleLng').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function selectCircle(id) {
+  const circle = state.circles.find(c => c.id === id);
+  if (circle) {
+    // Stop any existing intervals
+    stopAllIntervals();
+    
+    state.currentCircle = circle;
+    state.edgeUrl = getEdgeUrl();
+    state.edgeConnected = false;
+    state.events = [];
+    
+    updateRoleBadge();
+    buildNavigation();
+    
+    // Auto-switch to dashboard if user has permission and Edge URL is configured
+    const role = circle.role || 'user';
+    const canViewDashboard = ['owner', 'caretaker', 'acting_owner'].includes(role);
+    if (canViewDashboard && state.edgeUrl) {
+      switchTab('dashboard');
+    } else {
+      switchTab('members');
+      await loadMembers();
+    }
+    
+    toast(`已选择: ${circle.name}`, 'success');
+  }
+}
+
+// =============================================================================
+// Members Page
+// =============================================================================
+async function loadMembers() {
+  if (!state.currentCircle) return;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/members`);
+    state.members = data.members || [];
+  } catch (err) {
+    console.error('Load members error:', err);
+    state.members = [];
+  }
+}
+
+function renderMembersPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  const isOwner = state.currentCircle.role === 'owner';
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <div>
+        <h2>${state.currentCircle.name} - 成员</h2>
+        <p class="text-sm text-muted">${state.members.length} 位成员</p>
+      </div>
+      ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
+    </div>
+    ${state.members.length === 0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">👥</div>
+        <h3>暂无成员</h3>
+        <p>添加成员来协助管理您的安防圈</p>
+      </div>
+    ` : `
+      <div class="card">
+        ${state.members.map(m => `
+          <div class="list-item">
+            <div class="list-item-left">
+              <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'witness' ? '👁️' : '👤'}</div>
+              <div class="list-item-content">
+                <div class="list-item-title">${m.displayName || m.email}</div>
+                <div class="list-item-subtitle">${m.email}</div>
+              </div>
+            </div>
+            <div class="list-item-right">
+              <span class="badge badge-${m.role}">${m.role}</span>
+              ${isOwner && m.role !== 'owner' ? `<button class="btn btn-sm btn-danger" onclick="removeMember('${m.userId}')">移除</button>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  `;
+}
+
+async function handleAddMember(e) {
+  e.preventDefault();
+  const email = document.getElementById('memberEmail').value;
+  const role = document.getElementById('memberRole').value;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/members`, { method: 'POST', body: { email, role } });
+    closeModal('addMemberModal');
+    toast('成员添加成功', 'success');
+    await loadMembers();
+    renderCurrentTab();
+    document.getElementById('memberEmail').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function removeMember(userId) {
+  if (!confirm('确定要移除此成员吗？')) return;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/members/${userId}`, { method: 'DELETE' });
+    toast('成员已移除', 'success');
+    await loadMembers();
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// =============================================================================
+// Tasks Page
+// =============================================================================
+async function loadTasks() {
+  if (!state.currentCircle) return;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`);
+    state.tasks = data.tasks || [];
+  } catch (err) {
+    console.error('Load tasks error:', err);
+    state.tasks = [];
+  }
+}
+
+function renderTasksPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  loadTasks().then(() => {
+    const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(state.currentCircle.role);
+    const statusLabels = { created: '已创建', offered: '已发布', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已关闭', canceled: '已取消' };
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <div>
+          <h2>Witness 任务</h2>
+          <p class="text-sm text-muted">${state.tasks.length} 个任务</p>
+        </div>
+        ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openModal(\'createTaskModal\')">+ 创建任务</button>' : ''}
+      </div>
+      ${state.tasks.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>暂无任务</h3>
+          <p>创建任务邀请 Witness 协助现场查看</p>
+        </div>
+      ` : `
+        <div class="card">
+          ${state.tasks.map(t => `
+            <div class="list-item">
+              <div class="list-item-left">
+                <div class="list-item-content">
+                  <div class="list-item-title">${t.title || 'Task'}</div>
+                  <div class="list-item-subtitle">${t.description || ''}</div>
+                </div>
+              </div>
+              <div class="list-item-right">
+                <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
+                ${t.status === 'created' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-primary" onclick="offerTask('${t.id}')">发布</button>` : ''}
+                ${t.status === 'submitted' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    `;
+  });
+}
+
+async function handleCreateTask(e) {
+  e.preventDefault();
+  const title = document.getElementById('taskTitle').value;
+  const description = document.getElementById('taskDescription').value;
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { method: 'POST', body: { title, description } });
+    // Auto offer
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${data.task.id}/offer`, { method: 'POST' });
+    closeModal('createTaskModal');
+    toast('任务已创建并发布', 'success');
+    renderCurrentTab();
+    document.getElementById('taskTitle').value = '';
+    document.getElementById('taskDescription').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function offerTask(id) {
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/offer`, { method: 'POST' });
+    toast('任务已发布', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function closeTask(id) {
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/close`, { method: 'POST' });
+    toast('任务已关闭', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// =============================================================================
+// Edge Page
+// =============================================================================
+async function loadBindingStatus() {
+  if (!state.currentCircle) return null;
+  try {
+    return await api(`/api/circles/${state.currentCircle.id}/edge/binding-status`);
+  } catch (err) {
+    console.error('Load binding status error:', err);
+    return null;
+  }
+}
+
+function renderEdgePage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  loadBindingStatus().then(status => {
+    const isOwner = state.currentCircle.role === 'owner';
+    const hasBound = status?.hasBoundDevice;
+    const device = status?.device;
+    
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <h2>Edge 设备</h2>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          ${hasBound ? `
+            <div class="flex-between mb-4">
+              <div>
+                <h3>✅ 设备已绑定</h3>
+                <p class="text-sm text-muted">Device ID: ${device?.deviceId || 'N/A'}</p>
+                <p class="text-sm text-muted">状态: ${device?.bindingStatus || 'N/A'}</p>
+              </div>
+              ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
+            </div>
+          ` : `
+            <div class="empty-state">
+              <div class="empty-icon">📡</div>
+              <h3>未绑定 Edge 设备</h3>
+              <p>绑定 Edge 设备以启用本地安防功能</p>
+              ${isOwner ? '<button class="btn btn-primary" onclick="generateBinding()">生成绑定信息</button>' : '<p class="text-muted">请联系 Owner 绑定设备</p>'}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  });
+}
+
+async function generateBinding() {
+  try {
+    const data = await api(`/api/circles/${state.currentCircle.id}/edge/generate-binding`, { method: 'POST' });
+    document.getElementById('bindingServerUrl').value = data.serverUrl;
+    document.getElementById('bindingCircleId').value = data.circleId;
+    document.getElementById('bindingDeviceId').value = data.deviceId;
+    document.getElementById('bindingDeviceKey').value = data.deviceKey;
+    openModal('bindingInfoModal');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function revokeBinding() {
+  if (!confirm('确定要撤销 Edge 绑定吗？')) return;
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/edge/binding`, { method: 'DELETE' });
+    toast('绑定已撤销', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function copyBindingInfo() {
+  const info = `Server URL: ${document.getElementById('bindingServerUrl').value}
+Circle ID: ${document.getElementById('bindingCircleId').value}
+Device ID: ${document.getElementById('bindingDeviceId').value}
+Device Key: ${document.getElementById('bindingDeviceKey').value}`;
+  navigator.clipboard.writeText(info);
+  toast('已复制到剪贴板', 'success');
+}
+
+// =============================================================================
+// Edge URL Management (NEW)
 // =============================================================================
 function getEdgeUrl() {
   if (!state.currentCircle) return null;
@@ -990,13 +1479,18 @@ function handleSaveEdgeConfig(e) {
   renderCurrentTab();
 }
 
+function openEdgeConfigModal() {
+  const currentUrl = getEdgeUrl() || '';
+  document.getElementById('edgeConfigUrl').value = currentUrl;
+  openModal('edgeConfigModal');
+}
+
 // =============================================================================
-// Intervals Management
+// Intervals Management (NEW)
 // =============================================================================
 function stopAllIntervals() {
   if (statusRefreshInterval) { clearInterval(statusRefreshInterval); statusRefreshInterval = null; }
   if (eventsRefreshInterval) { clearInterval(eventsRefreshInterval); eventsRefreshInterval = null; }
-  if (snapshotInterval) { clearInterval(snapshotInterval); snapshotInterval = null; }
 }
 
 function startDashboardIntervals() {
@@ -1006,178 +1500,7 @@ function startDashboardIntervals() {
 }
 
 // =============================================================================
-// Users Page (SuperAdmin Only)
-// =============================================================================
-async function loadUsers() {
-  if (!state.user?.isAdmin) return;
-  try {
-    const data = await api('/api/admin/users');
-    state.users = data.users || [];
-  } catch (err) {
-    console.error('Load users error:', err);
-    state.users = [];
-  }
-}
-
-function renderUsersPage(container) {
-  if (!state.user?.isAdmin) {
-    container.innerHTML = '<div class="empty-state"><h3>无权访问</h3><p>仅 SuperAdmin 可访问此页面</p></div>';
-    return;
-  }
-  
-  loadUsers().then(() => {
-    container.innerHTML = `
-      <div class="flex-between mb-4">
-        <h2>👤 用户管理</h2>
-        <button class="btn btn-outline" onclick="loadUsers().then(() => renderUsersPage(document.getElementById('mainContent')))">🔄 刷新</button>
-      </div>
-      
-      <div class="card mb-4">
-        <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
-          <strong>授予 Owner 权限</strong>
-          <p class="text-muted" style="font-size: 12px; margin-top: 4px;">输入用户邮箱，授予其创建 Circle 的权限</p>
-        </div>
-        <form onsubmit="handleGrantOwner(event)" style="padding: 16px; display: flex; gap: 12px; align-items: flex-end;">
-          <div style="flex: 1;">
-            <label class="form-label">用户邮箱</label>
-            <input type="email" id="grantOwnerEmail" class="form-input" placeholder="user@example.com" required>
-          </div>
-          <button type="submit" class="btn btn-primary">授予权限</button>
-        </form>
-      </div>
-      
-      <div class="card">
-        <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
-          <strong>已注册用户</strong>
-          <span class="badge badge-info" style="margin-left: 8px;">${state.users.length}</span>
-        </div>
-        ${state.users.length === 0 ? `
-          <div style="padding: 32px; text-align: center; color: var(--gray-500);">
-            <p>暂无用户数据</p>
-          </div>
-        ` : `
-          ${state.users.map(u => `
-            <div class="list-item" style="cursor: default;">
-              <div class="list-item-left">
-                <div class="list-item-icon">${u.isAdmin ? '👑' : u.canCreateCircle ? '🏠' : '👤'}</div>
-                <div class="list-item-content">
-                  <div class="list-item-title">${u.email}</div>
-                  <div class="list-item-subtitle">${u.displayName || 'No name'} · 注册于 ${new Date(u.createdAt).toLocaleDateString()}</div>
-                </div>
-              </div>
-              <div class="list-item-right">
-                ${u.isAdmin ? '<span class="badge badge-warning">Admin</span>' : ''}
-                ${u.canCreateCircle ? '<span class="badge badge-success">Owner权限</span>' : '<span class="badge badge-secondary">普通用户</span>'}
-              </div>
-            </div>
-          `).join('')}
-        `}
-      </div>
-    `;
-  });
-}
-
-async function handleGrantOwner(e) {
-  e.preventDefault();
-  const email = document.getElementById('grantOwnerEmail').value;
-  try {
-    await api('/api/admin/grant-owner', { method: 'POST', body: { email } });
-    toast('已授予 Owner 权限', 'success');
-    document.getElementById('grantOwnerEmail').value = '';
-    await loadUsers();
-    renderUsersPage(document.getElementById('mainContent'));
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-// =============================================================================
-// Circles Page
-// =============================================================================
-function renderCirclesPage(container) {
-  const canCreate = state.user?.canCreateCircle || state.user?.isAdmin;
-  container.innerHTML = `
-    <div class="flex-between mb-4">
-      <h2>🏘️ 安防圈</h2>
-      ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">+ 创建圈子</button>' : ''}
-    </div>
-    ${state.circles.length === 0 ? `
-      <div class="card">
-        <div class="empty-state">
-          <div class="empty-icon">🏠</div>
-          <h3>暂无安防圈</h3>
-          <p>${canCreate ? '创建您的第一个安防圈来开始使用' : '等待被邀请加入安防圈'}</p>
-        </div>
-      </div>
-    ` : `
-      <div class="card">
-        ${state.circles.map(c => `
-          <div class="list-item" onclick="selectCircle('${c.id}')">
-            <div class="list-item-left">
-              <div class="list-item-icon">🏠</div>
-              <div class="list-item-content">
-                <div class="list-item-title">${c.name}</div>
-                <div class="list-item-subtitle">${c.address || '未设置地址'}</div>
-              </div>
-            </div>
-            <div class="list-item-right">
-              <span class="badge badge-${c.role}">${c.role}</span>
-              ${state.currentCircle?.id === c.id ? '<span style="color: var(--success);">✓</span>' : ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `}
-  `;
-}
-
-async function handleCreateCircle(e) {
-  e.preventDefault();
-  const name = document.getElementById('circleName').value;
-  const address = document.getElementById('circleAddress').value;
-  const city = document.getElementById('circleCity').value;
-  const lat = parseFloat(document.getElementById('circleLat').value) || null;
-  const lng = parseFloat(document.getElementById('circleLng').value) || null;
-  try {
-    await api('/api/circles', { method: 'POST', body: { name, address, city, latitude: lat, longitude: lng } });
-    closeModal('createCircleModal');
-    toast('圈子创建成功', 'success');
-    await loadCircles();
-    renderCirclesPage(document.getElementById('mainContent'));
-    document.getElementById('circleName').value = '';
-    document.getElementById('circleAddress').value = '';
-    document.getElementById('circleCity').value = '';
-    document.getElementById('circleLat').value = '';
-    document.getElementById('circleLng').value = '';
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function selectCircle(id) {
-  const circle = state.circles.find(c => c.id === id);
-  if (!circle) return;
-  
-  stopAllIntervals();
-  state.currentCircle = circle;
-  state.edgeUrl = getEdgeUrl();
-  state.edgeConnected = false;
-  state.events = [];
-  
-  updateRoleBadge();
-  buildNavigation();
-  
-  // Switch to dashboard if user has permission
-  const role = circle.role || 'user';
-  if (['owner', 'caretaker', 'acting_owner'].includes(role) && state.edgeUrl) {
-    state.currentTab = 'dashboard';
-  }
-  
-  renderCurrentTab();
-}
-
-// =============================================================================
-// Dashboard Page (NEW - from edge_test.html)
+// Dashboard Page (NEW)
 // =============================================================================
 function renderDashboardPage(container) {
   if (!state.currentCircle) {
@@ -1209,7 +1532,7 @@ function renderDashboardPage(container) {
     <div class="flex-between mb-4">
       <h2>📊 仪表盘</h2>
       <div class="flex gap-2">
-        <span id="connectionStatus" class="badge badge-secondary">连接中...</span>
+        <span id="connectionStatus" class="badge" style="background: var(--gray-100); color: var(--gray-600);">连接中...</span>
         <button class="btn btn-sm btn-outline" onclick="openEdgeConfigModal()">⚙️</button>
       </div>
     </div>
@@ -1276,14 +1599,8 @@ function renderDashboardPage(container) {
   startDashboardIntervals();
 }
 
-function openEdgeConfigModal() {
-  const currentUrl = getEdgeUrl() || '';
-  document.getElementById('edgeConfigUrl').value = currentUrl;
-  openModal('edgeConfigModal');
-}
-
 // =============================================================================
-// Edge Status (from edge_test.html / app.html)
+// Edge Status (NEW)
 // =============================================================================
 async function loadEdgeStatus() {
   if (!state.edgeUrl) return;
@@ -1294,8 +1611,12 @@ async function loadEdgeStatus() {
     const data = await res.json();
     
     state.edgeConnected = true;
-    document.getElementById('connectionStatus').textContent = '✅ 已连接';
-    document.getElementById('connectionStatus').className = 'badge badge-success';
+    const statusEl = document.getElementById('connectionStatus');
+    if (statusEl) {
+      statusEl.textContent = '✅ 已连接';
+      statusEl.style.background = '#dcfce7';
+      statusEl.style.color = '#166534';
+    }
     
     // Mode parsing (from app.html)
     let rawMode = data.house_mode_raw || data.house_mode || 'disarmed';
@@ -1327,7 +1648,8 @@ async function loadEdgeStatus() {
     const statusEl = document.getElementById('connectionStatus');
     if (statusEl) {
       statusEl.textContent = '❌ 离线';
-      statusEl.className = 'badge badge-danger';
+      statusEl.style.background = '#fee2e2';
+      statusEl.style.color = '#991b1b';
     }
   }
 }
@@ -1396,7 +1718,7 @@ async function switchMode(mode) {
 }
 
 // =============================================================================
-// Events Page (NEW - from edge_test.html)
+// Events Page (NEW)
 // =============================================================================
 function renderEventsPage(container) {
   if (!state.currentCircle) {
@@ -1479,8 +1801,8 @@ async function loadEdgeEvents(showLoading = true) {
   } catch (e) {
     console.error('Load events error:', e);
     if (state.events.length === 0) {
-      if (recentEl) recentEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
-      if (listEl) listEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+      if (recentEl) recentEl.innerHTML = '<div class="empty-state" style="padding:24px;"><p>加载失败</p></div>';
+      if (listEl) listEl.innerHTML = '<div class="empty-state" style="padding:24px;"><p>加载失败</p></div>';
     }
   }
 }
@@ -1644,309 +1966,7 @@ function viewEvidence(key, type) {
 }
 
 // =============================================================================
-// Members Page
-// =============================================================================
-async function loadMembers() {
-  if (!state.currentCircle) return;
-  try {
-    const data = await api(`/api/circles/${state.currentCircle.id}/members`);
-    state.members = data.members || [];
-  } catch (err) {
-    console.error('Load members error:', err);
-    state.members = [];
-  }
-}
-
-function renderMembersPage(container) {
-  if (!state.currentCircle) {
-    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
-    return;
-  }
-  loadMembers().then(() => {
-    const isOwner = state.currentCircle.role === 'owner';
-    container.innerHTML = `
-      <div class="flex-between mb-4">
-        <div>
-          <h2>👥 成员</h2>
-          <p class="text-sm text-muted">${state.members.length} 位成员</p>
-        </div>
-        ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
-      </div>
-      ${state.members.length === 0 ? `
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-icon">👥</div>
-            <h3>暂无成员</h3>
-            <p>添加成员来共同管理安防</p>
-          </div>
-        </div>
-      ` : `
-        <div class="card">
-          ${state.members.map(m => `
-            <div class="list-item" style="cursor: default;">
-              <div class="list-item-left">
-                <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'acting_owner' ? '⏱️' : '👁️'}</div>
-                <div class="list-item-content">
-                  <div class="list-item-title">${m.user?.displayName || m.user?.email || 'Unknown'}</div>
-                  <div class="list-item-subtitle">${m.user?.email || ''}</div>
-                </div>
-              </div>
-              <div class="list-item-right">
-                <span class="badge badge-${m.role}">${m.role}</span>
-                ${isOwner && m.role !== 'owner' ? `<button class="btn btn-sm btn-danger" onclick="removeMember('${m.userId}')">移除</button>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `}
-    `;
-  });
-}
-
-async function handleAddMember(e) {
-  e.preventDefault();
-  const email = document.getElementById('memberEmail').value;
-  const role = document.getElementById('memberRole').value;
-  try {
-    await api(`/api/circles/${state.currentCircle.id}/members`, { method: 'POST', body: { email, role } });
-    closeModal('addMemberModal');
-    toast('成员添加成功', 'success');
-    await loadMembers();
-    renderCurrentTab();
-    document.getElementById('memberEmail').value = '';
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function removeMember(userId) {
-  if (!confirm('确定要移除此成员吗？')) return;
-  try {
-    await api(`/api/circles/${state.currentCircle.id}/members/${userId}`, { method: 'DELETE' });
-    toast('成员已移除', 'success');
-    await loadMembers();
-    renderCurrentTab();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-// =============================================================================
-// Tasks Page
-// =============================================================================
-async function loadTasks() {
-  if (!state.currentCircle) return;
-  try {
-    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`);
-    state.tasks = data.tasks || [];
-  } catch (err) {
-    console.error('Load tasks error:', err);
-    state.tasks = [];
-  }
-}
-
-function renderTasksPage(container) {
-  if (!state.currentCircle) {
-    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
-    return;
-  }
-  loadTasks().then(() => {
-    const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(state.currentCircle.role);
-    const statusLabels = { created: '已创建', offered: '已发布', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已关闭', canceled: '已取消' };
-    container.innerHTML = `
-      <div class="flex-between mb-4">
-        <div>
-          <h2>📋 Witness 任务</h2>
-          <p class="text-sm text-muted">${state.tasks.length} 个任务</p>
-        </div>
-        ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openModal(\'createTaskModal\')">+ 创建任务</button>' : ''}
-      </div>
-      ${state.tasks.length === 0 ? `
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-icon">📋</div>
-            <h3>暂无任务</h3>
-            <p>创建任务邀请 Witness 协助现场查看</p>
-          </div>
-        </div>
-      ` : `
-        <div class="card">
-          ${state.tasks.map(t => `
-            <div class="list-item" style="cursor: default;">
-              <div class="list-item-left">
-                <div class="list-item-content">
-                  <div class="list-item-title">${t.title || 'Task'}</div>
-                  <div class="list-item-subtitle">${t.description || ''}</div>
-                </div>
-              </div>
-              <div class="list-item-right">
-                <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
-                ${t.status === 'created' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-primary" onclick="offerTask('${t.id}')">发布</button>` : ''}
-                ${t.status === 'submitted' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `}
-    `;
-  });
-}
-
-async function handleCreateTask(e) {
-  e.preventDefault();
-  const title = document.getElementById('taskTitle').value;
-  const description = document.getElementById('taskDescription').value;
-  try {
-    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { method: 'POST', body: { title, description } });
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${data.task.id}/offer`, { method: 'POST' });
-    closeModal('createTaskModal');
-    toast('任务已创建并发布', 'success');
-    renderCurrentTab();
-    document.getElementById('taskTitle').value = '';
-    document.getElementById('taskDescription').value = '';
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function offerTask(id) {
-  try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/offer`, { method: 'POST' });
-    toast('任务已发布', 'success');
-    renderCurrentTab();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function closeTask(id) {
-  try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/close`, { method: 'POST' });
-    toast('任务已关闭', 'success');
-    renderCurrentTab();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-// =============================================================================
-// Edge Page
-// =============================================================================
-async function loadBindingStatus() {
-  if (!state.currentCircle) return null;
-  try {
-    return await api(`/api/circles/${state.currentCircle.id}/edge/binding-status`);
-  } catch (err) {
-    console.error('Load binding status error:', err);
-    return null;
-  }
-}
-
-function renderEdgePage(container) {
-  if (!state.currentCircle) {
-    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
-    return;
-  }
-  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  
-  loadBindingStatus().then(status => {
-    const isOwner = state.currentCircle.role === 'owner';
-    const hasBound = status?.hasBoundDevice;
-    const device = status?.device;
-    const edgeUrl = getEdgeUrl();
-    
-    container.innerHTML = `
-      <div class="flex-between mb-4">
-        <h2>📡 Edge 设备</h2>
-      </div>
-      
-      <!-- Edge URL Config -->
-      <div class="card mb-4">
-        <div class="card-header">Edge 连接配置</div>
-        <div class="card-body">
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Edge API URL</label>
-            <div class="flex gap-2">
-              <input type="text" id="edgeUrlInput" class="form-input" value="${edgeUrl || ''}" placeholder="https://edge.neighbor-guard.com">
-              <button class="btn btn-primary" onclick="saveEdgeUrlFromInput()">保存</button>
-            </div>
-            <p class="form-hint">Edge 设备的 Cloudflare Tunnel 地址，用于仪表盘和事件查看</p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Binding Status -->
-      <div class="card">
-        <div class="card-header">设备绑定</div>
-        <div class="card-body">
-          ${hasBound ? `
-            <div class="flex-between">
-              <div>
-                <h3>✅ 设备已绑定</h3>
-                <p class="text-sm text-muted">Device ID: ${device?.deviceId || 'N/A'}</p>
-                <p class="text-sm text-muted">状态: ${device?.bindingStatus || 'N/A'}</p>
-              </div>
-              ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
-            </div>
-          ` : `
-            <div class="empty-state" style="padding: 24px;">
-              <div class="empty-icon">📡</div>
-              <h3>未绑定 Edge 设备</h3>
-              <p>绑定 Edge 设备以启用 L2 同步功能</p>
-              ${isOwner ? '<button class="btn btn-primary" onclick="generateBinding()">生成绑定信息</button>' : '<p class="text-muted">请联系 Owner 绑定设备</p>'}
-            </div>
-          `}
-        </div>
-      </div>
-    `;
-  });
-}
-
-function saveEdgeUrlFromInput() {
-  const url = document.getElementById('edgeUrlInput').value.trim().replace(/\/$/, '');
-  if (url) {
-    setEdgeUrl(url);
-    toast('Edge URL 已保存', 'success');
-  } else {
-    toast('请输入有效的 URL', 'error');
-  }
-}
-
-async function generateBinding() {
-  try {
-    const data = await api(`/api/circles/${state.currentCircle.id}/edge/generate-binding`, { method: 'POST' });
-    document.getElementById('bindingServerUrl').value = data.serverUrl;
-    document.getElementById('bindingCircleId').value = data.circleId;
-    document.getElementById('bindingDeviceId').value = data.deviceId;
-    document.getElementById('bindingDeviceKey').value = data.deviceKey;
-    openModal('bindingInfoModal');
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-async function revokeBinding() {
-  if (!confirm('确定要撤销 Edge 绑定吗？')) return;
-  try {
-    await api(`/api/circles/${state.currentCircle.id}/edge/binding`, { method: 'DELETE' });
-    toast('绑定已撤销', 'success');
-    renderCurrentTab();
-  } catch (err) {
-    toast(err.message, 'error');
-  }
-}
-
-function copyBindingInfo() {
-  const info = `Server URL: ${document.getElementById('bindingServerUrl').value}
-Circle ID: ${document.getElementById('bindingCircleId').value}
-Device ID: ${document.getElementById('bindingDeviceId').value}
-Device Key: ${document.getElementById('bindingDeviceKey').value}`;
-  navigator.clipboard.writeText(info);
-  toast('已复制到剪贴板', 'success');
-}
-
-// =============================================================================
-// Utilities
+// Utilities (NEW)
 // =============================================================================
 function formatTime(timestamp) {
   if (!timestamp) return '-';
