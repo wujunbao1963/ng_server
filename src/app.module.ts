@@ -30,6 +30,7 @@ import { RolesModule } from './roles/roles.module';
 import { RahaActionsModule } from './raha-actions/raha-actions.module';
 
 import { WitnessTasksModule } from './witness-tasks/witness-tasks.module';
+import { OsheModule } from './oshe/oshe.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { WitnessTasksModule } from './witness-tasks/witness-tasks.module';
     // Phase 6: RAHA Forwarding
     RahaActionsModule,
     WitnessTasksModule,  // ← 添加这行    
+    OsheModule,  // ← 添加    
   ],
   providers: [
     // Global interceptor for request tracking
