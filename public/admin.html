@@ -192,7 +192,7 @@
     }
     .modal-title { font-size: 18px; font-weight: 600; }
     .modal-body { padding: 16px; }
-    .modal-footer { padding: 12px 16px; background: var(--gray-50); display: flex; justify-content: flex-end; gap: 8px; }
+    .modal-footer { padding: 16px; background: var(--gray-50); display: flex; flex-direction: column; gap: 8px; }
 
     /* Toast */
     .toast-container { position: fixed; top: 16px; right: 16px; z-index: 2000; }
@@ -373,40 +373,42 @@
     .event-item.pending { border-left: 3px solid var(--warning); }
     .event-item.pre { border-left: 3px solid var(--primary); }
 
-    /* Evidence Grid */
-    .evidence-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .evidence-item {
-      aspect-ratio: 1;
-      background: var(--gray-100);
-      border-radius: var(--radius);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 12px;
-      color: var(--gray-600);
-      gap: 4px;
-    }
-    .evidence-item:hover { background: var(--gray-200); }
-    .evidence-item span:first-child { font-size: 24px; }
+    /* Detail Section (from app.html) */
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h3 { font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; margin-bottom: 12px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--gray-50); border-radius: 8px; margin-bottom: 8px; }
+    .detail-label { font-size: 14px; color: var(--gray-500); }
+    .detail-value { font-size: 14px; font-weight: 500; }
 
-    /* Timeline */
-    .timeline { margin-top: 16px; }
-    .timeline-item {
-      display: flex;
-      gap: 12px;
-      padding: 8px 0;
-      font-size: 13px;
-    }
-    .timeline-time { color: var(--gray-400); white-space: nowrap; font-family: monospace; }
-    .timeline-content { flex: 1; }
+    /* Timeline (from app.html) */
+    .timeline { padding-left: 20px; position: relative; }
+    .timeline::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--gray-200); }
+    .timeline-item { position: relative; padding: 10px 0; }
+    .timeline-item::before { content: ''; position: absolute; left: -18px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: white; border: 2px solid var(--gray-300); }
+    .timeline-item.fsm::before { border-color: var(--primary); background: #dbeafe; }
+    .timeline-item.signal::before { border-color: var(--warning); background: #fef3c7; }
+    .timeline-header { display: flex; justify-content: space-between; }
+    .timeline-title { font-size: 13px; font-weight: 500; }
+    .timeline-time { font-size: 12px; color: var(--gray-400); font-family: monospace; }
+    .timeline-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+    /* Evidence Grid (from app.html) */
+    .evidence-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .evidence-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--gray-50); border-radius: 8px; cursor: pointer; }
+    .evidence-item:hover { background: var(--gray-100); }
+    .evidence-thumb { width: 40px; height: 40px; background: var(--gray-200); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .evidence-info { flex: 1; }
+    .evidence-name { font-size: 13px; font-weight: 500; }
+    .evidence-size { font-size: 11px; color: var(--gray-400); }
+    .evidence-play { width: 28px; height: 28px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+
+    /* Action Buttons */
+    .action-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .action-btn.primary { background: var(--success); color: white; }
+    .action-btn.warning { background: var(--warning); color: white; }
+    .action-btn.secondary { background: var(--gray-100); color: var(--gray-700); }
+    .action-row { display: flex; gap: 8px; }
+    .action-row .action-btn { flex: 1; margin-bottom: 0; }
 
     /* Quick Buttons */
     .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -673,12 +675,19 @@
     <div id="eventDetailModal" class="modal">
       <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
-          <span class="modal-title">事件详情</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="eventDetailIcon" style="font-size: 24px;">📋</span>
+            <div>
+              <h2 id="eventDetailTitle" class="modal-title" style="margin: 0; font-size: 18px;">事件详情</h2>
+              <p id="eventDetailSubtitle" style="margin: 4px 0 0; font-size: 13px; color: var(--gray-500);"></p>
+            </div>
+          </div>
           <button class="btn-icon" onclick="closeModal('eventDetailModal')">✕</button>
         </div>
         <div class="modal-body" id="eventDetailContent">
           <div class="loading"><div class="spinner"></div></div>
         </div>
+        <div class="modal-footer" id="eventDetailFooter"></div>
       </div>
     </div>
 
@@ -1941,7 +1950,22 @@ function renderEventItem(e) {
 async function showEventDetail(id) {
   openModal('eventDetailModal');
   const content = document.getElementById('eventDetailContent');
+  const footer = document.getElementById('eventDetailFooter');
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  footer.innerHTML = '';
+  
+  // Find event from state to get initial info
+  const cached = state.events.find(x => x.incident_id === id);
+  if (cached) {
+    const { icon, title } = getEventDisplay(cached);
+    const loc = cached.entry_point_name || cached.entry_point_id || '入口';
+    const time = getRelativeTime(cached.created_at);
+    const type = getEventType(cached);
+    
+    document.getElementById('eventDetailIcon').textContent = icon;
+    document.getElementById('eventDetailTitle').textContent = title;
+    document.getElementById('eventDetailSubtitle').textContent = `${loc}·${time}·${type}`;
+  }
   
   try {
     // Parallel fetch: incident, evidence, timeline (like app.html)
@@ -1953,114 +1977,214 @@ async function showEventDetail(id) {
     
     if (!incidentRes) throw new Error('无法加载事件');
     
-    const e = incidentRes.incident || incidentRes;
-    const evidence = evidenceRes.items || evidenceRes.evidence || [];
-    const timeline = timelineRes.timeline || timelineRes.items || [];
+    const i = incidentRes.incident || incidentRes;
+    const ev = evidenceRes.items || evidenceRes.evidence || [];
+    const tl = timelineRes.timeline || timelineRes.items || [];
     
-    // Store for action use (include evidence for viewer navigation)
-    e.evidence = evidence;
-    state.selectedIncident = e;
+    // Store for action use
+    i.evidence = ev;
+    state.selectedIncident = i;
     
-    const ts = e.threat_state || 'none';
-    const loc = e.entry_point_name || e.entry_point_id || '入口';
+    // Update header with full info
+    const { icon, title } = getEventDisplay(i);
+    const loc = i.entry_point_name || i.entry_point_id || '入口';
+    const time = getRelativeTime(i.created_at);
+    const type = getEventType(i);
     
-    // Check permissions
-    const role = state.currentCircle?.role || 'user';
-    const canResolve = ROLE_PERMISSIONS[role]?.resolveEvents && e.is_active;
+    document.getElementById('eventDetailIcon').textContent = icon;
+    document.getElementById('eventDetailTitle').textContent = title;
+    document.getElementById('eventDetailSubtitle').textContent = `${loc}·${time}·${type}`;
     
-    // State labels
-    const stateLabels = { 
-      'triggered': '🚨 已触发', 
-      'pending': '⏳ 入口延时', 
-      'pre_l1': '👁️ 观察中', 
-      'pre_l2': '👁️ 持续观察', 
-      'resolved': '✅ 已处理', 
-      'canceled': '❌ 已取消', 
-      'none': '记录' 
-    };
-    const stateLabel = stateLabels[ts] || ts;
-    
-    content.innerHTML = `
-      <div class="mb-4">
-        <h3>【${loc}】</h3>
-        <p class="text-sm" style="margin-top: 4px;">
-          <span class="badge ${e.is_active ? 'badge-warning' : 'badge-success'}">${e.is_active ? '进行中' : '已结束'}</span>
-          <span style="margin-left: 8px;">${stateLabel}</span>
-        </p>
-        <p class="text-sm text-muted" style="margin-top: 4px;">${e.incident_id}</p>
-      </div>
-      
-      <div class="info-grid mb-4">
-        <div class="info-item">
-          <div class="info-label">触发原因</div>
-          <div class="info-value">${e.trigger_reason || '-'}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">创建时间</div>
-          <div class="info-value">${formatDateTime(e.created_at)}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">证据数量</div>
-          <div class="info-value">${evidence.length}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">解决方式</div>
-          <div class="info-value">${e.resolution || '-'}</div>
-        </div>
-      </div>
-      
-      ${evidence.length > 0 ? `
-        <div class="mb-4">
-          <h4 class="mb-2">证据 <span style="font-weight: normal; color: var(--gray-500);">(点击查看，可左右切换)</span></h4>
-          <div class="evidence-grid">
-            ${evidence.map((ev, idx) => `
-              <div class="evidence-item" onclick="viewEvidence('${ev.evidence_key}', '${ev.type || 'video'}', ${idx})" title="${ev.evidence_key}">
-                <span>${ev.type === 'snapshot' ? '📷' : '🎬'}</span>
-                <span>${ev.type === 'snapshot' ? '快照' : '视频'}</span>
-                <span style="font-size: 10px; color: var(--gray-400);">#${idx + 1}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : '<div class="mb-4 text-muted" style="padding: 12px; background: var(--gray-50); border-radius: 8px;">暂无证据</div>'}
-      
-      ${timeline.length > 0 ? `
-        <div class="mb-4">
-          <h4 class="mb-2">时间线</h4>
-          <div class="timeline">
-            ${timeline.slice(0, 12).map(t => `
-              <div class="timeline-item">
-                <span class="timeline-time">${formatTime(t.timestamp)}</span>
-                <span class="timeline-content">${t.description || t.event_type || '-'}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-      
-      ${canResolve ? `
-        <div style="border-top: 1px solid var(--gray-200); padding-top: 16px; margin-top: 16px;">
-          <h4 class="mb-2">操作</h4>
-          <div class="flex gap-2" style="flex-wrap: wrap;">
-            <button class="btn btn-success" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">
-              ✅ 确认安全
-            </button>
-            <button class="btn btn-outline" onclick="confirmEventAction('dismiss', '标记误报', '确认将此事件标记为误报？')">
-              ❌ 误报
-            </button>
-            ${ts === 'triggered' ? `
-              <button class="btn btn-warning" onclick="confirmEventAction('silence', '静音警报', '确认关闭警报声音？')">
-                🔇 静音
-              </button>
-            ` : ''}
-          </div>
-          <p class="text-sm text-muted" style="margin-top: 8px;">以 ${role} 身份操作</p>
-        </div>
-      ` : ''}
-    `;
+    // Render detail and actions (like app.html)
+    renderEventDetailContent(i, ev, tl);
+    renderEventActions(i);
     
   } catch (e) {
     content.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+  }
+}
+
+// Helper functions for event display (from app.html)
+function getEventDisplay(i) {
+  const ts = i.threat_state || 'none';
+  const loc = i.entry_point_name || i.entry_point_id || '入口';
+  
+  if (ts === 'triggered') return { icon: '🚨', title: `【${loc}】警报触发` };
+  if (ts === 'pending') return { icon: '⏳', title: `【${loc}】入口延时` };
+  if (ts === 'pre_l2' || ts === 'pre_l3') return { icon: '👁️', title: `【${loc}】持续观察` };
+  if (ts === 'pre_l1') return { icon: '🔍', title: `【${loc}】检测到活动` };
+  if (i.resolution === 'safe') return { icon: '✅', title: `【${loc}】已确认安全` };
+  if (i.resolution === 'false_alarm') return { icon: '❌', title: `【${loc}】误报` };
+  return { icon: '📋', title: `【${loc}】事件` };
+}
+
+function getEventType(i) {
+  if (i.trigger_reason === 'door_open') return '门';
+  if (i.trigger_reason === 'glass_break') return '玻璃';
+  if (i.trigger_reason === 'person_detected' || i.trigger_reason === 'activity_detected') return '活动';
+  if (i.workflow_class === 'delivery') return '快递';
+  return '事件';
+}
+
+function getRelativeTime(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const t = new Date(ts).getTime();
+  const diff = Math.floor((now - t) / 1000);
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
+  if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
+  return Math.floor(diff / 86400) + ' 天前';
+}
+
+function renderEventDetailContent(i, ev, tl) {
+  const content = document.getElementById('eventDetailContent');
+  const ts = i.threat_state || 'none';
+  const loc = i.entry_point_name || i.entry_point_id || '入口';
+  const created = new Date(i.created_at).toLocaleString('zh-CN');
+  
+  const triggerLabels = { 
+    'entry_delay_expired': '入口延时超时', 
+    'glass_break': '玻璃破碎', 
+    'door_open': '门已打开', 
+    'person_detected': '检测到活动', 
+    'activity_detected': '检测到活动' 
+  };
+  const stateLabels = { 
+    'triggered': '已触发', 
+    'pending': '入口延时', 
+    'pre_l1': '观察中', 
+    'pre_l2': '持续观察', 
+    'pre_l3': '密切关注', 
+    'resolved': '已处理', 
+    'canceled': '已取消', 
+    'none': '记录' 
+  };
+  const resolutionLabels = { 
+    'false_alarm': '误报', 
+    'safe': '已确认安全', 
+    'dismissed': '已忽略' 
+  };
+
+  // 分类证据
+  const vids = ev.filter(e => e.item_type === 'clip' || e.mime_type?.startsWith('video/'));
+  const snaps = ev.filter(e => e.item_type === 'snapshot' || e.item_type === 'thumbnail');
+  
+  let html = '';
+  
+  // 顶部媒体预览区域 (like app.html)
+  if (vids.length > 0 || snaps.length > 0) {
+    const firstMedia = snaps[0] || vids[0];
+    const isVideo = firstMedia.item_type === 'clip' || firstMedia.mime_type?.startsWith('video/');
+    const mediaUrl = `${state.edgeUrl}/api/evidence/${firstMedia.evidence_key}`;
+    
+    html += `
+      <div style="background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px;">
+        <div style="aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center;">
+          ${isVideo ? `
+            <video src="${mediaUrl}" style="width: 100%; height: 100%; object-fit: contain;" controls autoplay muted></video>
+          ` : `
+            <img src="${mediaUrl}" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;" onclick="viewEvidence('${firstMedia.evidence_key}', 'snapshot', 0)">
+          `}
+          <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
+            ${loc}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  // 基本信息 (like app.html)
+  html += `
+    <div class="detail-section">
+      <h3>事件信息</h3>
+      <div class="detail-row"><span class="detail-label">事件 ID</span><span class="detail-value">${i.incident_id.slice(0, 12)}...</span></div>
+      <div class="detail-row"><span class="detail-label">位置</span><span class="detail-value">${loc}</span></div>
+      <div class="detail-row"><span class="detail-label">触发原因</span><span class="detail-value">${triggerLabels[i.trigger_reason] || i.trigger_reason || '-'}</span></div>
+      <div class="detail-row"><span class="detail-label">时间</span><span class="detail-value">${created}</span></div>
+      <div class="detail-row"><span class="detail-label">状态</span><span class="detail-value">${stateLabels[ts] || ts}</span></div>
+      ${i.resolution ? `<div class="detail-row"><span class="detail-label">处理结果</span><span class="detail-value">${resolutionLabels[i.resolution] || i.resolution}</span></div>` : ''}
+    </div>
+  `;
+
+  // 时间线 (like app.html)
+  if (tl.length > 0) {
+    html += `<div class="detail-section"><h3>时间线</h3><div class="timeline">${tl.slice(0, 10).map(e => `
+      <div class="timeline-item ${e.type || 'signal'}">
+        <div class="timeline-header">
+          <span class="timeline-title">${e.title || e.event_type || '-'}</span>
+          <span class="timeline-time">${fmtTime(e.timestamp)}</span>
+        </div>
+        ${e.description ? `<div class="timeline-desc">${e.description}</div>` : ''}
+      </div>
+    `).join('')}</div></div>`;
+  }
+
+  // 更多证据 (like app.html)
+  if (vids.length > 1 || snaps.length > 1 || (vids.length > 0 && snaps.length > 0)) {
+    html += `<div class="detail-section"><h3>更多证据</h3><div class="evidence-grid">
+      ${vids.map((v, idx) => `
+        <div class="evidence-item" onclick="viewEvidence('${v.evidence_key}', 'video', ${idx})">
+          <div class="evidence-thumb">🎬</div>
+          <div class="evidence-info"><div class="evidence-name">视频 ${idx + 1}</div><div class="evidence-size">${fmtSize(v.size_bytes)}</div></div>
+          <div class="evidence-play">▶</div>
+        </div>
+      `).join('')}
+      ${snaps.map((s, idx) => `
+        <div class="evidence-item" onclick="viewEvidence('${s.evidence_key}', 'snapshot', ${vids.length + idx})">
+          <div class="evidence-thumb">📷</div>
+          <div class="evidence-info"><div class="evidence-name">截图 ${idx + 1}</div><div class="evidence-size">${fmtSize(s.size_bytes)}</div></div>
+        </div>
+      `).join('')}
+    </div></div>`;
+  }
+
+  content.innerHTML = html;
+}
+
+// Render actions in footer (like app.html)
+function renderEventActions(i) {
+  const footer = document.getElementById('eventDetailFooter');
+  const role = state.currentCircle?.role || 'user';
+  const perms = ROLE_PERMISSIONS[role] || {};
+  
+  if (!i.is_active) {
+    footer.innerHTML = '<p style="text-align: center; color: var(--gray-400);">事件已结束</p>';
+    return;
+  }
+  
+  const ts = i.threat_state;
+  
+  if (ts === 'pending') {
+    // PENDING 状态：撤防
+    if (perms.modeChange) {
+      footer.innerHTML = `<button class="action-btn warning" onclick="confirmEventAction('disarm', '撤防', '确认撤防？')">🔓 撤防</button>`;
+    } else {
+      footer.innerHTML = '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
+    }
+  } else if (ts === 'triggered') {
+    // TRIGGERED 状态：静音、误报、解决
+    let html = '';
+    
+    if (perms.resolveEvents) {
+      html += `<button class="action-btn" style="background: var(--danger); color: white;" onclick="confirmEventAction('silence', '静音', '确认关闭警报？')">🔇 静音</button>`;
+      html += `<div class="action-row">
+        <button class="action-btn secondary" onclick="confirmEventAction('dismiss', '误报', '确认标记为误报？')">❌ 误报</button>
+        <button class="action-btn primary" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">✅ 确认安全</button>
+      </div>`;
+    }
+    
+    footer.innerHTML = html || '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
+  } else {
+    // 其他状态：忽略、解决
+    if (perms.resolveEvents) {
+      footer.innerHTML = `<div class="action-row">
+        <button class="action-btn secondary" onclick="confirmEventAction('dismiss', '忽略', '确认忽略？')">忽略</button>
+        <button class="action-btn primary" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">✅ 确认安全</button>
+      </div>`;
+    } else {
+      footer.innerHTML = '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
+    }
   }
 }
 
@@ -2271,6 +2395,20 @@ function formatDateTime(timestamp) {
   if (!timestamp) return '-';
   const d = new Date(timestamp);
   return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+// From app.html
+function fmtTime(t) {
+  if (!t) return '-';
+  try { return new Date(t).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+  catch { return t; }
+}
+
+function fmtSize(b) {
+  if (!b) return '-';
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
 }
 
 function getRoleBanner(role) {
