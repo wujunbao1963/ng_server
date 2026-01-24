@@ -682,15 +682,40 @@
       </div>
     </div>
 
-    <!-- Video Modal -->
-    <div id="videoModal" class="modal" onclick="if(event.target.id==='videoModal')closeModal('videoModal')">
-      <div class="modal-content" style="max-width: 800px; background: #000;">
+    <!-- Media Viewer Modal -->
+    <div id="mediaModal" class="modal" onclick="if(event.target.id==='mediaModal')closeMediaModal()">
+      <div class="modal-content" style="max-width: 900px; background: #000; position: relative;">
         <div class="modal-header" style="background: #111; color: white; border: none;">
-          <span class="modal-title" id="videoTitle">视频</span>
-          <button class="btn-icon" style="color: white;" onclick="closeModal('videoModal')">✕</button>
+          <span class="modal-title" id="mediaTitle">证据查看</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="mediaCounter" style="font-size: 13px; color: #888;">1 / 1</span>
+            <button class="btn-icon" style="color: white;" onclick="closeMediaModal()">✕</button>
+          </div>
         </div>
-        <div style="padding: 0;">
-          <video id="videoPlayer" controls style="width: 100%; max-height: 70vh;"></video>
+        <div id="mediaContainer" style="position: relative; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+          <!-- Image or Video will be inserted here -->
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <!-- Navigation buttons -->
+        <button id="mediaPrev" onclick="navigateEvidence(-1)" style="
+          position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+          background: rgba(0,0,0,0.6); color: white; border: none; 
+          width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+          font-size: 20px; display: none;
+        ">◀</button>
+        <button id="mediaNext" onclick="navigateEvidence(1)" style="
+          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+          background: rgba(0,0,0,0.6); color: white; border: none; 
+          width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+          font-size: 20px; display: none;
+        ">▶</button>
+        <!-- Info bar -->
+        <div id="mediaInfo" style="
+          background: #111; color: #aaa; padding: 10px 16px; 
+          font-size: 12px; display: flex; justify-content: space-between;
+        ">
+          <span id="mediaType">-</span>
+          <span id="mediaTime">-</span>
         </div>
       </div>
     </div>
@@ -757,6 +782,9 @@ const state = {
   // Event action state
   selectedIncident: null,
   pendingAction: null,
+  // Evidence viewer state
+  evidenceList: [],
+  evidenceIndex: 0,
 };
 
 // Refresh intervals
@@ -1976,12 +2004,13 @@ async function showEventDetail(id) {
       
       ${evidence.length > 0 ? `
         <div class="mb-4">
-          <h4 class="mb-2">证据</h4>
+          <h4 class="mb-2">证据 <span style="font-weight: normal; color: var(--gray-500);">(点击查看，可左右切换)</span></h4>
           <div class="evidence-grid">
-            ${evidence.map(ev => `
-              <div class="evidence-item" onclick="viewEvidence('${ev.evidence_key}', '${ev.type || 'video'}')">
+            ${evidence.map((ev, idx) => `
+              <div class="evidence-item" onclick="viewEvidence('${ev.evidence_key}', '${ev.type || 'video'}', ${idx})" title="${ev.evidence_key}">
                 <span>${ev.type === 'snapshot' ? '📷' : '🎬'}</span>
                 <span>${ev.type === 'snapshot' ? '快照' : '视频'}</span>
+                <span style="font-size: 10px; color: var(--gray-400);">#${idx + 1}</span>
               </div>
             `).join('')}
           </div>
@@ -2028,15 +2057,97 @@ async function showEventDetail(id) {
   }
 }
 
-function viewEvidence(key, type) {
-  const url = `${state.edgeUrl}/api/evidence/${key}`;
-  if (type === 'snapshot') {
-    window.open(url, '_blank');
+// =============================================================================
+// Evidence Viewer
+// =============================================================================
+function viewEvidence(key, type, index = 0) {
+  // If called with all evidence, set up navigation
+  if (state.selectedIncident?.evidence?.length > 0) {
+    state.evidenceList = state.selectedIncident.evidence;
+    state.evidenceIndex = index;
   } else {
-    document.getElementById('videoTitle').textContent = key;
-    document.getElementById('videoPlayer').src = url;
-    openModal('videoModal');
+    state.evidenceList = [{ evidence_key: key, type: type }];
+    state.evidenceIndex = 0;
   }
+  
+  showCurrentEvidence();
+  openModal('mediaModal');
+}
+
+function showCurrentEvidence() {
+  const ev = state.evidenceList[state.evidenceIndex];
+  if (!ev) return;
+  
+  const key = ev.evidence_key;
+  const type = ev.type || 'video';
+  const url = `${state.edgeUrl}/api/evidence/${key}`;
+  
+  const container = document.getElementById('mediaContainer');
+  const counter = document.getElementById('mediaCounter');
+  const typeEl = document.getElementById('mediaType');
+  const timeEl = document.getElementById('mediaTime');
+  const prevBtn = document.getElementById('mediaPrev');
+  const nextBtn = document.getElementById('mediaNext');
+  
+  // Update counter
+  counter.textContent = `${state.evidenceIndex + 1} / ${state.evidenceList.length}`;
+  
+  // Update info
+  typeEl.textContent = type === 'snapshot' ? '📷 快照' : '🎬 视频';
+  timeEl.textContent = ev.timestamp ? formatDateTime(ev.timestamp) : key.slice(0, 16);
+  
+  // Show/hide navigation
+  const hasMultiple = state.evidenceList.length > 1;
+  prevBtn.style.display = hasMultiple && state.evidenceIndex > 0 ? 'block' : 'none';
+  nextBtn.style.display = hasMultiple && state.evidenceIndex < state.evidenceList.length - 1 ? 'block' : 'none';
+  
+  // Show loading
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  // Render media
+  if (type === 'snapshot') {
+    const img = new Image();
+    img.onload = () => {
+      container.innerHTML = '';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '70vh';
+      img.style.objectFit = 'contain';
+      container.appendChild(img);
+    };
+    img.onerror = () => {
+      container.innerHTML = '<div style="color: #f66; padding: 40px;">加载失败</div>';
+    };
+    img.src = url;
+  } else {
+    container.innerHTML = `
+      <video controls autoplay style="max-width: 100%; max-height: 70vh;">
+        <source src="${url}" type="video/mp4">
+        您的浏览器不支持视频播放
+      </video>
+    `;
+  }
+}
+
+function navigateEvidence(delta) {
+  const newIndex = state.evidenceIndex + delta;
+  if (newIndex >= 0 && newIndex < state.evidenceList.length) {
+    // Pause any playing video
+    const video = document.querySelector('#mediaContainer video');
+    if (video) video.pause();
+    
+    state.evidenceIndex = newIndex;
+    showCurrentEvidence();
+  }
+}
+
+function closeMediaModal() {
+  // Pause any playing video
+  const video = document.querySelector('#mediaContainer video');
+  if (video) video.pause();
+  
+  closeModal('mediaModal');
+  state.evidenceList = [];
+  state.evidenceIndex = 0;
 }
 
 // =============================================================================
@@ -2218,6 +2329,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (state.jwt && state.user) {
     showMainApp();
   }
+  
+  // Keyboard navigation for evidence viewer
+  document.addEventListener('keydown', (e) => {
+    if (!document.getElementById('mediaModal')?.classList.contains('active')) return;
+    
+    if (e.key === 'ArrowLeft') {
+      navigateEvidence(-1);
+    } else if (e.key === 'ArrowRight') {
+      navigateEvidence(1);
+    } else if (e.key === 'Escape') {
+      closeMediaModal();
+    }
+  });
 });
   </script>
 </body>
