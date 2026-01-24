@@ -136,6 +136,8 @@
     .badge-success { background: #dcfce7; color: #166534; }
     .badge-warning { background: #fef3c7; color: #92400e; }
     .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-secondary { background: var(--gray-100); color: var(--gray-600); }
 
     /* List Items */
     .list-item {
@@ -246,7 +248,7 @@
     .empty-state p { color: var(--gray-500); margin-bottom: 16px; }
 
     /* Loading */
-    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; }
+    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; flex-direction: column; gap: 12px; }
     .spinner { width: 32px; height: 32px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -279,6 +281,171 @@
     .task-status.arrived { background: #dcfce7; color: #166534; }
     .task-status.submitted { background: #f3e8ff; color: #6b21a8; }
     .task-status.closed, .task-status.canceled { background: var(--gray-100); color: var(--gray-500); }
+
+    /* Mode Card (from app.html) */
+    .mode-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .mode-display {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .mode-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      background: var(--gray-100);
+    }
+    .mode-circle.disarmed { background: var(--gray-100); }
+    .mode-circle.home { background: #dbeafe; }
+    .mode-circle.away { background: #ffedd5; }
+    .mode-circle.night { background: #ede9fe; }
+    .mode-info h3 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .mode-info p { font-size: 13px; color: var(--gray-500); }
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .mode-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 8px;
+      border: 2px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn:hover:not(.active):not(:disabled) { 
+      border-color: var(--gray-400);
+      background: var(--gray-50);
+    }
+    .mode-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .mode-btn.active.disarmed { background: var(--gray-100); border-color: var(--gray-400); }
+    .mode-btn.active.home { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+    .mode-btn.active.away { background: #ffedd5; border-color: #f97316; color: #c2410c; }
+    .mode-btn.active.night { background: #ede9fe; border-color: #8b5cf6; color: #6d28d9; }
+    .mode-btn-icon { font-size: 24px; }
+    .mode-btn-label { font-size: 12px; font-weight: 500; }
+    .mode-btn.loading { pointer-events: none; opacity: 0.6; }
+
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .info-item {
+      background: var(--gray-50);
+      padding: 12px;
+      border-radius: var(--radius);
+    }
+    .info-label { font-size: 12px; color: var(--gray-500); margin-bottom: 4px; }
+    .info-value { font-size: 14px; font-weight: 500; }
+    .info-value.online { color: var(--success); }
+    .info-value.offline { color: var(--danger); }
+
+    /* Event Items */
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-100);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .event-item:hover { background: var(--gray-50); }
+    .event-item:last-child { border-bottom: none; }
+    .event-icon { font-size: 24px; }
+    .event-content { flex: 1; min-width: 0; }
+    .event-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-meta { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+    .event-time { font-size: 12px; color: var(--gray-400); white-space: nowrap; }
+    .event-item.triggered { border-left: 3px solid var(--danger); }
+    .event-item.pending { border-left: 3px solid var(--warning); }
+    .event-item.pre { border-left: 3px solid var(--primary); }
+
+    /* Evidence Grid */
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .evidence-item {
+      aspect-ratio: 1;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 12px;
+      color: var(--gray-600);
+      gap: 4px;
+    }
+    .evidence-item:hover { background: var(--gray-200); }
+    .evidence-item span:first-child { font-size: 24px; }
+
+    /* Timeline */
+    .timeline { margin-top: 16px; }
+    .timeline-item {
+      display: flex;
+      gap: 12px;
+      padding: 8px 0;
+      font-size: 13px;
+    }
+    .timeline-time { color: var(--gray-400); white-space: nowrap; font-family: monospace; }
+    .timeline-content { flex: 1; }
+
+    /* Quick Buttons */
+    .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--gray-200);
+      border-radius: 20px;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quick-btn:hover { background: var(--gray-100); }
+    .quick-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* Live Video */
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .camera-item {
+      padding: 12px;
+      background: var(--gray-50);
+      border-radius: var(--radius);
+      text-align: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .camera-item:hover { background: var(--gray-100); }
+    .camera-item.selected { border-color: var(--primary); background: #eff6ff; }
+    .camera-item .camera-name { font-size: 13px; font-weight: 500; margin-top: 4px; }
+    .camera-item .camera-status { font-size: 11px; color: var(--gray-500); }
 
     /* Helpers */
     .mt-2 { margin-top: 8px; }
@@ -504,6 +671,55 @@
       </div>
     </div>
 
+    <!-- Edge URL Config Modal -->
+    <div id="edgeConfigModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">配置 Edge 连接</span>
+          <button class="btn-icon" onclick="closeModal('edgeConfigModal')">✕</button>
+        </div>
+        <form onsubmit="handleSaveEdgeConfig(event)">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Edge API URL *</label>
+              <input type="url" id="edgeConfigUrl" class="form-input" placeholder="https://edge.neighbor-guard.com" required>
+              <p class="form-hint">Edge 设备的 Cloudflare Tunnel 地址</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('edgeConfigModal')">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div id="eventDetailModal" class="modal">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+          <span class="modal-title">事件详情</span>
+          <button class="btn-icon" onclick="closeModal('eventDetailModal')">✕</button>
+        </div>
+        <div class="modal-body" id="eventDetailContent">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Modal -->
+    <div id="videoModal" class="modal" onclick="if(event.target.id==='videoModal')closeModal('videoModal')">
+      <div class="modal-content" style="max-width: 800px; background: #000;">
+        <div class="modal-header" style="background: #111; color: white; border: none;">
+          <span class="modal-title" id="videoTitle">视频</span>
+          <button class="btn-icon" style="color: white;" onclick="closeModal('videoModal')">✕</button>
+        </div>
+        <div style="padding: 0;">
+          <video id="videoPlayer" controls style="width: 100%; max-height: 70vh;"></video>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -511,6 +727,22 @@
 // Configuration
 // =============================================================================
 const API_BASE = localStorage.getItem('ng_api_base') || 'https://ngserver-refactorphase1-foundation-85ba.up.railway.app';
+
+// Mode configuration (from app.html)
+const MODE_CFG = {
+  disarmed: { icon: '🏠', label: '撤防', desc: '安防系统已关闭' },
+  home: { icon: '🏡', label: '在家', desc: '周边监控，内部放松' },
+  away: { icon: '🚗', label: '离开', desc: '全面安防已启动' },
+  night: { icon: '🌙', label: '夜间', desc: '夜间模式，缩短延迟' },
+};
+
+// Role permissions (from v8 spec)
+const ROLE_PERMISSIONS = {
+  owner: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 999 },
+  caretaker: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 7 },
+  acting_owner: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 1 },
+  witness: { modeChange: false, viewEvents: false, resolveEvents: false, historyDays: 0 },
+};
 
 // =============================================================================
 // State
@@ -523,8 +755,21 @@ const state = {
   currentTab: 'circles',
   members: [],
   tasks: [],
-  users: [],  // SuperAdmin: 用户列表
+  users: [],
+  // Edge state
+  edgeUrl: null,
+  edgeConnected: false,
+  currentMode: 'disarmed',
+  events: [],
+  eventsFilter: 'all',
+  cameras: [],
+  selectedCamera: null,
 };
+
+// Refresh intervals
+let statusRefreshInterval = null;
+let eventsRefreshInterval = null;
+let snapshotInterval = null;
 
 // =============================================================================
 // API Client
@@ -603,36 +848,28 @@ async function handleRegister(e) {
   }
 }
 
-function showDevLogin() { 
-  // Dev login 在当前服务器版本不可用，使用快速注册代替
-  const timestamp = Date.now();
-  document.getElementById('regEmail').value = `dev${timestamp}@test.com`;
-  document.getElementById('regPassword').value = 'dev123456';
-  document.getElementById('regDisplayName').value = 'Dev User';
-  document.getElementById('regInviteCode').value = '587585';
-  switchLoginTab('register');
-  toast('已填充测试账号信息，点击注册即可', 'success');
-}
-
 function onLoginSuccess(data) {
-  state.jwt = data.accessToken;
+  state.jwt = data.token;
   state.user = data.user;
-  localStorage.setItem('ng_jwt', data.accessToken);
+  localStorage.setItem('ng_jwt', data.token);
   localStorage.setItem('ng_user', JSON.stringify(data.user));
-  toast('登录成功', 'success');
   showMainApp();
 }
 
 function logout() {
   state.jwt = null;
   state.user = null;
-  state.circles = [];
   state.currentCircle = null;
   localStorage.removeItem('ng_jwt');
   localStorage.removeItem('ng_user');
+  stopAllIntervals();
   document.getElementById('loginPage').classList.add('active');
   document.getElementById('mainApp').classList.remove('active');
-  toast('已退出', 'success');
+}
+
+function showDevLogin() {
+  document.getElementById('loginEmail').value = 'owner@test.com';
+  document.getElementById('loginPassword').value = 'test123';
 }
 
 // =============================================================================
@@ -641,32 +878,30 @@ function logout() {
 async function showMainApp() {
   document.getElementById('loginPage').classList.remove('active');
   document.getElementById('mainApp').classList.add('active');
-  
-  // Update header
   document.getElementById('headerUser').textContent = state.user?.email || '';
   updateRoleBadge();
-  
-  // Admin 用户默认显示用户管理页
-  if (state.user?.isAdmin) {
-    state.currentTab = 'users';
-    await loadUsers();
-  }
-  
-  // Build navigation
-  buildNavigation();
-  
-  // Load data
   await loadCircles();
+  buildNavigation();
   renderCurrentTab();
+}
+
+async function loadCircles() {
+  try {
+    const data = await api('/api/circles');
+    state.circles = data.circles || [];
+  } catch (err) {
+    console.error('Load circles error:', err);
+    state.circles = [];
+  }
 }
 
 function updateRoleBadge() {
   const badge = document.getElementById('headerRole');
-  let role;
-  if (state.user?.isAdmin) {
+  let role = 'user';
+  if (state.currentCircle) {
+    role = state.currentCircle.role || 'user';
+  } else if (state.user?.isAdmin) {
     role = 'admin';
-  } else if (state.currentCircle?.role) {
-    role = state.currentCircle.role;
   } else if (state.user?.canCreateCircle) {
     role = 'owner';
   } else {
@@ -680,23 +915,25 @@ function updateRoleBadge() {
 function buildNavigation() {
   const isOwner = state.user?.canCreateCircle;
   const isAdmin = state.user?.isAdmin;
+  const role = state.currentCircle?.role || 'user';
+  const canViewDashboard = ['owner', 'caretaker', 'acting_owner'].includes(role);
+  
   const tabs = [
-    // SuperAdmin 专用标签
-    ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户管理' }] : []),
+    ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户' }] : []),
     { id: 'circles', icon: '🏘️', label: '圈子' },
     ...(state.currentCircle ? [
+      ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
+      ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
       { id: 'members', icon: '👥', label: '成员' },
       { id: 'tasks', icon: '📋', label: '任务' },
       { id: 'edge', icon: '📡', label: 'Edge' },
     ] : []),
   ];
   
-  // Desktop nav
   document.getElementById('navTabs').innerHTML = tabs.map(t => 
     `<div class="nav-tab ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</div>`
   ).join('');
   
-  // Mobile nav
   document.getElementById('bottomNav').innerHTML = tabs.map(t => 
     `<div class="bottom-nav-item ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
       <span class="bottom-nav-icon">${t.icon}</span>
@@ -706,6 +943,11 @@ function buildNavigation() {
 }
 
 function switchTab(tab) {
+  // Stop intervals when leaving dashboard/events
+  if (state.currentTab === 'dashboard' || state.currentTab === 'events') {
+    stopAllIntervals();
+  }
+  
   state.currentTab = tab;
   buildNavigation();
   renderCurrentTab();
@@ -716,11 +958,51 @@ function renderCurrentTab() {
   switch (state.currentTab) {
     case 'users': renderUsersPage(content); break;
     case 'circles': renderCirclesPage(content); break;
+    case 'dashboard': renderDashboardPage(content); break;
+    case 'events': renderEventsPage(content); break;
     case 'members': renderMembersPage(content); break;
     case 'tasks': renderTasksPage(content); break;
     case 'edge': renderEdgePage(content); break;
     default: content.innerHTML = '<p>Unknown tab</p>';
   }
+}
+
+// =============================================================================
+// Edge URL Management
+// =============================================================================
+function getEdgeUrl() {
+  if (!state.currentCircle) return null;
+  return localStorage.getItem(`ng_edge_url_${state.currentCircle.id}`);
+}
+
+function setEdgeUrl(url) {
+  if (!state.currentCircle) return;
+  localStorage.setItem(`ng_edge_url_${state.currentCircle.id}`, url);
+  state.edgeUrl = url;
+}
+
+function handleSaveEdgeConfig(e) {
+  e.preventDefault();
+  const url = document.getElementById('edgeConfigUrl').value.trim().replace(/\/$/, '');
+  setEdgeUrl(url);
+  closeModal('edgeConfigModal');
+  toast('Edge URL 已保存', 'success');
+  renderCurrentTab();
+}
+
+// =============================================================================
+// Intervals Management
+// =============================================================================
+function stopAllIntervals() {
+  if (statusRefreshInterval) { clearInterval(statusRefreshInterval); statusRefreshInterval = null; }
+  if (eventsRefreshInterval) { clearInterval(eventsRefreshInterval); eventsRefreshInterval = null; }
+  if (snapshotInterval) { clearInterval(snapshotInterval); snapshotInterval = null; }
+}
+
+function startDashboardIntervals() {
+  stopAllIntervals();
+  statusRefreshInterval = setInterval(loadEdgeStatus, 5000);
+  eventsRefreshInterval = setInterval(() => loadEdgeEvents(false), 10000);
 }
 
 // =============================================================================
@@ -733,7 +1015,6 @@ async function loadUsers() {
     state.users = data.users || [];
   } catch (err) {
     console.error('Load users error:', err);
-    // 如果 API 不存在，显示提示
     state.users = [];
   }
 }
@@ -744,145 +1025,89 @@ function renderUsersPage(container) {
     return;
   }
   
-  container.innerHTML = `
-    <div class="flex-between mb-4">
-      <h2>👤 用户管理</h2>
-      <button class="btn btn-outline" onclick="loadUsers().then(() => renderUsersPage(document.getElementById('mainContent')))">🔄 刷新</button>
-    </div>
-    
-    <div class="card mb-4">
-      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
-        <strong>授予 Owner 权限</strong>
-        <p class="text-muted" style="font-size: 12px; margin-top: 4px;">输入用户邮箱，授予其创建 Circle 的权限</p>
+  loadUsers().then(() => {
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <h2>👤 用户管理</h2>
+        <button class="btn btn-outline" onclick="loadUsers().then(() => renderUsersPage(document.getElementById('mainContent')))">🔄 刷新</button>
       </div>
-      <form onsubmit="handleGrantOwner(event)" style="padding: 16px; display: flex; gap: 12px; align-items: flex-end;">
-        <div style="flex: 1;">
-          <label class="form-label">用户邮箱</label>
-          <input type="email" id="grantOwnerEmail" class="form-input" placeholder="user@example.com" required>
+      
+      <div class="card mb-4">
+        <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+          <strong>授予 Owner 权限</strong>
+          <p class="text-muted" style="font-size: 12px; margin-top: 4px;">输入用户邮箱，授予其创建 Circle 的权限</p>
         </div>
-        <button type="submit" class="btn btn-primary">授予权限</button>
-      </form>
-    </div>
-    
-    <div class="card">
-      <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
-        <strong>已注册用户</strong>
-        <span class="badge badge-info" style="margin-left: 8px;">${state.users.length}</span>
+        <form onsubmit="handleGrantOwner(event)" style="padding: 16px; display: flex; gap: 12px; align-items: flex-end;">
+          <div style="flex: 1;">
+            <label class="form-label">用户邮箱</label>
+            <input type="email" id="grantOwnerEmail" class="form-input" placeholder="user@example.com" required>
+          </div>
+          <button type="submit" class="btn btn-primary">授予权限</button>
+        </form>
       </div>
-      ${state.users.length === 0 ? `
-        <div style="padding: 32px; text-align: center; color: var(--gray-500);">
-          <p>暂无用户数据</p>
-          <p style="font-size: 12px;">如果您刚部署，请先用 curl 调用 /api/admin/users 确认 API 可用</p>
+      
+      <div class="card">
+        <div style="padding: 16px; border-bottom: 1px solid var(--gray-200);">
+          <strong>已注册用户</strong>
+          <span class="badge badge-info" style="margin-left: 8px;">${state.users.length}</span>
         </div>
-      ` : `
-        ${state.users.map(u => `
-          <div class="list-item">
-            <div class="list-item-left">
-              <div class="list-item-icon">${u.isAdmin ? '👑' : u.canCreateCircle ? '🏠' : '👤'}</div>
-              <div class="list-item-content">
-                <div class="list-item-title">${u.email}</div>
-                <div class="list-item-subtitle">
-                  ${u.displayName || 'No name'} · 
-                  注册于 ${new Date(u.createdAt).toLocaleDateString()}
+        ${state.users.length === 0 ? `
+          <div style="padding: 32px; text-align: center; color: var(--gray-500);">
+            <p>暂无用户数据</p>
+          </div>
+        ` : `
+          ${state.users.map(u => `
+            <div class="list-item" style="cursor: default;">
+              <div class="list-item-left">
+                <div class="list-item-icon">${u.isAdmin ? '👑' : u.canCreateCircle ? '🏠' : '👤'}</div>
+                <div class="list-item-content">
+                  <div class="list-item-title">${u.email}</div>
+                  <div class="list-item-subtitle">${u.displayName || 'No name'} · 注册于 ${new Date(u.createdAt).toLocaleDateString()}</div>
                 </div>
               </div>
+              <div class="list-item-right">
+                ${u.isAdmin ? '<span class="badge badge-warning">Admin</span>' : ''}
+                ${u.canCreateCircle ? '<span class="badge badge-success">Owner权限</span>' : '<span class="badge badge-secondary">普通用户</span>'}
+              </div>
             </div>
-            <div class="list-item-right" style="display: flex; gap: 8px; align-items: center;">
-              ${u.isAdmin ? '<span class="badge badge-warning">Admin</span>' : ''}
-              ${u.canCreateCircle ? '<span class="badge badge-success">Owner权限</span>' : '<span class="badge badge-secondary">普通用户</span>'}
-              ${!u.isAdmin && u.canCreateCircle ? `<button class="btn btn-sm btn-danger" onclick="handleRevokeOwner('${u.id}')">撤销</button>` : ''}
-              ${!u.isAdmin && !u.canCreateCircle ? `<button class="btn btn-sm btn-primary" onclick="handleGrantOwnerById('${u.id}')">授予</button>` : ''}
-            </div>
-          </div>
-        `).join('')}
-      `}
-    </div>
-  `;
+          `).join('')}
+        `}
+      </div>
+    `;
+  });
 }
 
 async function handleGrantOwner(e) {
   e.preventDefault();
-  const email = document.getElementById('grantOwnerEmail').value.trim();
-  if (!email) return;
-  
-  // 先从用户列表查找
-  let user = state.users.find(u => u.email === email);
-  
-  // 如果列表中没有，尝试刷新列表
-  if (!user) {
-    await loadUsers();
-    user = state.users.find(u => u.email === email);
-  }
-  
-  if (!user) {
-    toast(`找不到用户: ${email}`, 'error');
-    return;
-  }
-  
+  const email = document.getElementById('grantOwnerEmail').value;
   try {
-    await api(`/api/admin/users/${user.id}/grant-owner`, { method: 'POST' });
+    await api('/api/admin/grant-owner', { method: 'POST', body: { email } });
     toast('已授予 Owner 权限', 'success');
     document.getElementById('grantOwnerEmail').value = '';
     await loadUsers();
     renderUsersPage(document.getElementById('mainContent'));
   } catch (err) {
-    toast(err.message || '授权失败', 'error');
-  }
-}
-
-async function handleGrantOwnerById(userId) {
-  try {
-    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'POST' });
-    toast('已授予 Owner 权限', 'success');
-    await loadUsers();
-    renderUsersPage(document.getElementById('mainContent'));
-  } catch (err) {
-    toast(err.message || '授权失败', 'error');
-  }
-}
-
-async function handleRevokeOwner(userId) {
-  const user = state.users.find(u => u.id === userId);
-  if (!user) return;
-  
-  if (!confirm(`确定要撤销 ${user.email} 的 Owner 权限吗？`)) return;
-  
-  try {
-    await api(`/api/admin/users/${userId}/grant-owner`, { method: 'DELETE' });
-    toast(`已撤销 ${user.email} 的 Owner 权限`, 'success');
-    await loadUsers();
-    renderUsersPage(document.getElementById('mainContent'));
-  } catch (err) {
-    toast(err.message || '撤销失败', 'error');
+    toast(err.message, 'error');
   }
 }
 
 // =============================================================================
 // Circles Page
 // =============================================================================
-async function loadCircles() {
-  try {
-    const data = await api('/api/circles');
-    state.circles = data.circles || [];
-  } catch (err) {
-    console.error('Load circles error:', err);
-    state.circles = [];
-  }
-}
-
 function renderCirclesPage(container) {
-  const canCreate = state.user?.canCreateCircle;
+  const canCreate = state.user?.canCreateCircle || state.user?.isAdmin;
   container.innerHTML = `
     <div class="flex-between mb-4">
-      <h2>我的安防圈</h2>
+      <h2>🏘️ 安防圈</h2>
       ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">+ 创建圈子</button>' : ''}
     </div>
     ${state.circles.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">🏘️</div>
-        <h3>还没有安防圈</h3>
-        <p>${canCreate ? '创建您的第一个安防圈来开始使用' : '等待 Owner 邀请您加入'}</p>
-        ${canCreate ? '<button class="btn btn-primary" onclick="openModal(\'createCircleModal\')">创建圈子</button>' : ''}
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">🏠</div>
+          <h3>暂无安防圈</h3>
+          <p>${canCreate ? '创建您的第一个安防圈来开始使用' : '等待被邀请加入安防圈'}</p>
+        </div>
       </div>
     ` : `
       <div class="card">
@@ -892,12 +1117,12 @@ function renderCirclesPage(container) {
               <div class="list-item-icon">🏠</div>
               <div class="list-item-content">
                 <div class="list-item-title">${c.name}</div>
-                <div class="list-item-subtitle">${c.address || c.city || 'No address'}</div>
+                <div class="list-item-subtitle">${c.address || '未设置地址'}</div>
               </div>
             </div>
             <div class="list-item-right">
               <span class="badge badge-${c.role}">${c.role}</span>
-              ${state.currentCircle?.id === c.id ? '<span class="badge badge-success">✓ 当前</span>' : ''}
+              ${state.currentCircle?.id === c.id ? '<span style="color: var(--success);">✓</span>' : ''}
             </div>
           </div>
         `).join('')}
@@ -908,20 +1133,17 @@ function renderCirclesPage(container) {
 
 async function handleCreateCircle(e) {
   e.preventDefault();
-  const body = {
-    name: document.getElementById('circleName').value,
-    address: document.getElementById('circleAddress').value || undefined,
-    city: document.getElementById('circleCity').value || undefined,
-    latitude: parseFloat(document.getElementById('circleLat').value) || undefined,
-    longitude: parseFloat(document.getElementById('circleLng').value) || undefined,
-  };
+  const name = document.getElementById('circleName').value;
+  const address = document.getElementById('circleAddress').value;
+  const city = document.getElementById('circleCity').value;
+  const lat = parseFloat(document.getElementById('circleLat').value) || null;
+  const lng = parseFloat(document.getElementById('circleLng').value) || null;
   try {
-    await api('/api/circles', { method: 'POST', body });
+    await api('/api/circles', { method: 'POST', body: { name, address, city, latitude: lat, longitude: lng } });
     closeModal('createCircleModal');
     toast('圈子创建成功', 'success');
     await loadCircles();
-    renderCurrentTab();
-    // Clear form
+    renderCirclesPage(document.getElementById('mainContent'));
     document.getElementById('circleName').value = '';
     document.getElementById('circleAddress').value = '';
     document.getElementById('circleCity').value = '';
@@ -934,13 +1156,490 @@ async function handleCreateCircle(e) {
 
 async function selectCircle(id) {
   const circle = state.circles.find(c => c.id === id);
-  if (circle) {
-    state.currentCircle = circle;
-    updateRoleBadge();
-    buildNavigation();
-    switchTab('members');
-    await loadMembers();
-    toast(`已选择: ${circle.name}`, 'success');
+  if (!circle) return;
+  
+  stopAllIntervals();
+  state.currentCircle = circle;
+  state.edgeUrl = getEdgeUrl();
+  state.edgeConnected = false;
+  state.events = [];
+  
+  updateRoleBadge();
+  buildNavigation();
+  
+  // Switch to dashboard if user has permission
+  const role = circle.role || 'user';
+  if (['owner', 'caretaker', 'acting_owner'].includes(role) && state.edgeUrl) {
+    state.currentTab = 'dashboard';
+  }
+  
+  renderCurrentTab();
+}
+
+// =============================================================================
+// Dashboard Page (NEW - from edge_test.html)
+// =============================================================================
+function renderDashboardPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  
+  const edgeUrl = getEdgeUrl();
+  if (!edgeUrl) {
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <h2>📊 仪表盘</h2>
+      </div>
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">📡</div>
+          <h3>未配置 Edge</h3>
+          <p>请先配置 Edge 设备连接</p>
+          <button class="btn btn-primary mt-4" onclick="openEdgeConfigModal()">配置 Edge URL</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  state.edgeUrl = edgeUrl;
+  
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>📊 仪表盘</h2>
+      <div class="flex gap-2">
+        <span id="connectionStatus" class="badge badge-secondary">连接中...</span>
+        <button class="btn btn-sm btn-outline" onclick="openEdgeConfigModal()">⚙️</button>
+      </div>
+    </div>
+    
+    <!-- Mode Card -->
+    <div class="mode-card card">
+      <div class="mode-display">
+        <div id="modeCircle" class="mode-circle disarmed">
+          <span id="modeIcon">🏠</span>
+        </div>
+        <div class="mode-info">
+          <h3 id="modeLabel">撤防</h3>
+          <p id="modeDesc">安防系统已关闭</p>
+        </div>
+      </div>
+      <div class="mode-buttons" id="modeButtons">
+        <button class="mode-btn active disarmed" data-mode="disarmed" onclick="switchMode('disarmed')"><span class="mode-btn-icon">🏠</span><span class="mode-btn-label">撤防</span></button>
+        <button class="mode-btn" data-mode="home" onclick="switchMode('home')"><span class="mode-btn-icon">🏡</span><span class="mode-btn-label">在家</span></button>
+        <button class="mode-btn" data-mode="away" onclick="switchMode('away')"><span class="mode-btn-icon">🚗</span><span class="mode-btn-label">离开</span></button>
+        <button class="mode-btn" data-mode="night" onclick="switchMode('night')"><span class="mode-btn-icon">🌙</span><span class="mode-btn-label">夜间</span></button>
+      </div>
+    </div>
+    
+    <!-- Status Grid -->
+    <div class="card mb-4">
+      <div class="card-header">系统状态</div>
+      <div class="card-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">告警状态</div>
+            <div class="info-value" id="alarmState">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">系统运行</div>
+            <div class="info-value" id="runningState">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">摄像头</div>
+            <div class="info-value" id="cameraState">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Zigbee</div>
+            <div class="info-value" id="zigbeeState">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Recent Events -->
+    <div class="card">
+      <div class="card-header">
+        <span>最近事件</span>
+        <button class="btn btn-sm btn-outline" onclick="switchTab('events')">查看全部</button>
+      </div>
+      <div id="recentEventsContent">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  `;
+  
+  // Load data
+  loadEdgeStatus();
+  loadEdgeEvents();
+  startDashboardIntervals();
+}
+
+function openEdgeConfigModal() {
+  const currentUrl = getEdgeUrl() || '';
+  document.getElementById('edgeConfigUrl').value = currentUrl;
+  openModal('edgeConfigModal');
+}
+
+// =============================================================================
+// Edge Status (from edge_test.html / app.html)
+// =============================================================================
+async function loadEdgeStatus() {
+  if (!state.edgeUrl) return;
+  
+  try {
+    const res = await fetch(`${state.edgeUrl}/api/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    state.edgeConnected = true;
+    document.getElementById('connectionStatus').textContent = '✅ 已连接';
+    document.getElementById('connectionStatus').className = 'badge badge-success';
+    
+    // Mode parsing (from app.html)
+    let rawMode = data.house_mode_raw || data.house_mode || 'disarmed';
+    let mode = String(rawMode).toLowerCase();
+    mode = mode.replace(/_occupied|_unoccupied|_armed/g, '');
+    if (mode === 'disarm') mode = 'disarmed';
+    if (!['disarmed', 'home', 'away', 'night'].includes(mode)) mode = 'disarmed';
+    
+    state.currentMode = mode;
+    updateModeUI();
+    
+    // Update status grid
+    const alarmEl = document.getElementById('alarmState');
+    const runningEl = document.getElementById('runningState');
+    const cameraEl = document.getElementById('cameraState');
+    const zigbeeEl = document.getElementById('zigbeeState');
+    
+    if (alarmEl) alarmEl.textContent = data.alarm_state || 'none';
+    if (runningEl) {
+      runningEl.textContent = data.running ? '✅ 运行中' : '❌ 已停止';
+      runningEl.className = `info-value ${data.running ? 'online' : 'offline'}`;
+    }
+    if (cameraEl) cameraEl.textContent = `${data.cameras_online || 0} / ${data.cameras_total || 0}`;
+    if (zigbeeEl) zigbeeEl.textContent = `${data.zigbee_devices || 0} 已连接`;
+    
+  } catch (e) {
+    console.error('Edge status error:', e);
+    state.edgeConnected = false;
+    const statusEl = document.getElementById('connectionStatus');
+    if (statusEl) {
+      statusEl.textContent = '❌ 离线';
+      statusEl.className = 'badge badge-danger';
+    }
+  }
+}
+
+function updateModeUI() {
+  const cfg = MODE_CFG[state.currentMode] || MODE_CFG.disarmed;
+  
+  const modeCircle = document.getElementById('modeCircle');
+  const modeIcon = document.getElementById('modeIcon');
+  const modeLabel = document.getElementById('modeLabel');
+  const modeDesc = document.getElementById('modeDesc');
+  
+  if (modeCircle) modeCircle.className = `mode-circle ${state.currentMode}`;
+  if (modeIcon) modeIcon.textContent = cfg.icon;
+  if (modeLabel) modeLabel.textContent = cfg.label;
+  if (modeDesc) modeDesc.textContent = cfg.desc;
+  
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    const m = btn.dataset.mode;
+    btn.classList.remove('active', 'disarmed', 'home', 'away', 'night');
+    if (m === state.currentMode) {
+      btn.classList.add('active', m);
+    }
+  });
+}
+
+async function switchMode(mode) {
+  if (mode === state.currentMode) return;
+  if (!state.edgeUrl) return;
+  
+  // Check permission
+  const role = state.currentCircle?.role || 'user';
+  if (!ROLE_PERMISSIONS[role]?.modeChange) {
+    toast('您没有切换模式的权限', 'error');
+    return;
+  }
+  
+  const btn = document.querySelector(`.mode-btn[data-mode="${mode}"]`);
+  if (btn) btn.classList.add('loading');
+  
+  try {
+    const apiMode = mode === 'disarmed' ? 'DISARMED' : mode.toUpperCase();
+    const res = await fetch(`${state.edgeUrl}/api/mode/${apiMode}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json().catch(() => ({}));
+    
+    if (!res.ok) {
+      toast(data.detail || data.error || '切换失败', 'error');
+      if (btn) btn.classList.remove('loading');
+      return;
+    }
+    
+    state.currentMode = mode;
+    updateModeUI();
+    toast(`已切换到${MODE_CFG[mode].label}模式`, 'success');
+    setTimeout(loadEdgeStatus, 500);
+    
+  } catch (e) {
+    console.error('Mode switch error:', e);
+    toast('操作失败', 'error');
+  } finally {
+    if (btn) btn.classList.remove('loading');
+  }
+}
+
+// =============================================================================
+// Events Page (NEW - from edge_test.html)
+// =============================================================================
+function renderEventsPage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  
+  const edgeUrl = getEdgeUrl();
+  if (!edgeUrl) {
+    container.innerHTML = `
+      <div class="flex-between mb-4"><h2>🔔 事件</h2></div>
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">📡</div>
+          <h3>未配置 Edge</h3>
+          <p>请先配置 Edge 设备连接</p>
+          <button class="btn btn-primary mt-4" onclick="openEdgeConfigModal()">配置 Edge URL</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  state.edgeUrl = edgeUrl;
+  
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>🔔 事件</h2>
+      <button class="btn btn-sm btn-outline" onclick="loadEdgeEvents()">🔄 刷新</button>
+    </div>
+    
+    <div class="quick-actions mb-4">
+      <button class="quick-btn ${state.eventsFilter === 'all' ? 'active' : ''}" onclick="filterEdgeEvents('all')">全部</button>
+      <button class="quick-btn ${state.eventsFilter === 'active' ? 'active' : ''}" onclick="filterEdgeEvents('active')">进行中</button>
+      <button class="quick-btn ${state.eventsFilter === 'resolved' ? 'active' : ''}" onclick="filterEdgeEvents('resolved')">已解决</button>
+    </div>
+    
+    <div class="card">
+      <div id="eventsListContent">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  `;
+  
+  loadEdgeEvents();
+  startDashboardIntervals();
+}
+
+async function loadEdgeEvents(showLoading = true) {
+  if (!state.edgeUrl) return;
+  
+  const recentEl = document.getElementById('recentEventsContent');
+  const listEl = document.getElementById('eventsListContent');
+  
+  if (showLoading && state.events.length === 0) {
+    if (recentEl) recentEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    if (listEl) listEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  }
+  
+  try {
+    const res = await fetch(`${state.edgeUrl}/api/incidents?limit=50`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    let events = data.items || data.incidents || [];
+    
+    // Filter by role history limit
+    const role = state.currentCircle?.role || 'user';
+    const historyDays = ROLE_PERMISSIONS[role]?.historyDays || 0;
+    if (historyDays < 999) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - historyDays);
+      events = events.filter(e => e.is_active || new Date(e.created_at) >= cutoff);
+    }
+    
+    state.events = events;
+    renderRecentEvents();
+    renderEventsList();
+    
+  } catch (e) {
+    console.error('Load events error:', e);
+    if (state.events.length === 0) {
+      if (recentEl) recentEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+      if (listEl) listEl.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    }
+  }
+}
+
+function filterEdgeEvents(filter) {
+  state.eventsFilter = filter;
+  document.querySelectorAll('.quick-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(
+      filter === 'all' ? '全部' : filter === 'active' ? '进行中' : '已解决'
+    ));
+  });
+  renderEventsList();
+}
+
+function renderRecentEvents() {
+  const el = document.getElementById('recentEventsContent');
+  if (!el) return;
+  
+  const items = state.events.slice(0, 4);
+  if (items.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p>暂无事件</p></div>';
+    return;
+  }
+  
+  el.innerHTML = items.map(e => renderEventItem(e)).join('');
+}
+
+function renderEventsList() {
+  const el = document.getElementById('eventsListContent');
+  if (!el) return;
+  
+  let filtered = [...state.events];
+  if (state.eventsFilter === 'active') filtered = filtered.filter(e => e.is_active);
+  else if (state.eventsFilter === 'resolved') filtered = filtered.filter(e => !e.is_active);
+  
+  if (filtered.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p>暂无事件</p></div>';
+    return;
+  }
+  
+  el.innerHTML = filtered.map(e => renderEventItem(e)).join('');
+}
+
+function renderEventItem(e) {
+  const ts = e.threat_state || 'none';
+  const loc = e.entry_point_name || e.entry_point_id || '入口';
+  const time = formatTime(e.created_at);
+  
+  let icon = '·';
+  let title = '';
+  let stateClass = '';
+  
+  if (ts === 'triggered') { icon = '🚨'; title = `【${loc}】警报触发`; stateClass = 'triggered'; }
+  else if (ts === 'pending') { icon = '⏳'; title = `【${loc}】入口延时`; stateClass = 'pending'; }
+  else if (ts.startsWith('pre')) { icon = '👁️'; title = `【${loc}】检测到活动`; stateClass = 'pre'; }
+  else if (e.is_active) { title = `【${loc}】事件`; }
+  else {
+    const resolution = e.resolution || '';
+    if (resolution === 'false_alarm' || resolution === 'dismissed') { icon = '✅'; title = `【${loc}】误报`; }
+    else if (resolution === 'safe' || ts === 'resolved') { icon = '✅'; title = `【${loc}】已确认安全`; }
+    else if (ts === 'canceled') { icon = '❌'; title = `【${loc}】已取消`; }
+    else { icon = '✅'; title = `【${loc}】已结束`; }
+  }
+  
+  return `
+    <div class="event-item ${stateClass}" onclick="showEventDetail('${e.incident_id}')">
+      <span class="event-icon">${icon}</span>
+      <div class="event-content">
+        <div class="event-title">${title}</div>
+        <div class="event-meta">${e.incident_id.slice(0, 8)} ${e.evidence_count ? `· 📹 ${e.evidence_count}` : ''}</div>
+      </div>
+      <div class="event-time">${time}</div>
+    </div>
+  `;
+}
+
+async function showEventDetail(id) {
+  openModal('eventDetailModal');
+  const content = document.getElementById('eventDetailContent');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  try {
+    const res = await fetch(`${state.edgeUrl}/api/incidents/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const e = data.incident || data;
+    
+    const ts = e.threat_state || 'none';
+    const loc = e.entry_point_name || e.entry_point_id || '入口';
+    const evidence = e.evidence || [];
+    const timeline = e.timeline || [];
+    
+    content.innerHTML = `
+      <div class="mb-4">
+        <h3>【${loc}】${ts}</h3>
+        <p class="text-sm text-muted">${e.incident_id}</p>
+      </div>
+      
+      <div class="info-grid mb-4">
+        <div class="info-item">
+          <div class="info-label">状态</div>
+          <div class="info-value">${e.is_active ? '进行中' : '已结束'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">触发原因</div>
+          <div class="info-value">${e.trigger_reason || '-'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">创建时间</div>
+          <div class="info-value">${formatDateTime(e.created_at)}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">证据数量</div>
+          <div class="info-value">${evidence.length}</div>
+        </div>
+      </div>
+      
+      ${evidence.length > 0 ? `
+        <div class="mb-4">
+          <h4 class="mb-2">证据</h4>
+          <div class="evidence-grid">
+            ${evidence.map(ev => `
+              <div class="evidence-item" onclick="viewEvidence('${ev.evidence_key}', '${ev.type || 'video'}')">
+                <span>${ev.type === 'snapshot' ? '📷' : '🎬'}</span>
+                <span>${ev.type === 'snapshot' ? '快照' : '视频'}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      ${timeline.length > 0 ? `
+        <div>
+          <h4 class="mb-2">时间线</h4>
+          <div class="timeline">
+            ${timeline.slice(0, 8).map(t => `
+              <div class="timeline-item">
+                <span class="timeline-time">${formatTime(t.timestamp)}</span>
+                <span class="timeline-content">${t.description || t.event_type || '-'}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+    
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+  }
+}
+
+function viewEvidence(key, type) {
+  const url = `${state.edgeUrl}/api/evidence/${key}`;
+  if (type === 'snapshot') {
+    window.open(url, '_blank');
+  } else {
+    document.getElementById('videoTitle').textContent = key;
+    document.getElementById('videoPlayer').src = url;
+    openModal('videoModal');
   }
 }
 
@@ -963,41 +1662,45 @@ function renderMembersPage(container) {
     container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
     return;
   }
-  const isOwner = state.currentCircle.role === 'owner';
-  container.innerHTML = `
-    <div class="flex-between mb-4">
-      <div>
-        <h2>${state.currentCircle.name} - 成员</h2>
-        <p class="text-sm text-muted">${state.members.length} 位成员</p>
+  loadMembers().then(() => {
+    const isOwner = state.currentCircle.role === 'owner';
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <div>
+          <h2>👥 成员</h2>
+          <p class="text-sm text-muted">${state.members.length} 位成员</p>
+        </div>
+        ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
       </div>
-      ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
-    </div>
-    ${state.members.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">👥</div>
-        <h3>暂无成员</h3>
-        <p>添加成员来协助管理您的安防圈</p>
-      </div>
-    ` : `
-      <div class="card">
-        ${state.members.map(m => `
-          <div class="list-item">
-            <div class="list-item-left">
-              <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'witness' ? '👁️' : '👤'}</div>
-              <div class="list-item-content">
-                <div class="list-item-title">${m.displayName || m.email}</div>
-                <div class="list-item-subtitle">${m.email}</div>
+      ${state.members.length === 0 ? `
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <h3>暂无成员</h3>
+            <p>添加成员来共同管理安防</p>
+          </div>
+        </div>
+      ` : `
+        <div class="card">
+          ${state.members.map(m => `
+            <div class="list-item" style="cursor: default;">
+              <div class="list-item-left">
+                <div class="list-item-icon">${m.role === 'owner' ? '👑' : m.role === 'caretaker' ? '🛡️' : m.role === 'acting_owner' ? '⏱️' : '👁️'}</div>
+                <div class="list-item-content">
+                  <div class="list-item-title">${m.user?.displayName || m.user?.email || 'Unknown'}</div>
+                  <div class="list-item-subtitle">${m.user?.email || ''}</div>
+                </div>
+              </div>
+              <div class="list-item-right">
+                <span class="badge badge-${m.role}">${m.role}</span>
+                ${isOwner && m.role !== 'owner' ? `<button class="btn btn-sm btn-danger" onclick="removeMember('${m.userId}')">移除</button>` : ''}
               </div>
             </div>
-            <div class="list-item-right">
-              <span class="badge badge-${m.role}">${m.role}</span>
-              ${isOwner && m.role !== 'owner' ? `<button class="btn btn-sm btn-danger" onclick="removeMember('${m.userId}')">移除</button>` : ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `}
-  `;
+          `).join('')}
+        </div>
+      `}
+    `;
+  });
 }
 
 async function handleAddMember(e) {
@@ -1053,21 +1756,23 @@ function renderTasksPage(container) {
     container.innerHTML = `
       <div class="flex-between mb-4">
         <div>
-          <h2>Witness 任务</h2>
+          <h2>📋 Witness 任务</h2>
           <p class="text-sm text-muted">${state.tasks.length} 个任务</p>
         </div>
         ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openModal(\'createTaskModal\')">+ 创建任务</button>' : ''}
       </div>
       ${state.tasks.length === 0 ? `
-        <div class="empty-state">
-          <div class="empty-icon">📋</div>
-          <h3>暂无任务</h3>
-          <p>创建任务邀请 Witness 协助现场查看</p>
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>暂无任务</h3>
+            <p>创建任务邀请 Witness 协助现场查看</p>
+          </div>
         </div>
       ` : `
         <div class="card">
           ${state.tasks.map(t => `
-            <div class="list-item">
+            <div class="list-item" style="cursor: default;">
               <div class="list-item-left">
                 <div class="list-item-content">
                   <div class="list-item-title">${t.title || 'Task'}</div>
@@ -1093,7 +1798,6 @@ async function handleCreateTask(e) {
   const description = document.getElementById('taskDescription').value;
   try {
     const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { method: 'POST', body: { title, description } });
-    // Auto offer
     await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${data.task.id}/offer`, { method: 'POST' });
     closeModal('createTaskModal');
     toast('任务已创建并发布', 'success');
@@ -1149,15 +1853,34 @@ function renderEdgePage(container) {
     const isOwner = state.currentCircle.role === 'owner';
     const hasBound = status?.hasBoundDevice;
     const device = status?.device;
+    const edgeUrl = getEdgeUrl();
     
     container.innerHTML = `
       <div class="flex-between mb-4">
-        <h2>Edge 设备</h2>
+        <h2>📡 Edge 设备</h2>
       </div>
+      
+      <!-- Edge URL Config -->
+      <div class="card mb-4">
+        <div class="card-header">Edge 连接配置</div>
+        <div class="card-body">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Edge API URL</label>
+            <div class="flex gap-2">
+              <input type="text" id="edgeUrlInput" class="form-input" value="${edgeUrl || ''}" placeholder="https://edge.neighbor-guard.com">
+              <button class="btn btn-primary" onclick="saveEdgeUrlFromInput()">保存</button>
+            </div>
+            <p class="form-hint">Edge 设备的 Cloudflare Tunnel 地址，用于仪表盘和事件查看</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Binding Status -->
       <div class="card">
+        <div class="card-header">设备绑定</div>
         <div class="card-body">
           ${hasBound ? `
-            <div class="flex-between mb-4">
+            <div class="flex-between">
               <div>
                 <h3>✅ 设备已绑定</h3>
                 <p class="text-sm text-muted">Device ID: ${device?.deviceId || 'N/A'}</p>
@@ -1166,10 +1889,10 @@ function renderEdgePage(container) {
               ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
             </div>
           ` : `
-            <div class="empty-state">
+            <div class="empty-state" style="padding: 24px;">
               <div class="empty-icon">📡</div>
               <h3>未绑定 Edge 设备</h3>
-              <p>绑定 Edge 设备以启用本地安防功能</p>
+              <p>绑定 Edge 设备以启用 L2 同步功能</p>
               ${isOwner ? '<button class="btn btn-primary" onclick="generateBinding()">生成绑定信息</button>' : '<p class="text-muted">请联系 Owner 绑定设备</p>'}
             </div>
           `}
@@ -1177,6 +1900,16 @@ function renderEdgePage(container) {
       </div>
     `;
   });
+}
+
+function saveEdgeUrlFromInput() {
+  const url = document.getElementById('edgeUrlInput').value.trim().replace(/\/$/, '');
+  if (url) {
+    setEdgeUrl(url);
+    toast('Edge URL 已保存', 'success');
+  } else {
+    toast('请输入有效的 URL', 'error');
+  }
 }
 
 async function generateBinding() {
@@ -1210,6 +1943,21 @@ Device ID: ${document.getElementById('bindingDeviceId').value}
 Device Key: ${document.getElementById('bindingDeviceKey').value}`;
   navigator.clipboard.writeText(info);
   toast('已复制到剪贴板', 'success');
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+function formatTime(timestamp) {
+  if (!timestamp) return '-';
+  const d = new Date(timestamp);
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateTime(timestamp) {
+  if (!timestamp) return '-';
+  const d = new Date(timestamp);
+  return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // =============================================================================
