@@ -24,7 +24,7 @@ let CirclesController = class CirclesController {
         this.circlesService = circlesService;
     }
     async createCircle(req, dto) {
-        return this.circlesService.createCircle(req.user.userId, dto.name);
+        return this.circlesService.createCircle(req.user.userId, dto);
     }
     async listMyCircles(req) {
         return this.circlesService.listMyCircles(req.user.userId);
@@ -35,20 +35,26 @@ let CirclesController = class CirclesController {
     async updateCircle(req, circleId, dto) {
         return this.circlesService.updateCircle(req.user.userId, circleId, dto);
     }
+    async patchCircle(req, circleId, dto) {
+        return this.circlesService.updateCircle(req.user.userId, circleId, dto);
+    }
     async deleteCircle(req, circleId) {
         return this.circlesService.deleteCircle(req.user.userId, circleId);
-    }
-    async leaveCircle(req, circleId) {
-        return this.circlesService.leaveCircle(req.user.userId, circleId);
-    }
-    async transferOwnership(req, circleId, dto) {
-        return this.circlesService.transferOwnership(req.user.userId, circleId, dto.newOwnerUserId);
     }
     async listMembers(req, circleId) {
         return this.circlesService.listMembers(req.user.userId, circleId);
     }
     async addMember(req, circleId, dto) {
         return this.circlesService.addMember(req.user.userId, circleId, dto);
+    }
+    async removeMember(req, circleId, userId) {
+        return this.circlesService.removeMember(req.user.userId, circleId, userId);
+    }
+    async leaveCircle(req, circleId) {
+        return this.circlesService.leaveCircle(req.user.userId, circleId);
+    }
+    async transferOwnership(req, circleId, dto) {
+        return this.circlesService.transferOwnership(req.user.userId, circleId, dto.newOwnerUserId);
     }
 };
 exports.CirclesController = CirclesController;
@@ -76,7 +82,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "getCircle", null);
 __decorate([
-    (0, common_1.Patch)(':circleId'),
+    (0, common_1.Put)(':circleId'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
     __param(2, (0, common_1.Body)()),
@@ -85,6 +91,15 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "updateCircle", null);
 __decorate([
+    (0, common_1.Patch)(':circleId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_circle_dto_1.UpdateCircleDto]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "patchCircle", null);
+__decorate([
     (0, common_1.Delete)(':circleId'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
@@ -92,23 +107,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "deleteCircle", null);
-__decorate([
-    (0, common_1.Post)(':circleId/leave'),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", Promise)
-], CirclesController.prototype, "leaveCircle", null);
-__decorate([
-    (0, common_1.Post)(':circleId/transfer'),
-    __param(0, (0, common_1.Req)()),
-    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
-    __param(2, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, Object]),
-    __metadata("design:returntype", Promise)
-], CirclesController.prototype, "transferOwnership", null);
 __decorate([
     (0, common_1.Get)(':circleId/members'),
     __param(0, (0, common_1.Req)()),
@@ -126,6 +124,32 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, add_circle_member_dto_1.AddCircleMemberDto]),
     __metadata("design:returntype", Promise)
 ], CirclesController.prototype, "addMember", null);
+__decorate([
+    (0, common_1.Delete)(':circleId/members/:userId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Param)('userId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "removeMember", null);
+__decorate([
+    (0, common_1.Post)(':circleId/leave'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "leaveCircle", null);
+__decorate([
+    (0, common_1.Post)(':circleId/transfer'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], CirclesController.prototype, "transferOwnership", null);
 exports.CirclesController = CirclesController = __decorate([
     (0, common_1.Controller)('api/circles'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

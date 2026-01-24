@@ -1,20 +1,15 @@
-import { IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class AddCircleMemberDto {
   @IsEmail()
+  @IsNotEmpty()
   email!: string;
 
-  /**
-   * MVP roles. Keep it small for now; extend later.
-   */
   @IsString()
-  @IsIn(['owner', 'household', 'neighbor', 'relative', 'community_admin'])
-  role!: string;
+  @IsIn(['caretaker', 'acting_owner', 'witness'])
+  role!: 'caretaker' | 'acting_owner' | 'witness';
 
-  /**
-   * Optional idempotency key from client to safely retry.
-   */
+  @IsISO8601()
   @IsOptional()
-  @IsString()
-  clientRequestId?: string;
+  validUntil?: string;
 }

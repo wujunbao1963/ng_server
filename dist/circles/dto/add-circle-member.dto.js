@@ -16,16 +16,17 @@ class AddCircleMemberDto {
 exports.AddCircleMemberDto = AddCircleMemberDto;
 __decorate([
     (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], AddCircleMemberDto.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsIn)(['owner', 'household', 'neighbor', 'relative', 'community_admin']),
+    (0, class_validator_1.IsIn)(['caretaker', 'acting_owner', 'witness']),
     __metadata("design:type", String)
 ], AddCircleMemberDto.prototype, "role", void 0);
 __decorate([
+    (0, class_validator_1.IsISO8601)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
-], AddCircleMemberDto.prototype, "clientRequestId", void 0);
+], AddCircleMemberDto.prototype, "validUntil", void 0);
 //# sourceMappingURL=add-circle-member.dto.js.map

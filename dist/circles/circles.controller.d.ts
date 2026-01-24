@@ -9,9 +9,32 @@ export declare class CirclesController {
     createCircle(req: {
         user: JwtUser;
     }, dto: CreateCircleDto): Promise<{
-        circleId: `${string}-${string}-${string}-${string}-${string}`;
-        name: string;
-        createdAt: string;
+        circle: {
+            id: string;
+            name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+        role: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
     }>;
     listMyCircles(req: {
         user: JwtUser;
@@ -20,6 +43,10 @@ export declare class CirclesController {
             id: string;
             name: string;
             role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string | null;
         }[];
         count: number;
     }>;
@@ -29,20 +56,34 @@ export declare class CirclesController {
         circle: {
             id: string;
             name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
             createdAt: string;
+            updatedAt: string;
         };
         myRole: string;
         owner: {
             userId: string;
-            email: string;
+            email: string | null;
             displayName: string | null;
         } | null;
         members: {
+            id: string;
             userId: string;
             email: string | null;
             displayName: string | null;
             role: string;
-            joinedAt: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
         }[];
         memberCount: number;
     }>;
@@ -52,7 +93,36 @@ export declare class CirclesController {
         circle: {
             id: string;
             name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
             createdAt: string;
+            updatedAt: string;
+        };
+    }>;
+    patchCircle(req: {
+        user: JwtUser;
+    }, circleId: string, dto: UpdateCircleDto): Promise<{
+        circle: {
+            id: string;
+            name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
+            createdAt: string;
+            updatedAt: string;
         };
     }>;
     deleteCircle(req: {
@@ -60,6 +130,59 @@ export declare class CirclesController {
     }, circleId: string): Promise<{
         deleted: boolean;
         circleId: string;
+    }>;
+    listMembers(req: {
+        user: JwtUser;
+    }, circleId: string): Promise<{
+        members: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        }[];
+        count: number;
+    }>;
+    addMember(req: {
+        user: JwtUser;
+    }, circleId: string, dto: AddCircleMemberDto): Promise<{
+        created: boolean;
+        role: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
+        message: string;
+    } | {
+        created: boolean;
+        role: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
+        message?: undefined;
+    }>;
+    removeMember(req: {
+        user: JwtUser;
+    }, circleId: string, userId: string): Promise<{
+        removed: boolean;
+        userId: string;
     }>;
     leaveCircle(req: {
         user: JwtUser;
@@ -76,26 +199,5 @@ export declare class CirclesController {
         circleId: string;
         previousOwner: string;
         newOwner: string;
-    }>;
-    listMembers(req: {
-        user: JwtUser;
-    }, circleId: string): Promise<{
-        members: {
-            userId: string;
-            email: string | null;
-            displayName: string | null;
-            role: string;
-            joinedAt: string;
-        }[];
-        count: number;
-    }>;
-    addMember(req: {
-        user: JwtUser;
-    }, circleId: string, dto: AddCircleMemberDto): Promise<{
-        created: boolean;
-        member: {
-            userId: string;
-            role: string;
-        };
     }>;
 }

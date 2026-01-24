@@ -1,82 +1,183 @@
 import { Repository } from 'typeorm';
 import { NgCircle } from './ng-circle.entity';
-import { NgCircleMember } from './ng-circle-member.entity';
 import { NgUser } from '../auth/ng-user.entity';
+import { NgRole } from '../roles/ng-role.entity';
+export interface CreateCircleDto {
+    name: string;
+    propertyType?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+    proximityRadiusM?: number;
+}
+export interface UpdateCircleDto {
+    name?: string;
+    propertyType?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+    proximityRadiusM?: number;
+}
+export interface AddMemberDto {
+    email: string;
+    role: 'caretaker' | 'acting_owner' | 'witness';
+    validUntil?: string;
+}
 export declare class CirclesService {
     private readonly circlesRepo;
-    private readonly membersRepo;
+    private readonly rolesRepo;
     private readonly usersRepo;
-    constructor(circlesRepo: Repository<NgCircle>, membersRepo: Repository<NgCircleMember>, usersRepo: Repository<NgUser>);
-    createCircle(ownerUserId: string, name: string): Promise<{
-        circleId: `${string}-${string}-${string}-${string}-${string}`;
-        name: string;
-        createdAt: string;
-    }>;
-    listMyCircles(userId: string): Promise<{
-        circles: Array<{
+    constructor(circlesRepo: Repository<NgCircle>, rolesRepo: Repository<NgRole>, usersRepo: Repository<NgUser>);
+    createCircle(ownerUserId: string, dto: CreateCircleDto): Promise<{
+        circle: {
             id: string;
             name: string;
-            role: string;
-        }>;
-        count: number;
-    }>;
-    listMembers(requesterUserId: string, circleId: string): Promise<{
-        members: {
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+        role: {
+            id: string;
             userId: string;
             email: string | null;
             displayName: string | null;
             role: string;
-            joinedAt: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
+    }>;
+    listMyCircles(userId: string): Promise<{
+        circles: {
+            id: string;
+            name: string;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string | null;
         }[];
         count: number;
     }>;
-    addMember(requesterUserId: string, circleId: string, dto: {
-        email: string;
-        role: string;
-        clientRequestId?: string;
-    }): Promise<{
-        created: boolean;
-        member: {
-            userId: string;
-            role: string;
-        };
-    }>;
-    mustBeMember(userId: string, circleId: string): Promise<NgCircleMember>;
-    mustHaveRole(userId: string, circleId: string, allowed: string[]): Promise<NgCircleMember>;
-    getCircleOwner(circleId: string): Promise<string | null>;
     getCircleDetail(requesterUserId: string, circleId: string): Promise<{
         circle: {
             id: string;
             name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
             createdAt: string;
+            updatedAt: string;
         };
         myRole: string;
         owner: {
             userId: string;
-            email: string;
+            email: string | null;
             displayName: string | null;
         } | null;
         members: {
+            id: string;
             userId: string;
             email: string | null;
             displayName: string | null;
             role: string;
-            joinedAt: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
         }[];
         memberCount: number;
     }>;
-    updateCircle(requesterUserId: string, circleId: string, dto: {
-        name?: string;
-    }): Promise<{
+    updateCircle(requesterUserId: string, circleId: string, dto: UpdateCircleDto): Promise<{
         circle: {
             id: string;
             name: string;
+            propertyType: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            postalCode: string | null;
+            country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            proximityRadiusM: number;
             createdAt: string;
+            updatedAt: string;
         };
     }>;
     deleteCircle(requesterUserId: string, circleId: string): Promise<{
         deleted: boolean;
         circleId: string;
+    }>;
+    listMembers(requesterUserId: string, circleId: string): Promise<{
+        members: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        }[];
+        count: number;
+    }>;
+    addMember(requesterUserId: string, circleId: string, dto: AddMemberDto): Promise<{
+        created: boolean;
+        role: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
+        message: string;
+    } | {
+        created: boolean;
+        role: {
+            id: string;
+            userId: string;
+            email: string | null;
+            displayName: string | null;
+            role: string;
+            validFrom: string;
+            validUntil: string | null;
+            suspended: boolean;
+            createdAt: string;
+        };
+        message?: undefined;
+    }>;
+    removeMember(requesterUserId: string, circleId: string, targetUserId: string): Promise<{
+        removed: boolean;
+        userId: string;
     }>;
     leaveCircle(requesterUserId: string, circleId: string): Promise<{
         left: boolean;
@@ -88,4 +189,9 @@ export declare class CirclesService {
         previousOwner: string;
         newOwner: string;
     }>;
+    getCircleOwner(circleId: string): Promise<string | null>;
+    mustBeMember(userId: string, circleId: string): Promise<NgRole>;
+    mustHaveRole(userId: string, circleId: string, allowed: string[]): Promise<NgRole>;
+    private formatCircle;
+    private formatRole;
 }

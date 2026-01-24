@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -18,34 +19,50 @@ import { CirclesService } from './circles.service';
 import { JwtUser } from '../auth/auth.types';
 
 /**
- * Circles Controller - 用户侧圈子管理
+ * Circles Controller - Owner 管理 Circle 和成员
  *
- * 端点：
- * - POST   /api/circles              - 创建圈子（成为 owner）
- * - GET    /api/circles              - 列出我的圈子
- * - GET    /api/circles/:id          - 圈子详情
- * - PATCH  /api/circles/:id          - 修改圈子（owner only）
- * - DELETE /api/circles/:id          - 删除圈子（owner only）
- * - POST   /api/circles/:id/leave    - 退出圈子（非 owner）
- * - POST   /api/circles/:id/transfer - 转让 owner（owner only）
- * - GET    /api/circles/:id/members  - 列出成员
- * - POST   /api/circles/:id/members  - 添加成员
+ * Circle 管理:
+ * - POST   /api/circles              - 创建 Circle (需要 canCreateCircle 权限)
+ * - GET    /api/circles              - 列出我的 Circles
+ * - GET    /api/circles/:id          - Circle 详情
+ * - PUT    /api/circles/:id          - 修改 Circle (owner only)
+ * - DELETE /api/circles/:id          - 删除 Circle (owner only)
+ * 
+ * 成员管理:
+ * - GET    /api/circles/:id/members        - 列出成员
+ * - POST   /api/circles/:id/members        - 添加成员 (owner only)
+ * - DELETE /api/circles/:id/members/:uid   - 移除成员 (owner only)
+ * 
+ * 其他操作:
+ * - POST   /api/circles/:id/leave          - 退出 Circle (非 owner)
+ * - POST   /api/circles/:id/transfer       - 转让 owner (owner only)
  */
 @Controller('api/circles')
 @UseGuards(AuthGuard('jwt'))
 export class CirclesController {
   constructor(private readonly circlesService: CirclesService) {}
 
+  // ==========================================================================
+  // Circle CRUD
+  // ==========================================================================
+
   /**
-   * 创建圈子（当前用户成为 owner）
+   * 创建 Circle
+   * 
+   * POST /api/circles
+   * { name, propertyType?, address?, city?, state?, postalCode?, country?, latitude?, longitude? }
+   * 
+   * 要求: 用户必须有 canCreateCircle 权限
    */
   @Post()
   async createCircle(@Req() req: { user: JwtUser }, @Body() dto: CreateCircleDto) {
-    return this.circlesService.createCircle(req.user.userId, dto.name);
+    return this.circlesService.createCircle(req.user.userId, dto);
   }
 
   /**
-   * 列出我的圈子
+   * 列出我的 Circles
+   * 
+   * GET /api/circles
    */
   @Get()
   async listMyCircles(@Req() req: { user: JwtUser }) {
@@ -53,7 +70,9 @@ export class CirclesController {
   }
 
   /**
-   * 获取圈子详情
+   * 获取 Circle 详情
+   * 
+   * GET /api/circles/:circleId
    */
   @Get(':circleId')
   async getCircle(
@@ -64,9 +83,12 @@ export class CirclesController {
   }
 
   /**
-   * 修改圈子（仅 owner）
+   * 修改 Circle (owner only)
+   * 
+   * PUT /api/circles/:circleId
+   * PATCH /api/circles/:circleId
    */
-  @Patch(':circleId')
+  @Put(':circleId')
   async updateCircle(
     @Req() req: { user: JwtUser },
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
@@ -75,8 +97,19 @@ export class CirclesController {
     return this.circlesService.updateCircle(req.user.userId, circleId, dto);
   }
 
+  @Patch(':circleId')
+  async patchCircle(
+    @Req() req: { user: JwtUser },
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Body() dto: UpdateCircleDto,
+  ) {
+    return this.circlesService.updateCircle(req.user.userId, circleId, dto);
+  }
+
   /**
-   * 删除圈子（仅 owner）
+   * 删除 Circle (owner only)
+   * 
+   * DELETE /api/circles/:circleId
    */
   @Delete(':circleId')
   async deleteCircle(
@@ -86,31 +119,14 @@ export class CirclesController {
     return this.circlesService.deleteCircle(req.user.userId, circleId);
   }
 
-  /**
-   * 退出圈子（非 owner）
-   */
-  @Post(':circleId/leave')
-  async leaveCircle(
-    @Req() req: { user: JwtUser },
-    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
-  ) {
-    return this.circlesService.leaveCircle(req.user.userId, circleId);
-  }
-
-  /**
-   * 转让 owner（仅 owner）
-   */
-  @Post(':circleId/transfer')
-  async transferOwnership(
-    @Req() req: { user: JwtUser },
-    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
-    @Body() dto: { newOwnerUserId: string },
-  ) {
-    return this.circlesService.transferOwnership(req.user.userId, circleId, dto.newOwnerUserId);
-  }
+  // ==========================================================================
+  // Member Management
+  // ==========================================================================
 
   /**
    * 列出成员
+   * 
+   * GET /api/circles/:circleId/members
    */
   @Get(':circleId/members')
   async listMembers(
@@ -121,7 +137,10 @@ export class CirclesController {
   }
 
   /**
-   * 添加成员
+   * 添加成员 (owner only)
+   * 
+   * POST /api/circles/:circleId/members
+   * { email, role, validUntil? }
    */
   @Post(':circleId/members')
   async addMember(
@@ -130,5 +149,51 @@ export class CirclesController {
     @Body() dto: AddCircleMemberDto,
   ) {
     return this.circlesService.addMember(req.user.userId, circleId, dto);
+  }
+
+  /**
+   * 移除成员 (owner only)
+   * 
+   * DELETE /api/circles/:circleId/members/:userId
+   */
+  @Delete(':circleId/members/:userId')
+  async removeMember(
+    @Req() req: { user: JwtUser },
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Param('userId', new ParseUUIDPipe({ version: '4' })) userId: string,
+  ) {
+    return this.circlesService.removeMember(req.user.userId, circleId, userId);
+  }
+
+  // ==========================================================================
+  // Other Operations
+  // ==========================================================================
+
+  /**
+   * 退出 Circle (非 owner)
+   * 
+   * POST /api/circles/:circleId/leave
+   */
+  @Post(':circleId/leave')
+  async leaveCircle(
+    @Req() req: { user: JwtUser },
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+  ) {
+    return this.circlesService.leaveCircle(req.user.userId, circleId);
+  }
+
+  /**
+   * 转让 owner (owner only)
+   * 
+   * POST /api/circles/:circleId/transfer
+   * { newOwnerUserId }
+   */
+  @Post(':circleId/transfer')
+  async transferOwnership(
+    @Req() req: { user: JwtUser },
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Body() dto: { newOwnerUserId: string },
+  ) {
+    return this.circlesService.transferOwnership(req.user.userId, circleId, dto.newOwnerUserId);
   }
 }
