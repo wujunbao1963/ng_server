@@ -400,6 +400,12 @@ export class OsheService {
     circleId: string,
     eventId: string,
   ): Promise<void> {
+    // 检查 mediaType 有效性
+    if (!['video', 'image', 'audio'].includes(dto.mediaType)) {
+      throw this.makeError(400, 'INVALID_MEDIA_TYPE',
+        `Invalid media type '${dto.mediaType}'. Allowed: video, image, audio`);
+    }
+
     // 检查文件大小
     if (dto.fileSizeBytes && dto.fileSizeBytes > MAX_FILE_SIZE_BYTES) {
       throw this.makeError(400, 'FILE_TOO_LARGE',
@@ -411,8 +417,8 @@ export class OsheService {
     const extension = fileName.split('.').pop()?.toLowerCase();
     
     if (extension) {
-      const allowedExtensions = ALLOWED_MEDIA_TYPES[dto.mediaType];
-      if (!allowedExtensions.includes(extension)) {
+      const allowedExtensions = ALLOWED_MEDIA_TYPES[dto.mediaType] ?? [];
+      if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
         throw this.makeError(400, 'INVALID_FILE_TYPE',
           `File extension '${extension}' not allowed for media type '${dto.mediaType}'. ` +
           `Allowed: ${allowedExtensions.join(', ')}`);

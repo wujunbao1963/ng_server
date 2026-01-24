@@ -194,14 +194,17 @@ let OsheService = class OsheService {
         return { verified: true, distance };
     }
     async validateFileConstraints(dto, circleId, eventId) {
+        if (!['video', 'image', 'audio'].includes(dto.mediaType)) {
+            throw this.makeError(400, 'INVALID_MEDIA_TYPE', `Invalid media type '${dto.mediaType}'. Allowed: video, image, audio`);
+        }
         if (dto.fileSizeBytes && dto.fileSizeBytes > MAX_FILE_SIZE_BYTES) {
             throw this.makeError(400, 'FILE_TOO_LARGE', `File size ${dto.fileSizeBytes} exceeds maximum ${MAX_FILE_SIZE_BYTES} bytes`);
         }
         const fileName = dto.fileName ?? dto.fileUrl;
         const extension = fileName.split('.').pop()?.toLowerCase();
         if (extension) {
-            const allowedExtensions = ALLOWED_MEDIA_TYPES[dto.mediaType];
-            if (!allowedExtensions.includes(extension)) {
+            const allowedExtensions = ALLOWED_MEDIA_TYPES[dto.mediaType] ?? [];
+            if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
                 throw this.makeError(400, 'INVALID_FILE_TYPE', `File extension '${extension}' not allowed for media type '${dto.mediaType}'. ` +
                     `Allowed: ${allowedExtensions.join(', ')}`);
             }
