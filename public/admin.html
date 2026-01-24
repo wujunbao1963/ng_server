@@ -1944,18 +1944,25 @@ async function showEventDetail(id) {
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   
   try {
-    const res = await fetch(`${state.edgeUrl}/api/incidents/${id}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const e = data.incident || data;
+    // Parallel fetch: incident, evidence, timeline (like app.html)
+    const [incidentRes, evidenceRes, timelineRes] = await Promise.all([
+      fetch(`${state.edgeUrl}/api/incidents/${id}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${state.edgeUrl}/api/incidents/${id}/evidence`).then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
+      fetch(`${state.edgeUrl}/api/incidents/${id}/full-timeline`).then(r => r.ok ? r.json() : { timeline: [] }).catch(() => ({ timeline: [] }))
+    ]);
     
-    // Store for action use
+    if (!incidentRes) throw new Error('无法加载事件');
+    
+    const e = incidentRes.incident || incidentRes;
+    const evidence = evidenceRes.items || evidenceRes.evidence || [];
+    const timeline = timelineRes.timeline || timelineRes.items || [];
+    
+    // Store for action use (include evidence for viewer navigation)
+    e.evidence = evidence;
     state.selectedIncident = e;
     
     const ts = e.threat_state || 'none';
     const loc = e.entry_point_name || e.entry_point_id || '入口';
-    const evidence = e.evidence || [];
-    const timeline = e.timeline || [];
     
     // Check permissions
     const role = state.currentCircle?.role || 'user';
@@ -2015,13 +2022,13 @@ async function showEventDetail(id) {
             `).join('')}
           </div>
         </div>
-      ` : ''}
+      ` : '<div class="mb-4 text-muted" style="padding: 12px; background: var(--gray-50); border-radius: 8px;">暂无证据</div>'}
       
       ${timeline.length > 0 ? `
         <div class="mb-4">
           <h4 class="mb-2">时间线</h4>
           <div class="timeline">
-            ${timeline.slice(0, 8).map(t => `
+            ${timeline.slice(0, 12).map(t => `
               <div class="timeline-item">
                 <span class="timeline-time">${formatTime(t.timestamp)}</span>
                 <span class="timeline-content">${t.description || t.event_type || '-'}</span>
