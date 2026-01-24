@@ -695,6 +695,23 @@
       </div>
     </div>
 
+    <!-- Confirm Action Modal -->
+    <div id="confirmModal" class="modal">
+      <div class="modal-content" style="max-width: 360px;">
+        <div class="modal-header">
+          <span class="modal-title" id="confirmTitle">确认操作</span>
+          <button class="btn-icon" onclick="closeModal('confirmModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMsg">确认执行此操作？</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('confirmModal')">取消</button>
+          <button class="btn btn-primary" id="confirmBtn" onclick="executeConfirmedAction()">确认</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -737,6 +754,9 @@ const state = {
   currentMode: 'disarmed',
   events: [],
   eventsFilter: 'all',
+  // Event action state
+  selectedIncident: null,
+  pendingAction: null,
 };
 
 // Refresh intervals
@@ -1895,22 +1915,41 @@ async function showEventDetail(id) {
     const data = await res.json();
     const e = data.incident || data;
     
+    // Store for action use
+    state.selectedIncident = e;
+    
     const ts = e.threat_state || 'none';
     const loc = e.entry_point_name || e.entry_point_id || '入口';
     const evidence = e.evidence || [];
     const timeline = e.timeline || [];
     
+    // Check permissions
+    const role = state.currentCircle?.role || 'user';
+    const canResolve = ROLE_PERMISSIONS[role]?.resolveEvents && e.is_active;
+    
+    // State labels
+    const stateLabels = { 
+      'triggered': '🚨 已触发', 
+      'pending': '⏳ 入口延时', 
+      'pre_l1': '👁️ 观察中', 
+      'pre_l2': '👁️ 持续观察', 
+      'resolved': '✅ 已处理', 
+      'canceled': '❌ 已取消', 
+      'none': '记录' 
+    };
+    const stateLabel = stateLabels[ts] || ts;
+    
     content.innerHTML = `
       <div class="mb-4">
-        <h3>【${loc}】${ts}</h3>
-        <p class="text-sm text-muted">${e.incident_id}</p>
+        <h3>【${loc}】</h3>
+        <p class="text-sm" style="margin-top: 4px;">
+          <span class="badge ${e.is_active ? 'badge-warning' : 'badge-success'}">${e.is_active ? '进行中' : '已结束'}</span>
+          <span style="margin-left: 8px;">${stateLabel}</span>
+        </p>
+        <p class="text-sm text-muted" style="margin-top: 4px;">${e.incident_id}</p>
       </div>
       
       <div class="info-grid mb-4">
-        <div class="info-item">
-          <div class="info-label">状态</div>
-          <div class="info-value">${e.is_active ? '进行中' : '已结束'}</div>
-        </div>
         <div class="info-item">
           <div class="info-label">触发原因</div>
           <div class="info-value">${e.trigger_reason || '-'}</div>
@@ -1922,6 +1961,10 @@ async function showEventDetail(id) {
         <div class="info-item">
           <div class="info-label">证据数量</div>
           <div class="info-value">${evidence.length}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">解决方式</div>
+          <div class="info-value">${e.resolution || '-'}</div>
         </div>
       </div>
       
@@ -1940,7 +1983,7 @@ async function showEventDetail(id) {
       ` : ''}
       
       ${timeline.length > 0 ? `
-        <div>
+        <div class="mb-4">
           <h4 class="mb-2">时间线</h4>
           <div class="timeline">
             ${timeline.slice(0, 8).map(t => `
@@ -1950,6 +1993,26 @@ async function showEventDetail(id) {
               </div>
             `).join('')}
           </div>
+        </div>
+      ` : ''}
+      
+      ${canResolve ? `
+        <div style="border-top: 1px solid var(--gray-200); padding-top: 16px; margin-top: 16px;">
+          <h4 class="mb-2">操作</h4>
+          <div class="flex gap-2" style="flex-wrap: wrap;">
+            <button class="btn btn-success" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">
+              ✅ 确认安全
+            </button>
+            <button class="btn btn-outline" onclick="confirmEventAction('dismiss', '标记误报', '确认将此事件标记为误报？')">
+              ❌ 误报
+            </button>
+            ${ts === 'triggered' ? `
+              <button class="btn btn-warning" onclick="confirmEventAction('silence', '静音警报', '确认关闭警报声音？')">
+                🔇 静音
+              </button>
+            ` : ''}
+          </div>
+          <p class="text-sm text-muted" style="margin-top: 8px;">以 ${role} 身份操作</p>
         </div>
       ` : ''}
     `;
@@ -1967,6 +2030,107 @@ function viewEvidence(key, type) {
     document.getElementById('videoTitle').textContent = key;
     document.getElementById('videoPlayer').src = url;
     openModal('videoModal');
+  }
+}
+
+// =============================================================================
+// Event Actions (RAHA)
+// =============================================================================
+function confirmEventAction(action, title, msg) {
+  state.pendingAction = action;
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  
+  // Update button style based on action
+  const btn = document.getElementById('confirmBtn');
+  btn.className = 'btn ' + (action === 'dismiss' ? 'btn-warning' : action === 'silence' ? 'btn-warning' : 'btn-success');
+  
+  openModal('confirmModal');
+}
+
+async function executeConfirmedAction() {
+  const action = state.pendingAction;
+  const incident = state.selectedIncident;
+  
+  closeModal('confirmModal');
+  
+  if (!action || !incident) {
+    toast('操作无效', 'error');
+    return;
+  }
+  
+  // Map action to RAHA action
+  const rahaActions = {
+    'resolve': 'RESOLVE',
+    'dismiss': 'DISMISS',
+    'silence': 'STOP_SIREN',
+    'disarm': 'DISARM'
+  };
+  
+  const rahaAction = rahaActions[action];
+  if (!rahaAction) {
+    toast('未知操作', 'error');
+    return;
+  }
+  
+  // Get role
+  const role = state.currentCircle?.role || 'owner';
+  
+  // Build RAHA request
+  const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  const body = {
+    requestId: requestId,
+    eventId: incident.incident_id,
+    actorId: state.user?.id || 'cloud_user',
+    actorRole: role,
+    action: rahaAction
+  };
+  
+  console.log('RAHA request:', body);
+  
+  try {
+    const res = await fetch(`${state.edgeUrl}/api/raha/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    
+    const data = await res.json().catch(() => ({}));
+    console.log('RAHA response:', res.status, data);
+    
+    if (!res.ok) {
+      toast(data.detail || data.error || '操作失败', 'error');
+      return;
+    }
+    
+    if (data.accepted === false) {
+      const rejectMsg = {
+        'RESOLVER_LOCKED': '其他人正在处理此事件',
+        'ROLE_INVALID': '角色无效',
+        'ROLE_EXPIRED': '角色已过期',
+        'POLICY_DENIED': '操作被策略拒绝',
+        'BAD_REQUEST': '请求无效'
+      };
+      toast(rejectMsg[data.rejectedCode] || data.rejectedCode || '操作被拒绝', 'error');
+      return;
+    }
+    
+    toast('操作成功', 'success');
+    closeModal('eventDetailModal');
+    
+    // Clear state
+    state.selectedIncident = null;
+    state.pendingAction = null;
+    
+    // Refresh events after delay
+    setTimeout(() => {
+      loadEdgeEvents();
+      loadEdgeStatus();
+    }, 500);
+    
+  } catch (e) {
+    console.error('RAHA error:', e);
+    toast('操作失败: ' + e.message, 'error');
   }
 }
 
