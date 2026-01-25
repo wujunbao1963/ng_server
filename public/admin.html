@@ -1596,27 +1596,26 @@ async function openCreateTaskModal() {
   resetTaskForm();
   openModal('createTaskModal');
   
-  // 加载活跃事件供选择
+  // 从已加载的事件中筛选活跃事件
   const select = document.getElementById('taskEventId');
-  select.innerHTML = '<option value="">-- 加载中... --</option>';
   
-  const edgeUrl = getEdgeUrl();
-  if (edgeUrl) {
-    try {
-      const res = await fetch(`${edgeUrl}/api/incidents?filter=active`);
-      if (res.ok) {
-        const data = await res.json();
-        const events = data.incidents || [];
-        select.innerHTML = '<option value="">-- 无关联事件（独立任务）--</option>' + 
-          events.map(e => `<option value="${e.incident_id}">${e.location || '未知位置'} - ${e.threat_state} (${formatDateTime(e.created_at)})</option>`).join('');
-      } else {
-        select.innerHTML = '<option value="">-- 无活跃事件 --</option>';
-      }
-    } catch {
-      select.innerHTML = '<option value="">-- 无法加载事件 --</option>';
-    }
-  } else {
+  // 使用已加载的 state.events 数据
+  const activeEvents = state.events.filter(e => e.is_active);
+  
+  if (activeEvents.length > 0) {
+    select.innerHTML = '<option value="">-- 无关联事件（独立任务）--</option>' + 
+      activeEvents.map(e => {
+        const loc = e.entry_point_name || e.entry_point_id || '未知入口';
+        const threatLabels = { none: '正常', pre: '警戒', pending: '待确认', triggered: '已触发' };
+        return `<option value="${e.incident_id}">${loc} - ${threatLabels[e.threat_state] || e.threat_state} (${formatDateTime(e.created_at)})</option>`;
+      }).join('');
+  } else if (state.events.length > 0) {
+    // 有事件但没有活跃的
+    select.innerHTML = '<option value="">-- 无活跃事件 --</option>';
+  } else if (!state.edgeConnected) {
     select.innerHTML = '<option value="">-- 未连接 Edge --</option>';
+  } else {
+    select.innerHTML = '<option value="">-- 暂无事件 --</option>';
   }
 }
 
@@ -1634,16 +1633,19 @@ function requestHelpForEvent(eventId) {
   // 重置表单
   resetTaskForm();
   
+  // 获取位置信息（使用正确的字段名）
+  const location = incident.entry_point_name || incident.entry_point_id || '';
+  
   // 自动填充事件信息
   document.getElementById('taskEventIdHidden').value = eventId;
-  document.getElementById('taskTargetEntryHidden').value = incident.location || incident.entry_point || '';
+  document.getElementById('taskTargetEntryHidden').value = location;
   
   // 显示事件信息（只读）
-  const location = incident.location || incident.entry_point || '未知位置';
+  const displayLocation = location || '未知入口';
   const threatState = incident.threat_state || '';
   const threatLabels = { none: '正常', pre: '警戒', pending: '待确认', triggered: '已触发' };
   
-  document.getElementById('taskEventTitle').textContent = `📍 ${location}`;
+  document.getElementById('taskEventTitle').textContent = `📍 ${displayLocation}`;
   document.getElementById('taskEventMeta').textContent = `状态: ${threatLabels[threatState] || threatState} | ${formatDateTime(incident.created_at)}`;
   document.getElementById('taskEventDisplay').style.display = 'block';
   document.getElementById('taskEventId').style.display = 'none';
@@ -1652,7 +1654,7 @@ function requestHelpForEvent(eventId) {
   document.getElementById('taskEntryGroup').style.display = 'none';
   
   // 自动生成标题
-  document.getElementById('taskTitle').value = `协助确认: ${location}`;
+  document.getElementById('taskTitle').value = `协助确认: ${displayLocation}`;
   
   // 打开 Modal
   openModal('createTaskModal');
