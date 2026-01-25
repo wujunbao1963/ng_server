@@ -17,6 +17,10 @@ export interface CreateTaskDto {
   title: string;
   description?: string;
   eventId?: string;
+  // === E3: 协助请求字段 ===
+  purpose?: string;      // CONFIRM_SAFETY,PHOTO_CHECK,VIDEO_CHECK (逗号分隔)
+  targetEntry?: string;  // front_door | back_door | garage | side_door | window | yard | other
+  // TTL 配置
   claimTtlSec?: number;    // default 600 (10 min)
   arriveTtlSec?: number;   // default 1200 (20 min)
   submitTtlSec?: number;   // default 600 (10 min)
@@ -35,8 +39,17 @@ export interface ArriveDto {
 }
 
 export interface SubmitDto {
+  // === E3: 结构化结论 ===
+  conclusion?: 'SAFE' | 'ABNORMAL' | 'NEEDS_ACTION';
+  conclusionNote?: string;
+  // 旧字段，保留兼容
   notes?: string;
   photos?: Array<{ url: string }>;
+}
+
+// === E3: 风险退出 DTO ===
+export interface RiskAbortDto {
+  reason: string;
 }
 
 // ============================================================================
@@ -47,6 +60,7 @@ export interface SubmitDto {
  * Witness Tasks Service
  * 
  * 实现: NG_PRODUCT_SPEC_L2_v8 §4.3 Witness Assistance Flow
+ * 实现: E3_NG_COLLAB_TASK_MODEL_v8 协助任务模型
  * 
  * 任务流程:
  * 1. Owner/Caretaker 创建任务 → CREATED
@@ -55,6 +69,9 @@ export interface SubmitDto {
  * 4. Witness 到达 (proximity 验证) → ARRIVED
  * 5. Witness 提交报告 → SUBMITTED
  * 6. Creator 关闭 → CLOSED
+ * 
+ * 异常流程:
+ * - RISK_ABORTED: Witness 风险退出 (现场危险)
  */
 @Injectable()
 export class WitnessTasksService {
@@ -94,6 +111,10 @@ export class WitnessTasksService {
       eventId: dto.eventId ?? null,
       title: dto.title,
       description: dto.description ?? null,
+      // === E3: 协助请求字段 ===
+      purpose: dto.purpose ?? null,
+      targetEntry: dto.targetEntry ?? null,
+      // =========================
       status: 'created',
       creatorUserId: userId,
       creatorRole: role.role as 'owner' | 'caretaker',
@@ -297,13 +318,55 @@ export class WitnessTasksService {
 
     task.status = 'submitted';
     task.submittedAt = new Date();
-    task.submissionNotes = dto.notes ?? null;
+    
+    // === E3: 结构化结论 ===
+    task.conclusion = dto.conclusion ?? null;
+    task.conclusionNote = dto.conclusionNote ?? null;
+    
+    // 旧字段，保留兼容 (notes 映射到 submissionNotes)
+    task.submissionNotes = dto.notes ?? dto.conclusionNote ?? null;
     task.submissionPhotos = dto.photos?.map(p => ({
       url: p.url,
       uploadedAt: new Date().toISOString(),
     })) ?? null;
 
     await this.tasksRepo.save(task);
+    return task;
+  }
+
+  /**
+   * 风险退出 (Witness) - E3 规范
+   * 
+   * POST /api/circles/:circleId/witness-tasks/:taskId/risk-abort
+   * 
+   * Witness 可在 CLAIMED 或 ARRIVED 状态下标记风险退出
+   */
+  async riskAbortTask(userId: string, circleId: string, taskId: string, dto: RiskAbortDto): Promise<NgWitnessTask> {
+    await this.circles.mustHaveRole(userId, circleId, ['witness']);
+
+    const task = await this.getTaskOrThrow(taskId, circleId);
+
+    // 只有 CLAIMED 或 ARRIVED 状态可以风险退出
+    if (!['claimed', 'arrived'].includes(task.status)) {
+      throw this.makeError(400, 'INVALID_STATE', `Cannot risk-abort task in status: ${task.status}`);
+    }
+
+    if (task.witnessUserId !== userId) {
+      throw this.makeError(403, NgErrorCodes.FORBIDDEN, 'You are not the assigned witness');
+    }
+
+    if (!dto.reason || dto.reason.trim().length === 0) {
+      throw this.makeError(400, 'INVALID_INPUT', 'Risk abort reason is required');
+    }
+
+    task.status = 'risk_aborted';
+    task.riskAbortReason = dto.reason;
+    task.riskAbortedAt = new Date();
+
+    await this.tasksRepo.save(task);
+    
+    // TODO: 通知 Creator (Owner/Caretaker) 任务被风险退出
+    
     return task;
   }
 
@@ -386,9 +449,27 @@ export class WitnessTasksService {
 
     const where: any = { circleId };
 
-    // Witness 只能看到与自己相关的任务
+    // Witness 只能看到与自己相关的任务 + offered 状态的任务
     if (role.role === 'witness') {
-      where.witnessUserId = userId;
+      // Witness 可以看到: offered (可领取) + 自己参与的任务
+      const [offeredTasks, myTasks] = await Promise.all([
+        this.tasksRepo.find({
+          where: { circleId, status: 'offered' },
+          order: { createdAt: 'DESC' },
+        }),
+        this.tasksRepo.find({
+          where: { circleId, witnessUserId: userId },
+          order: { createdAt: 'DESC' },
+        }),
+      ]);
+      
+      // 合并去重
+      const taskMap = new Map<string, NgWitnessTask>();
+      [...offeredTasks, ...myTasks].forEach(t => taskMap.set(t.id, t));
+      const tasks = Array.from(taskMap.values())
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      return { tasks, total: tasks.length };
     }
 
     if (opts?.status) {

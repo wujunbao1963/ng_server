@@ -10,11 +10,14 @@ import {
  * Witness Task Entity
  * 
  * 实现: NG_PRODUCT_SPEC_L2_v8 §4.3 Witness Assistance Flow
+ * 实现: E3_NG_COLLAB_TASK_MODEL_v8 协助任务模型
  * 
  * 状态流转:
  * CREATED → OFFERED → CLAIMED → ARRIVED → SUBMITTED → CLOSED
  *                 ↘         ↘         ↘
  *               EXPIRED  ABANDONED  CANCELED
+ *                           ↘
+ *                      RISK_ABORTED
  */
 @Entity({ name: 'ng_witness_tasks' })
 export class NgWitnessTask {
@@ -25,8 +28,9 @@ export class NgWitnessTask {
   @Column({ type: 'uuid', name: 'circle_id' })
   circleId!: string;
 
+  // 使用 varchar 兼容 Edge incident_id 格式 (如 "inc_xxx")
   @Index()
-  @Column({ type: 'uuid', name: 'event_id', nullable: true })
+  @Column({ type: 'varchar', length: 100, name: 'event_id', nullable: true })
   eventId!: string | null;
 
   // Task 信息
@@ -36,10 +40,19 @@ export class NgWitnessTask {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
-  // 状态
+  // === E3: 协助请求字段 ===
+  // purpose: CONFIRM_SAFETY | PHOTO_CHECK | VIDEO_CHECK (可多选，逗号分隔)
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  purpose!: string | null;
+
+  // targetEntry: front_door | back_door | garage | side_door | window | yard | other
+  @Column({ type: 'varchar', length: 100, name: 'target_entry', nullable: true })
+  targetEntry!: string | null;
+
+  // 状态 - 添加 risk_aborted
   @Index()
   @Column({ type: 'varchar', length: 20, default: 'created' })
-  status!: 'created' | 'offered' | 'claimed' | 'arrived' | 'submitted' | 'closed' | 'canceled' | 'expired' | 'abandoned';
+  status!: 'created' | 'offered' | 'claimed' | 'arrived' | 'submitted' | 'closed' | 'canceled' | 'expired' | 'abandoned' | 'risk_aborted';
 
   // 参与者
   @Column({ type: 'uuid', name: 'creator_user_id' })
@@ -107,7 +120,15 @@ export class NgWitnessTask {
   @Column({ type: 'varchar', length: 100, name: 'proximity_failure_reason', nullable: true })
   proximityFailureReason!: string | null;
 
-  // 提交内容
+  // === E3: 结构化结论 ===
+  // conclusion: SAFE | ABNORMAL | NEEDS_ACTION
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  conclusion!: 'SAFE' | 'ABNORMAL' | 'NEEDS_ACTION' | null;
+
+  @Column({ type: 'text', name: 'conclusion_note', nullable: true })
+  conclusionNote!: string | null;
+
+  // 提交内容 (旧字段，保留兼容)
   @Column({ type: 'text', name: 'submission_notes', nullable: true })
   submissionNotes!: string | null;
 
@@ -120,6 +141,13 @@ export class NgWitnessTask {
 
   @Column({ type: 'varchar', length: 200, name: 'cancel_reason', nullable: true })
   cancelReason!: string | null;
+
+  // === E3: 风险退出 ===
+  @Column({ type: 'text', name: 'risk_abort_reason', nullable: true })
+  riskAbortReason!: string | null;
+
+  @Column({ type: 'timestamptz', name: 'risk_aborted_at', nullable: true })
+  riskAbortedAt!: Date | null;
 
   // 元数据
   @Column({ type: 'jsonb', nullable: true })

@@ -306,6 +306,34 @@
     .task-status.submitted { background: #f3e8ff; color: #6b21a8; }
     .task-status.closed, .task-status.canceled { background: var(--gray-100); color: var(--gray-500); }
 
+    /* Evidence Item */
+    .evidence-item {
+      position: relative;
+      display: inline-block;
+    }
+    .evidence-item img, .evidence-item video {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--gray-200);
+    }
+    
+    /* Section Header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      margin-top: 20px;
+    }
+    .section-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+    .section-header:first-child { margin-top: 0; }
+
     /* Mode Card (from app.html) */
     .mode-card {
       background: white;
@@ -847,6 +875,86 @@
       </div>
     </div>
 
+    <!-- Arrive Confirmation Modal (Witness) -->
+    <div id="arriveModal" class="modal">
+      <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+          <span class="modal-title">📍 到场确认</span>
+          <button class="btn-icon" onclick="closeModal('arriveModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="arriveStatus" class="text-center" style="padding: 20px;">
+            <p>点击下方按钮获取当前位置</p>
+            <button class="btn btn-primary" onclick="getLocationAndArrive()">📍 获取位置并确认到场</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('arriveModal')">取消</button>
+          <button class="btn btn-danger btn-sm" onclick="riskAbort()" style="margin-left: auto;">⚠️ 风险退出</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Feedback Modal (Witness) -->
+    <div id="submitModal" class="modal">
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+          <span class="modal-title">📝 提交反馈</span>
+          <button class="btn-icon" onclick="closeModal('submitModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- 结论选择 -->
+          <div class="form-group">
+            <label class="form-label">现场结论 *</label>
+            <select id="conclusionSelect" class="form-input" required>
+              <option value="">-- 请选择 --</option>
+              <option value="SAFE">✅ 现场安全，无异常</option>
+              <option value="ABNORMAL">⚠️ 发现异常情况</option>
+              <option value="NEEDS_ACTION">🚨 需要进一步处理</option>
+            </select>
+          </div>
+          
+          <!-- 备注 -->
+          <div class="form-group">
+            <label class="form-label">补充说明</label>
+            <textarea id="conclusionNote" class="form-input" rows="2" placeholder="描述现场情况..."></textarea>
+          </div>
+          
+          <!-- 证据上传 -->
+          <div class="form-group">
+            <label class="form-label">证据附件</label>
+            <p class="text-sm text-muted mb-2">照片≤3张 · 视频≤10秒</p>
+            <div id="evidencePreview" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+            <label class="btn btn-outline" style="cursor: pointer;">
+              📷 添加照片/视频
+              <input type="file" id="evidenceInput" accept="image/*,video/*" multiple style="display: none;" onchange="handleEvidenceSelect(this)">
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger btn-sm" onclick="riskAbort()">⚠️ 风险退出</button>
+          <div style="flex: 1;"></div>
+          <button class="btn btn-outline" onclick="closeModal('submitModal')">取消</button>
+          <button class="btn btn-primary" onclick="submitTaskFeedback()">提交反馈</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="taskDetailModal" class="modal">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <span class="modal-title" id="taskDetailTitle">任务详情</span>
+          <button class="btn-icon" onclick="closeModal('taskDetailModal')">✕</button>
+        </div>
+        <div class="modal-body" id="taskDetailContent">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <div class="modal-footer" id="taskDetailFooter">
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script>
@@ -901,6 +1009,10 @@ const state = {
   snapshotInterval: null,
   snapshotErrorCount: 0,
   snapshotDisabled: false,
+  // Witness task state
+  currentTask: null,
+  currentTaskId: null,
+  taskEvidence: [],
 };
 
 // Refresh intervals
@@ -1064,6 +1176,8 @@ function buildNavigation() {
   const isAdmin = state.user?.isAdmin;
   const role = state.currentCircle?.role || 'user';
   const canViewDashboard = ['owner', 'caretaker', 'acting_owner'].includes(role);
+  const canManage = ['owner', 'caretaker'].includes(role);
+  const isWitness = role === 'witness';
   
   const tabs = [
     // SuperAdmin 专用标签
@@ -1073,9 +1187,9 @@ function buildNavigation() {
       ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
       ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
       ...(canViewDashboard ? [{ id: 'live', icon: '📹', label: '实时视频' }] : []),
-      { id: 'members', icon: '👥', label: '成员' },
-      { id: 'tasks', icon: '📋', label: '任务' },
-      { id: 'edge', icon: '📡', label: 'Edge' },
+      ...(canManage ? [{ id: 'members', icon: '👥', label: '成员' }] : []),
+      { id: 'tasks', icon: '📋', label: isWitness ? '我的任务' : '任务' },
+      ...(canManage ? [{ id: 'edge', icon: '📡', label: 'Edge' }] : []),
     ] : []),
   ];
   
@@ -1461,14 +1575,29 @@ async function loadTasks() {
   }
 }
 
+// 加载可领取的任务（Witness 用）
 function renderTasksPage(container) {
   if (!state.currentCircle) {
     container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
     return;
   }
+  
+  const role = state.currentCircle.role;
+  const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(role);
+  const isWitness = role === 'witness';
+  
   container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  
+  if (isWitness) {
+    renderWitnessTasksPage(container);
+  } else {
+    renderOwnerTasksPage(container, isOwnerOrCaretaker);
+  }
+}
+
+// Owner/Caretaker 任务管理视图
+function renderOwnerTasksPage(container, isOwnerOrCaretaker) {
   loadTasks().then(() => {
-    const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(state.currentCircle.role);
     const statusLabels = { created: '已创建', offered: '已发布', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已关闭', canceled: '已取消' };
     container.innerHTML = `
       <div class="flex-between mb-4">
@@ -1486,43 +1615,122 @@ function renderTasksPage(container) {
         </div>
       ` : `
         <div class="card">
-          ${state.tasks.map(t => {
-            const purposeLabels = { 
-              CONFIRM_SAFETY: '🔍 确认', 
-              PHOTO_CHECK: '📷 拍照', 
-              VIDEO_CHECK: '🎬 视频' 
-            };
-            const entryLabels = {
-              front_door: '前门', back_door: '后门', garage: '车库',
-              side_door: '侧门', window: '窗户', yard: '院子', other: '其他'
-            };
-            // purpose 可能是逗号分隔的多个值
-            const purposes = (t.purpose || '').split(',').filter(p => p);
-            const purposeBadges = purposes.map(p => `<span class="badge badge-info" style="font-size: 11px; margin-right: 4px;">${purposeLabels[p.trim()] || p}</span>`).join('');
-            
-            return `
-            <div class="list-item">
-              <div class="list-item-left">
-                <div class="list-item-content">
-                  <div class="list-item-title">${t.title || 'Task'}</div>
-                  <div class="list-item-subtitle">
-                    ${purposeBadges}
-                    ${t.targetEntry ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">📍 ${entryLabels[t.targetEntry] || t.targetEntry}</span>` : ''}
-                    <span class="text-muted">${t.description || ''}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="list-item-right">
-                <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
-                ${t.status === 'created' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-primary" onclick="offerTask('${t.id}')">发布</button>` : ''}
-                ${t.status === 'submitted' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>` : ''}
-              </div>
-            </div>
-          `}).join('')}
+          ${state.tasks.map(t => renderTaskItem(t, isOwnerOrCaretaker, false)).join('')}
         </div>
       `}
     `;
   });
+}
+
+// Witness 任务视图
+async function renderWitnessTasksPage(container) {
+  // 加载圈子内的任务
+  await loadTasks();
+  const allTasks = state.tasks || [];
+  
+  // 筛选可领取的任务（offered 状态，且未被领取）
+  const claimableTasks = allTasks.filter(t => t.status === 'offered');
+  
+  // 筛选我领取的任务（claimed/arrived/submitted 且是我领取的）
+  const myTasks = allTasks.filter(t => 
+    t.witnessUserId === state.user?.id && 
+    ['claimed', 'arrived', 'submitted', 'closed'].includes(t.status)
+  );
+  
+  container.innerHTML = `
+    <div class="mb-4">
+      <h2>协助任务</h2>
+      <p class="text-sm text-muted">帮助邻居确认现场安全</p>
+    </div>
+    
+    <!-- 可领取任务 -->
+    <div class="section-header">
+      <h3>📋 可领取任务</h3>
+    </div>
+    ${claimableTasks.length === 0 ? `
+      <div class="card mb-4">
+        <div class="empty-state" style="padding: 24px;">
+          <p class="text-muted">暂无可领取的任务</p>
+        </div>
+      </div>
+    ` : `
+      <div class="card mb-4">
+        ${claimableTasks.map(t => renderTaskItem(t, false, true)).join('')}
+      </div>
+    `}
+    
+    <!-- 我的任务 -->
+    <div class="section-header">
+      <h3>👤 我的任务</h3>
+    </div>
+    ${myTasks.length === 0 ? `
+      <div class="card">
+        <div class="empty-state" style="padding: 24px;">
+          <p class="text-muted">暂无进行中的任务</p>
+        </div>
+      </div>
+    ` : `
+      <div class="card">
+        ${myTasks.map(t => renderTaskItem(t, false, true)).join('')}
+      </div>
+    `}
+  `;
+}
+
+// 渲染单个任务项
+function renderTaskItem(t, isOwnerOrCaretaker, isWitnessView) {
+  const statusLabels = { created: '已创建', offered: '待领取', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已完成', canceled: '已取消' };
+  const purposeLabels = { 
+    CONFIRM_SAFETY: '🔍 确认', 
+    PHOTO_CHECK: '📷 拍照', 
+    VIDEO_CHECK: '🎬 视频' 
+  };
+  const entryLabels = {
+    front_door: '前门', back_door: '后门', garage: '车库',
+    side_door: '侧门', window: '窗户', yard: '院子', other: '其他'
+  };
+  
+  const purposes = (t.purpose || '').split(',').filter(p => p);
+  const purposeBadges = purposes.map(p => `<span class="badge badge-info" style="font-size: 11px; margin-right: 4px;">${purposeLabels[p.trim()] || p}</span>`).join('');
+  
+  // 根据状态和角色显示不同的操作按钮
+  let actionBtns = '';
+  if (isOwnerOrCaretaker) {
+    // Owner/Caretaker 操作
+    if (t.status === 'created') {
+      actionBtns = `<button class="btn btn-sm btn-primary" onclick="offerTask('${t.id}')">发布</button>`;
+    } else if (t.status === 'submitted') {
+      actionBtns = `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>`;
+    }
+  } else if (isWitnessView) {
+    // Witness 操作
+    if (t.status === 'offered') {
+      actionBtns = `<button class="btn btn-sm btn-primary" onclick="claimTask('${t.id}')">领取</button>`;
+    } else if (t.status === 'claimed') {
+      actionBtns = `<button class="btn btn-sm btn-warning" onclick="openArriveModal('${t.id}')">到场确认</button>`;
+    } else if (t.status === 'arrived') {
+      actionBtns = `<button class="btn btn-sm btn-success" onclick="openSubmitModal('${t.id}')">提交反馈</button>`;
+    }
+  }
+  
+  return `
+    <div class="list-item" onclick="showTaskDetail('${t.id}')" style="cursor: pointer;">
+      <div class="list-item-left">
+        <div class="list-item-content">
+          <div class="list-item-title">${t.title || 'Task'}</div>
+          <div class="list-item-subtitle">
+            ${purposeBadges}
+            ${t.targetEntry ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">📍 ${entryLabels[t.targetEntry] || t.targetEntry}</span>` : ''}
+            <span class="text-muted">${t.description || ''}</span>
+          </div>
+        </div>
+      </div>
+      <div class="list-item-right" onclick="event.stopPropagation();">
+        <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
+        ${actionBtns}
+      </div>
+    </div>
+  `;
 }
 
 async function handleCreateTask(e) {
@@ -1674,6 +1882,393 @@ async function closeTask(id) {
   try {
     await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/close`, { method: 'POST' });
     toast('任务已关闭', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// =============================================================================
+// Witness 操作函数
+// =============================================================================
+
+// 领取任务
+async function claimTask(id) {
+  if (!confirm('确认领取此任务？领取后需要在规定时间内完成。')) return;
+  
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/claim`, { method: 'POST' });
+    toast('任务已领取', 'success');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// 打开到场确认 Modal
+function openArriveModal(taskId) {
+  state.currentTaskId = taskId;
+  document.getElementById('arriveStatus').innerHTML = `
+    <div class="text-center">
+      <p>点击下方按钮获取当前位置</p>
+      <button class="btn btn-primary" onclick="getLocationAndArrive()">📍 获取位置并确认到场</button>
+    </div>
+  `;
+  openModal('arriveModal');
+}
+
+// 获取 GPS 位置并确认到场
+async function getLocationAndArrive() {
+  const statusEl = document.getElementById('arriveStatus');
+  
+  if (!navigator.geolocation) {
+    statusEl.innerHTML = '<p class="text-danger">您的浏览器不支持地理位置功能</p>';
+    return;
+  }
+  
+  statusEl.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在获取位置...</p></div>';
+  
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude, accuracy } = position.coords;
+      statusEl.innerHTML = `
+        <div class="text-center">
+          <p>📍 位置已获取</p>
+          <p class="text-sm text-muted">精度: ${accuracy.toFixed(0)}m</p>
+          <div class="loading"><div class="spinner"></div><p>正在验证...</p></div>
+        </div>
+      `;
+      
+      try {
+        const result = await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/arrive`, {
+          method: 'POST',
+          body: { latitude, longitude, accuracy }
+        });
+        
+        if (result.proximityVerified) {
+          statusEl.innerHTML = `
+            <div class="text-center">
+              <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+              <p class="text-success">到场确认成功</p>
+            </div>
+          `;
+          toast('到场确认成功', 'success');
+          setTimeout(() => {
+            closeModal('arriveModal');
+            renderCurrentTab();
+          }, 1500);
+        } else {
+          statusEl.innerHTML = `
+            <div class="text-center">
+              <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+              <p class="text-warning">位置验证未通过</p>
+              <p class="text-sm text-muted">${result.proximityFailureReason || '请靠近目标位置后重试'}</p>
+              <button class="btn btn-primary mt-3" onclick="getLocationAndArrive()">重试</button>
+            </div>
+          `;
+        }
+      } catch (err) {
+        statusEl.innerHTML = `
+          <div class="text-center">
+            <p class="text-danger">确认失败: ${err.message}</p>
+            <button class="btn btn-primary mt-3" onclick="getLocationAndArrive()">重试</button>
+          </div>
+        `;
+      }
+    },
+    (error) => {
+      let msg = '无法获取位置';
+      if (error.code === 1) msg = '请允许位置访问权限';
+      else if (error.code === 2) msg = '位置不可用';
+      else if (error.code === 3) msg = '获取位置超时';
+      
+      statusEl.innerHTML = `
+        <div class="text-center">
+          <p class="text-danger">${msg}</p>
+          <button class="btn btn-primary mt-3" onclick="getLocationAndArrive()">重试</button>
+        </div>
+      `;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// 打开提交反馈 Modal
+function openSubmitModal(taskId) {
+  state.currentTaskId = taskId;
+  state.taskEvidence = [];
+  
+  // 重置表单
+  document.getElementById('conclusionSelect').value = '';
+  document.getElementById('conclusionNote').value = '';
+  document.getElementById('evidencePreview').innerHTML = '';
+  document.getElementById('evidenceInput').value = '';
+  
+  openModal('submitModal');
+}
+
+// 添加证据（照片/视频）
+function handleEvidenceSelect(input) {
+  const files = Array.from(input.files);
+  const maxPhotos = 3;
+  const maxVideoSec = 10;
+  
+  const preview = document.getElementById('evidencePreview');
+  
+  files.forEach(file => {
+    if (state.taskEvidence.length >= maxPhotos && file.type.startsWith('image/')) {
+      toast(`最多上传 ${maxPhotos} 张照片`, 'warning');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const id = Date.now() + Math.random();
+      state.taskEvidence.push({ id, file, dataUrl: e.target.result });
+      
+      const isVideo = file.type.startsWith('video/');
+      preview.innerHTML += `
+        <div class="evidence-item" id="ev-${id}">
+          ${isVideo ? 
+            `<video src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;"></video>` :
+            `<img src="${e.target.result}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">`
+          }
+          <button class="btn-icon" onclick="removeEvidence(${id})" style="position: absolute; top: -8px; right: -8px; background: var(--danger); color: white; border-radius: 50%; width: 24px; height: 24px;">✕</button>
+        </div>
+      `;
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  input.value = '';
+}
+
+function removeEvidence(id) {
+  state.taskEvidence = state.taskEvidence.filter(e => e.id !== id);
+  document.getElementById(`ev-${id}`)?.remove();
+}
+
+// 提交反馈
+async function submitTaskFeedback() {
+  const conclusion = document.getElementById('conclusionSelect').value;
+  const conclusionNote = document.getElementById('conclusionNote').value;
+  
+  if (!conclusion) {
+    toast('请选择结论', 'warning');
+    return;
+  }
+  
+  const submitBtn = document.querySelector('#submitModal .btn-primary');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '提交中...';
+  
+  try {
+    // 先上传证据（如果有）- 暂时跳过，需要后端支持
+    // TODO: 实现证据上传 API
+    
+    // 提交反馈
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/submit`, {
+      method: 'POST',
+      body: { conclusion, conclusionNote }
+    });
+    
+    toast('反馈已提交', 'success');
+    closeModal('submitModal');
+    renderCurrentTab();
+    
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '提交反馈';
+  }
+}
+
+// 风险退出
+async function riskAbort() {
+  const reason = prompt('请输入退出原因（如：现场存在危险）');
+  if (!reason) return;
+  
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/risk-abort`, {
+      method: 'POST',
+      body: { reason }
+    });
+    toast('已退出任务', 'success');
+    closeModal('submitModal');
+    closeModal('arriveModal');
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// 任务详情
+async function showTaskDetail(taskId) {
+  openModal('taskDetailModal');
+  const content = document.getElementById('taskDetailContent');
+  const footer = document.getElementById('taskDetailFooter');
+  
+  content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  footer.innerHTML = '';
+  
+  try {
+    // 从已加载的任务中查找，或重新加载
+    let task = state.tasks?.find(t => t.id === taskId);
+    if (!task) {
+      const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${taskId}`);
+      task = data.task;
+    }
+    
+    if (!task) throw new Error('任务不存在');
+    
+    state.currentTask = task;
+    
+    const statusLabels = { 
+      created: '已创建', 
+      offered: '待领取', 
+      claimed: '已领取', 
+      arrived: '已到达', 
+      submitted: '已提交', 
+      closed: '已完成', 
+      canceled: '已取消' 
+    };
+    const purposeLabels = { 
+      CONFIRM_SAFETY: '🔍 现场确认安全', 
+      PHOTO_CHECK: '📷 拍照取证', 
+      VIDEO_CHECK: '🎬 视频确认' 
+    };
+    const entryLabels = {
+      front_door: '前门', back_door: '后门', garage: '车库',
+      side_door: '侧门', window: '窗户', yard: '院子', other: '其他'
+    };
+    const conclusionLabels = {
+      SAFE: '✅ 现场安全',
+      ABNORMAL: '⚠️ 发现异常',
+      NEEDS_ACTION: '🚨 需要处理'
+    };
+    
+    const purposes = (task.purpose || '').split(',').filter(p => p);
+    const purposeText = purposes.map(p => purposeLabels[p.trim()] || p).join('、') || '未指定';
+    const entryText = entryLabels[task.targetEntry] || task.targetEntry || '未指定';
+    
+    document.getElementById('taskDetailTitle').textContent = task.title || '任务详情';
+    
+    content.innerHTML = `
+      <div class="detail-section">
+        <div class="detail-row">
+          <span class="detail-label">状态</span>
+          <span class="task-status ${task.status}">${statusLabels[task.status] || task.status}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">任务目的</span>
+          <span class="detail-value">${purposeText}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">目标入口</span>
+          <span class="detail-value">📍 ${entryText}</span>
+        </div>
+        ${task.description ? `
+        <div class="detail-row">
+          <span class="detail-label">说明</span>
+          <span class="detail-value">${task.description}</span>
+        </div>
+        ` : ''}
+        <div class="detail-row">
+          <span class="detail-label">创建时间</span>
+          <span class="detail-value">${formatDateTime(task.createdAt)}</span>
+        </div>
+        ${task.expiresAt ? `
+        <div class="detail-row">
+          <span class="detail-label">过期时间</span>
+          <span class="detail-value">${formatDateTime(task.expiresAt)}</span>
+        </div>
+        ` : ''}
+      </div>
+      
+      ${task.status === 'submitted' || task.status === 'closed' ? `
+      <div class="detail-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">📝 反馈结果</h4>
+        ${task.conclusion ? `
+        <div class="detail-row">
+          <span class="detail-label">结论</span>
+          <span class="detail-value">${conclusionLabels[task.conclusion] || task.conclusion}</span>
+        </div>
+        ` : ''}
+        ${task.conclusionNote ? `
+        <div class="detail-row">
+          <span class="detail-label">说明</span>
+          <span class="detail-value">${task.conclusionNote}</span>
+        </div>
+        ` : ''}
+        ${task.submissionPhotos ? `
+        <div style="margin-top: 12px;">
+          <span class="detail-label">证据</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+            ${JSON.parse(task.submissionPhotos || '[]').map(url => 
+              `<img src="${url}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${url}', '_blank')">`
+            ).join('')}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
+    `;
+    
+    // 根据角色和状态显示操作按钮
+    const role = state.currentCircle?.role;
+    const isOwnerOrCaretaker = ['owner', 'caretaker'].includes(role);
+    const isMyTask = task.witnessUserId === state.user?.id;
+    
+    let actions = [];
+    
+    if (isOwnerOrCaretaker) {
+      if (task.status === 'created') {
+        actions.push(`<button class="btn btn-primary" onclick="offerTask('${task.id}'); closeModal('taskDetailModal');">发布任务</button>`);
+      }
+      if (task.status === 'submitted') {
+        actions.push(`<button class="btn btn-success" onclick="closeTask('${task.id}'); closeModal('taskDetailModal');">确认关闭</button>`);
+      }
+      if (['created', 'offered', 'claimed'].includes(task.status)) {
+        actions.push(`<button class="btn btn-outline btn-danger" onclick="cancelTask('${task.id}')">取消任务</button>`);
+      }
+    } else {
+      // Witness 操作
+      if (task.status === 'offered') {
+        actions.push(`<button class="btn btn-primary" onclick="claimTask('${task.id}'); closeModal('taskDetailModal');">领取任务</button>`);
+      }
+      if (task.status === 'claimed' && isMyTask) {
+        actions.push(`<button class="btn btn-warning" onclick="closeModal('taskDetailModal'); openArriveModal('${task.id}');">到场确认</button>`);
+      }
+      if (task.status === 'arrived' && isMyTask) {
+        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}');">提交反馈</button>`);
+      }
+    }
+    
+    footer.innerHTML = `
+      <button class="btn btn-outline" onclick="closeModal('taskDetailModal')">关闭</button>
+      <div style="flex: 1;"></div>
+      ${actions.join(' ')}
+    `;
+    
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><p>加载失败: ${err.message}</p></div>`;
+    footer.innerHTML = `<button class="btn btn-outline" onclick="closeModal('taskDetailModal')">关闭</button>`;
+  }
+}
+
+// 取消任务
+async function cancelTask(taskId) {
+  const reason = prompt('请输入取消原因');
+  if (reason === null) return;
+  
+  try {
+    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${taskId}/cancel`, {
+      method: 'POST',
+      body: { reason }
+    });
+    toast('任务已取消', 'success');
+    closeModal('taskDetailModal');
     renderCurrentTab();
   } catch (err) {
     toast(err.message, 'error');

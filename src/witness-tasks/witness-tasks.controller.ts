@@ -16,6 +16,7 @@ import {
   ClaimTaskDto,
   ArriveDto,
   SubmitDto,
+  RiskAbortDto,
 } from './witness-tasks.service';
 import { JwtUser } from '../auth/auth.types';
 
@@ -33,6 +34,7 @@ import { JwtUser } from '../auth/auth.types';
  * - POST   /api/circles/:circleId/witness-tasks/:id/claim    - 领取任务
  * - POST   /api/circles/:circleId/witness-tasks/:id/arrive   - 到达确认
  * - POST   /api/circles/:circleId/witness-tasks/:id/submit   - 提交报告
+ * - POST   /api/circles/:circleId/witness-tasks/:id/risk-abort - 风险退出 (E3)
  * 
  * 通用:
  * - GET    /api/circles/:circleId/witness-tasks              - 任务列表
@@ -164,6 +166,20 @@ export class WitnessTasksController {
   }
 
   /**
+   * 风险退出 (Witness) - E3
+   */
+  @Post('api/circles/:circleId/witness-tasks/:taskId/risk-abort')
+  async riskAbortTask(
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Param('taskId', new ParseUUIDPipe({ version: '4' })) taskId: string,
+    @Body() dto: RiskAbortDto,
+    @Req() req: { user: JwtUser },
+  ) {
+    const task = await this.tasksService.riskAbortTask(req.user.userId, circleId, taskId, dto);
+    return { task: this.formatTask(task) };
+  }
+
+  /**
    * 关闭任务 (Owner/Caretaker)
    */
   @Post('api/circles/:circleId/witness-tasks/:taskId/close')
@@ -214,6 +230,10 @@ export class WitnessTasksController {
       eventId: task.eventId,
       title: task.title,
       description: task.description,
+      // === E3: 协助请求字段 ===
+      purpose: task.purpose,
+      targetEntry: task.targetEntry,
+      // ========================
       status: task.status,
       creatorUserId: task.creatorUserId,
       creatorRole: task.creatorRole,
@@ -228,9 +248,16 @@ export class WitnessTasksController {
       expiresAt: task.expiresAt?.toISOString?.() ?? task.expiresAt,
       proximityVerified: task.proximityVerified,
       proximityFailureReason: task.proximityFailureReason,
+      // === E3: 结构化结论 ===
+      conclusion: task.conclusion,
+      conclusionNote: task.conclusionNote,
+      // ======================
       submissionNotes: task.submissionNotes,
       submissionPhotos: task.submissionPhotos,
       cancelReason: task.cancelReason,
+      // === E3: 风险退出 ===
+      riskAbortReason: task.riskAbortReason,
+      riskAbortedAt: task.riskAbortedAt?.toISOString?.() ?? task.riskAbortedAt,
     };
   }
 }
