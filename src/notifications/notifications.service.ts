@@ -6,6 +6,42 @@ import { NgPushDevice } from './ng-push-device.entity';
 import { OutboxService, OutboxMessageType } from '../common/outbox';
 import * as crypto from 'crypto';
 
+/**
+ * 通知优先级
+ */
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+
+/**
+ * 投递状态
+ */
+export type DeliveryStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'DEFERRED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL';
+
+/**
+ * 角色上下文
+ */
+export type RoleContext = 'owner' | 'caretaker' | 'acting_owner' | 'witness';
+
+/**
+ * PRE 级别
+ */
+export type PreLevel = 'L0' | 'L1' | 'L2';
+
+/**
+ * 通知配置（简化版，存在内存中）
+ */
+interface NotificationConfig {
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  preThrottleWindowSec: number;
+  preThrottleMax: number;
+}
+
+/**
+ * 节流记录（简化版，存在内存中）
+ */
+const throttleCache = new Map<string, { count: number; windowStart: Date }>();
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -155,6 +191,8 @@ export class NotificationsService {
 
   /**
    * 创建安全警报通知（带推送）
+   * 
+   * 保持向后兼容 - edge-events.service.ts 调用此方法
    */
   async createSecurityNotification(args: {
     userId: string;
@@ -197,14 +235,19 @@ export class NotificationsService {
   ): Promise<NgNotification> {
     const notificationsRepo = manager.getRepository(NgNotification);
 
-    // 根据 alarmState 确定严重程度和标题 - 只使用 info/warning/critical
-    const severityMap: Record<string, { severity: NotificationSeverity; emoji: string; label: string }> = {
-      'TRIGGERED': { severity: 'critical', emoji: '🚨', label: '入侵警报' },
-      'PENDING': { severity: 'warning', emoji: '⚠️', label: '安全警报' },
-      'PRE_L3': { severity: 'warning', emoji: '⚠️', label: '高度可疑' },
-      'PRE_L2': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
-      'PRE_L1': { severity: 'info', emoji: '👀', label: '轻微异常' },
-      'PRE': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+    // 根据 alarmState 确定严重程度、优先级和标题
+    const severityMap: Record<string, { 
+      severity: NotificationSeverity; 
+      priority: NotificationPriority;
+      emoji: string; 
+      label: string 
+    }> = {
+      'TRIGGERED': { severity: 'critical', priority: 'CRITICAL', emoji: '🚨', label: '入侵警报' },
+      'PENDING': { severity: 'warning', priority: 'HIGH', emoji: '⚠️', label: '安全警报' },
+      'PRE_L3': { severity: 'warning', priority: 'NORMAL', emoji: '⚠️', label: '高度可疑' },
+      'PRE_L2': { severity: 'warning', priority: 'NORMAL', emoji: '⚡', label: '可疑活动' },
+      'PRE_L1': { severity: 'info', priority: 'LOW', emoji: '👀', label: '轻微异常' },
+      'PRE': { severity: 'warning', priority: 'NORMAL', emoji: '⚡', label: '可疑活动' },
     };
 
     const info = severityMap[args.alarmState || 'PENDING'] || severityMap['PENDING'];
@@ -250,7 +293,7 @@ export class NotificationsService {
           data: {
             route: notification.deeplinkRoute,
             eventId: args.eventId,
-            priority: 'high',
+            priority: info.priority,
           },
         },
         aggregateId: notification.id,
@@ -269,6 +312,8 @@ export class NotificationsService {
 
   /**
    * 创建快递到达通知（带推送）
+   * 
+   * 保持向后兼容 - edge-events.service.ts 调用此方法
    */
   async createParcelNotification(args: {
     userId: string;
@@ -290,11 +335,11 @@ export class NotificationsService {
     }
 
     return this.dataSource.transaction(async (manager) => {
-      return this.createNotificationWithOutbox(manager, args);
+      return this.createParcelNotificationWithOutbox(manager, args);
     });
   }
 
-  private async createNotificationWithOutbox(
+  private async createParcelNotificationWithOutbox(
     manager: EntityManager,
     args: {
       userId: string;
@@ -354,6 +399,71 @@ export class NotificationsService {
       `Created parcel notification with push: ${notification.id} for eventId=${args.eventId}`,
     );
 
+    return notification;
+  }
+
+  // =========================================================================
+  // 测试接口：发送测试通知
+  // =========================================================================
+
+  /**
+   * 发送测试通知（用于调试 WebPush）
+   */
+  async sendTestNotification(userId: string, circleId: string): Promise<NgNotification> {
+    const testEventId = `test-${Date.now()}`;
+    
+    const notification = await this.dataSource.transaction(async (manager) => {
+      const notificationsRepo = manager.getRepository(NgNotification);
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 1);
+
+      const n = notificationsRepo.create({
+        userId,
+        circleId,
+        type: 'SECURITY_ALERT' as NotificationType,
+        severity: 'info' as NotificationSeverity,
+        title: '🔔 测试通知',
+        body: `这是一条测试推送 - ${new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}`,
+        deeplinkRoute: 'event_detail',
+        deeplinkParams: { eventId: testEventId },
+        eventRef: {
+          eventId: testEventId,
+          workflowClass: 'TEST',
+        },
+        deliveredPush: false,
+        deliveredInApp: true,
+        expiresAt,
+      });
+
+      await notificationsRepo.save(n);
+
+      // 入队推送
+      await this.outboxService.enqueue(
+        {
+          messageType: OutboxMessageType.PUSH_NOTIFICATION,
+          payload: {
+            notificationId: n.id,
+            userId: n.userId,
+            title: n.title,
+            body: n.body,
+            data: {
+              route: n.deeplinkRoute,
+              eventId: testEventId,
+              isTest: true,
+            },
+          },
+          aggregateId: n.id,
+          aggregateType: 'Notification',
+          idempotencyKey: `push:${n.id}`,
+        },
+        manager,
+      );
+
+      return n;
+    });
+
+    this.logger.log(`Created test notification: ${notification.id}`);
     return notification;
   }
 

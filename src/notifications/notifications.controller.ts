@@ -10,18 +10,21 @@ import {
   Query,
   Req,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { JwtUser } from '../auth/auth.types';
 import { NgHttpError, NgErrorCodes } from '../common/errors/ng-http-error';
 import { NotificationsService } from './notifications.service';
+import { CirclesService } from '../circles/circles.service';
 
 @Controller('/v1')
 export class NotificationsController {
   constructor(
     private readonly svc: NotificationsService,
     private readonly config: ConfigService,
+    private readonly circlesService: CirclesService,
   ) {}
 
   // =========================================================================
@@ -125,6 +128,41 @@ export class NotificationsController {
     }
 
     return { ok: true };
+  }
+
+  // =========================================================================
+  // Test Push Endpoint
+  // =========================================================================
+
+  /**
+   * 发送测试推送通知
+   * POST /v1/notifications/test-push
+   * 
+   * 用于验证 WebPush 配置是否正确工作
+   */
+  @Post('notifications/test-push')
+  @UseGuards(AuthGuard('jwt'))
+  async sendTestPush(@Req() req: { user: JwtUser }): Promise<{
+    success: boolean;
+    notificationId: string;
+    message: string;
+  }> {
+    // 获取用户的第一个 circle - listMyCircles 返回 { circles: [...], count }
+    const result = await this.circlesService.listMyCircles(req.user.userId);
+    if (result.circles.length === 0) {
+      throw new BadRequestException('用户没有关联的 Circle');
+    }
+
+    const notification = await this.svc.sendTestNotification(
+      req.user.userId,
+      result.circles[0].id,
+    );
+
+    return {
+      success: true,
+      notificationId: notification.id,
+      message: '测试通知已创建并入队推送',
+    };
   }
 
   // =========================================================================

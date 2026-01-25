@@ -9,16 +9,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
-const ng_notification_entity_1 = require("./ng-notification.entity");
-const ng_push_device_entity_1 = require("./ng-push-device.entity");
 const notifications_controller_1 = require("./notifications.controller");
 const notifications_service_1 = require("./notifications.service");
+const ng_notification_entity_1 = require("./ng-notification.entity");
+const ng_push_device_entity_1 = require("./ng-push-device.entity");
+const outbox_1 = require("../common/outbox");
+const circles_module_1 = require("../circles/circles.module");
 let NotificationsModule = class NotificationsModule {
 };
 exports.NotificationsModule = NotificationsModule;
 exports.NotificationsModule = NotificationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([ng_notification_entity_1.NgNotification, ng_push_device_entity_1.NgPushDevice])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([
+                ng_notification_entity_1.NgNotification,
+                ng_push_device_entity_1.NgPushDevice,
+                ng_notification_entity_1.NgNotificationConfig,
+                ng_notification_entity_1.NgNotificationThrottle,
+            ]),
+            outbox_1.OutboxModule,
+            circles_module_1.CirclesModule,
+        ],
         controllers: [notifications_controller_1.NotificationsController],
         providers: [notifications_service_1.NotificationsService],
         exports: [notifications_service_1.NotificationsService],

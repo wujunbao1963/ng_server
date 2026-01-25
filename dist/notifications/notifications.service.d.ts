@@ -2,6 +2,10 @@ import { Repository, DataSource } from 'typeorm';
 import { NgNotification } from './ng-notification.entity';
 import { NgPushDevice } from './ng-push-device.entity';
 import { OutboxService } from '../common/outbox';
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+export type DeliveryStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'DEFERRED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL';
+export type RoleContext = 'owner' | 'caretaker' | 'acting_owner' | 'witness';
+export type PreLevel = 'L0' | 'L1' | 'L2';
 export declare class NotificationsService {
     private readonly notificationsRepo;
     private readonly pushDevicesRepo;
@@ -53,6 +57,7 @@ export declare class NotificationsService {
         edgeInstanceId?: string;
         entryPointId?: string;
     }): Promise<NgNotification | null>;
-    private createNotificationWithOutbox;
+    private createParcelNotificationWithOutbox;
+    sendTestNotification(userId: string, circleId: string): Promise<NgNotification>;
     private hashToken;
 }

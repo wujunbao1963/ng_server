@@ -21,6 +21,7 @@ const ng_notification_entity_1 = require("./ng-notification.entity");
 const ng_push_device_entity_1 = require("./ng-push-device.entity");
 const outbox_1 = require("../common/outbox");
 const crypto = require("crypto");
+const throttleCache = new Map();
 let NotificationsService = NotificationsService_1 = class NotificationsService {
     constructor(notificationsRepo, pushDevicesRepo, outboxService, dataSource) {
         this.notificationsRepo = notificationsRepo;
@@ -138,12 +139,12 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
     async createSecurityNotificationWithOutbox(manager, args) {
         const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
         const severityMap = {
-            'TRIGGERED': { severity: 'critical', emoji: '🚨', label: '入侵警报' },
-            'PENDING': { severity: 'warning', emoji: '⚠️', label: '安全警报' },
-            'PRE_L3': { severity: 'warning', emoji: '⚠️', label: '高度可疑' },
-            'PRE_L2': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
-            'PRE_L1': { severity: 'info', emoji: '👀', label: '轻微异常' },
-            'PRE': { severity: 'warning', emoji: '⚡', label: '可疑活动' },
+            'TRIGGERED': { severity: 'critical', priority: 'CRITICAL', emoji: '🚨', label: '入侵警报' },
+            'PENDING': { severity: 'warning', priority: 'HIGH', emoji: '⚠️', label: '安全警报' },
+            'PRE_L3': { severity: 'warning', priority: 'NORMAL', emoji: '⚠️', label: '高度可疑' },
+            'PRE_L2': { severity: 'warning', priority: 'NORMAL', emoji: '⚡', label: '可疑活动' },
+            'PRE_L1': { severity: 'info', priority: 'LOW', emoji: '👀', label: '轻微异常' },
+            'PRE': { severity: 'warning', priority: 'NORMAL', emoji: '⚡', label: '可疑活动' },
         };
         const info = severityMap[args.alarmState || 'PENDING'] || severityMap['PENDING'];
         const title = args.title || `${info.emoji} ${info.label}`;
@@ -182,7 +183,7 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
                 data: {
                     route: notification.deeplinkRoute,
                     eventId: args.eventId,
-                    priority: 'high',
+                    priority: info.priority,
                 },
             },
             aggregateId: notification.id,
@@ -204,10 +205,10 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             return existing;
         }
         return this.dataSource.transaction(async (manager) => {
-            return this.createNotificationWithOutbox(manager, args);
+            return this.createParcelNotificationWithOutbox(manager, args);
         });
     }
-    async createNotificationWithOutbox(manager, args) {
+    async createParcelNotificationWithOutbox(manager, args) {
         const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
@@ -247,6 +248,52 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
             idempotencyKey: `push:${notification.id}`,
         }, manager);
         this.logger.log(`Created parcel notification with push: ${notification.id} for eventId=${args.eventId}`);
+        return notification;
+    }
+    async sendTestNotification(userId, circleId) {
+        const testEventId = `test-${Date.now()}`;
+        const notification = await this.dataSource.transaction(async (manager) => {
+            const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 1);
+            const n = notificationsRepo.create({
+                userId,
+                circleId,
+                type: 'SECURITY_ALERT',
+                severity: 'info',
+                title: '🔔 测试通知',
+                body: `这是一条测试推送 - ${new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}`,
+                deeplinkRoute: 'event_detail',
+                deeplinkParams: { eventId: testEventId },
+                eventRef: {
+                    eventId: testEventId,
+                    workflowClass: 'TEST',
+                },
+                deliveredPush: false,
+                deliveredInApp: true,
+                expiresAt,
+            });
+            await notificationsRepo.save(n);
+            await this.outboxService.enqueue({
+                messageType: outbox_1.OutboxMessageType.PUSH_NOTIFICATION,
+                payload: {
+                    notificationId: n.id,
+                    userId: n.userId,
+                    title: n.title,
+                    body: n.body,
+                    data: {
+                        route: n.deeplinkRoute,
+                        eventId: testEventId,
+                        isTest: true,
+                    },
+                },
+                aggregateId: n.id,
+                aggregateType: 'Notification',
+                idempotencyKey: `push:${n.id}`,
+            }, manager);
+            return n;
+        });
+        this.logger.log(`Created test notification: ${notification.id}`);
         return notification;
     }
     hashToken(token) {

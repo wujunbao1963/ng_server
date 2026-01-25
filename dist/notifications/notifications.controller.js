@@ -18,10 +18,12 @@ const passport_1 = require("@nestjs/passport");
 const config_1 = require("@nestjs/config");
 const ng_http_error_1 = require("../common/errors/ng-http-error");
 const notifications_service_1 = require("./notifications.service");
+const circles_service_1 = require("../circles/circles.service");
 let NotificationsController = class NotificationsController {
-    constructor(svc, config) {
+    constructor(svc, config, circlesService) {
         this.svc = svc;
         this.config = config;
+        this.circlesService = circlesService;
     }
     async getVapidPublicKey() {
         const publicKey = this.config.get('VAPID_PUBLIC_KEY');
@@ -85,6 +87,18 @@ let NotificationsController = class NotificationsController {
             });
         }
         return { ok: true };
+    }
+    async sendTestPush(req) {
+        const result = await this.circlesService.listMyCircles(req.user.userId);
+        if (result.circles.length === 0) {
+            throw new common_1.BadRequestException('用户没有关联的 Circle');
+        }
+        const notification = await this.svc.sendTestNotification(req.user.userId, result.circles[0].id);
+        return {
+            success: true,
+            notificationId: notification.id,
+            message: '测试通知已创建并入队推送',
+        };
     }
     async listNotifications(req, cursor, limitStr) {
         const limit = Math.min(Math.max(parseInt(limitStr || '20', 10) || 20, 1), 50);
@@ -163,6 +177,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], NotificationsController.prototype, "unregisterPushDevice", null);
 __decorate([
+    (0, common_1.Post)('notifications/test-push'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], NotificationsController.prototype, "sendTestPush", null);
+__decorate([
     (0, common_1.Get)('notifications'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
@@ -204,6 +226,7 @@ __decorate([
 exports.NotificationsController = NotificationsController = __decorate([
     (0, common_1.Controller)('/v1'),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        circles_service_1.CirclesService])
 ], NotificationsController);
 //# sourceMappingURL=notifications.controller.js.map

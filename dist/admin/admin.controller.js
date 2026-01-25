@@ -15,13 +15,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
 const admin_guard_1 = require("./admin.guard");
 const admin_service_1 = require("./admin.service");
 const evidence_tickets_service_1 = require("../evidence-tickets/evidence-tickets.service");
+const outbox_service_1 = require("../common/outbox/outbox.service");
+const outbox_worker_1 = require("../common/outbox/outbox.worker");
+const ng_outbox_entity_1 = require("../common/outbox/ng-outbox.entity");
+const web_push_provider_1 = require("../infra/ports/web-push-provider");
+const ng_notification_entity_1 = require("../notifications/ng-notification.entity");
+const ng_push_device_entity_1 = require("../notifications/ng-push-device.entity");
 let AdminController = class AdminController {
-    constructor(adminService, evidenceTickets) {
+    constructor(adminService, evidenceTickets, outboxService, outboxWorker, webPushProvider, outboxRepo, notificationsRepo, pushDevicesRepo) {
         this.adminService = adminService;
         this.evidenceTickets = evidenceTickets;
+        this.outboxService = outboxService;
+        this.outboxWorker = outboxWorker;
+        this.webPushProvider = webPushProvider;
+        this.outboxRepo = outboxRepo;
+        this.notificationsRepo = notificationsRepo;
+        this.pushDevicesRepo = pushDevicesRepo;
     }
     async getStats() {
         return this.adminService.getStats();
@@ -64,6 +78,108 @@ let AdminController = class AdminController {
     async cleanupExpiredTickets() {
         const result = await this.evidenceTickets.purgeExpired();
         return { message: 'Cleanup complete', ...result };
+    }
+    async diagnosePush() {
+        const webPushConfigured = this.webPushProvider.isConfigured();
+        const vapidPublicKey = this.webPushProvider.getVapidPublicKey();
+        const outboxStats = await this.outboxService.getStats();
+        const workerStats = this.outboxWorker.getStats();
+        const recentFailures = await this.outboxRepo.find({
+            where: { status: (0, typeorm_2.In)([ng_outbox_entity_1.OutboxStatus.FAILED, ng_outbox_entity_1.OutboxStatus.DEAD]) },
+            order: { createdAt: 'DESC' },
+            take: 10,
+        });
+        const recentNotifications = await this.notificationsRepo.find({
+            order: { createdAt: 'DESC' },
+            take: 5,
+        });
+        const pushDeviceCount = await this.pushDevicesRepo.count();
+        const pushDevicesByPlatform = await this.pushDevicesRepo
+            .createQueryBuilder('d')
+            .select('d.platform', 'platform')
+            .addSelect('COUNT(*)', 'count')
+            .groupBy('d.platform')
+            .getRawMany();
+        return {
+            timestamp: new Date().toISOString(),
+            webPush: {
+                configured: webPushConfigured,
+                vapidPublicKeyPresent: !!vapidPublicKey,
+                vapidPublicKeyPrefix: vapidPublicKey ? vapidPublicKey.slice(0, 20) + '...' : null,
+            },
+            outbox: outboxStats,
+            worker: workerStats,
+            pushDevices: {
+                total: pushDeviceCount,
+                byPlatform: pushDevicesByPlatform,
+            },
+            recentNotifications: recentNotifications.map(n => ({
+                id: n.id,
+                type: n.type,
+                severity: n.severity,
+                title: n.title,
+                deliveredPush: n.deliveredPush,
+                createdAt: n.createdAt,
+            })),
+            recentFailures: recentFailures.map(f => ({
+                id: f.id,
+                messageType: f.messageType,
+                status: f.status,
+                retryCount: f.retryCount,
+                maxRetries: f.maxRetries,
+                lastError: f.lastError,
+                createdAt: f.createdAt,
+                payload: {
+                    notificationId: f.payload?.notificationId,
+                    userId: f.payload?.userId,
+                    title: f.payload?.title,
+                },
+            })),
+        };
+    }
+    async triggerOutboxPoll() {
+        await this.outboxWorker.triggerPoll();
+        const stats = await this.outboxService.getStats();
+        return {
+            message: 'Poll triggered',
+            outboxStats: stats,
+        };
+    }
+    async resetFailedOutbox() {
+        const count = await this.outboxService.resetFailedMessages();
+        return {
+            message: `Reset ${count} failed messages to PENDING`,
+            resetCount: count,
+        };
+    }
+    async getOutboxMessages(status, limitStr) {
+        const limit = Math.min(parseInt(limitStr || '20', 10) || 20, 100);
+        const where = {};
+        if (status && Object.values(ng_outbox_entity_1.OutboxStatus).includes(status)) {
+            where.status = status;
+        }
+        const messages = await this.outboxRepo.find({
+            where,
+            order: { createdAt: 'DESC' },
+            take: limit,
+        });
+        return {
+            count: messages.length,
+            messages: messages.map(m => ({
+                id: m.id,
+                messageType: m.messageType,
+                status: m.status,
+                retryCount: m.retryCount,
+                maxRetries: m.maxRetries,
+                lastError: m.lastError,
+                scheduledAt: m.scheduledAt,
+                startedAt: m.startedAt,
+                completedAt: m.completedAt,
+                processingTimeMs: m.processingTimeMs,
+                createdAt: m.createdAt,
+                payload: m.payload,
+            })),
+        };
     }
 };
 exports.AdminController = AdminController;
@@ -145,10 +261,45 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "cleanupExpiredTickets", null);
+__decorate([
+    (0, common_1.Get)('diagnostics/push'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "diagnosePush", null);
+__decorate([
+    (0, common_1.Post)('diagnostics/push/trigger-poll'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "triggerOutboxPoll", null);
+__decorate([
+    (0, common_1.Post)('diagnostics/push/reset-failed'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "resetFailedOutbox", null);
+__decorate([
+    (0, common_1.Get)('diagnostics/push/outbox-messages'),
+    __param(0, (0, common_1.Query)('status')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getOutboxMessages", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('api/admin'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), admin_guard_1.AdminGuard),
+    __param(5, (0, typeorm_1.InjectRepository)(ng_outbox_entity_1.NgOutbox)),
+    __param(6, (0, typeorm_1.InjectRepository)(ng_notification_entity_1.NgNotification)),
+    __param(7, (0, typeorm_1.InjectRepository)(ng_push_device_entity_1.NgPushDevice)),
     __metadata("design:paramtypes", [admin_service_1.AdminService,
-        evidence_tickets_service_1.EvidenceTicketsService])
+        evidence_tickets_service_1.EvidenceTicketsService,
+        outbox_service_1.OutboxService,
+        outbox_worker_1.OutboxWorker,
+        web_push_provider_1.WebPushProvider,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

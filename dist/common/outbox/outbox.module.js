@@ -33,7 +33,7 @@ exports.OutboxModule = OutboxModule = __decorate([
                 inject: [push_notification_handler_1.PushNotificationHandler],
             },
         ],
-        exports: [outbox_service_1.OutboxService],
+        exports: [outbox_service_1.OutboxService, outbox_worker_1.OutboxWorker],
     })
 ], OutboxModule);
 //# sourceMappingURL=outbox.module.js.map
