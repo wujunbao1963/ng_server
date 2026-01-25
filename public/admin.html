@@ -98,6 +98,30 @@
     .form-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
     .form-input::placeholder { color: var(--gray-400); }
     .form-hint { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+    
+    /* Checkbox Group */
+    .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .checkbox-label:hover { background: var(--gray-50); }
+    .checkbox-label:has(input:checked) { 
+      background: #eff6ff; 
+      border-color: var(--primary); 
+    }
+    .checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+    .checkbox-label span { font-size: 14px; }
     select.form-input { cursor: pointer; }
     textarea.form-input { resize: vertical; min-height: 80px; }
 
@@ -634,22 +658,41 @@
         </div>
         <form onsubmit="handleCreateTask(event)">
           <div class="modal-body">
-            <div class="form-group">
+            <!-- 关联事件（自动填充时只读显示） -->
+            <div class="form-group" id="taskEventGroup">
               <label class="form-label">关联事件</label>
+              <div id="taskEventDisplay" style="display: none; padding: 10px; background: var(--gray-50); border-radius: 8px; margin-bottom: 8px;">
+                <div style="font-weight: 500;" id="taskEventTitle"></div>
+                <div class="text-sm text-muted" id="taskEventMeta"></div>
+              </div>
               <select id="taskEventId" class="form-input">
                 <option value="">-- 无关联事件 --</option>
               </select>
-              <p class="text-sm text-muted mt-1">选择当前活跃的安防事件</p>
+              <input type="hidden" id="taskEventIdHidden" value="">
+              <input type="hidden" id="taskTargetEntryHidden" value="">
             </div>
+            
+            <!-- 任务目的（多选） -->
             <div class="form-group">
               <label class="form-label">任务目的 *</label>
-              <select id="taskPurpose" class="form-input" required>
-                <option value="CONFIRM_SAFETY">🔍 现场确认安全</option>
-                <option value="PHOTO_CHECK">📷 拍照取证</option>
-                <option value="VIDEO_CHECK">🎬 视频确认</option>
-              </select>
+              <div class="checkbox-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="purposeConfirm" value="CONFIRM_SAFETY" checked>
+                  <span>🔍 现场确认安全</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="purposePhoto" value="PHOTO_CHECK">
+                  <span>📷 拍照取证</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="purposeVideo" value="VIDEO_CHECK">
+                  <span>🎬 视频确认</span>
+                </label>
+              </div>
             </div>
-            <div class="form-group">
+            
+            <!-- 目标入口（手动创建时可选） -->
+            <div class="form-group" id="taskEntryGroup">
               <label class="form-label">目标入口</label>
               <select id="taskTargetEntry" class="form-input">
                 <option value="">-- 选择入口 --</option>
@@ -662,13 +705,14 @@
                 <option value="other">其他</option>
               </select>
             </div>
+            
             <div class="form-group">
               <label class="form-label">任务标题 *</label>
               <input type="text" id="taskTitle" class="form-input" placeholder="例: 检查前门异常" required>
             </div>
             <div class="form-group">
-              <label class="form-label">任务描述</label>
-              <textarea id="taskDescription" class="form-input" rows="3" placeholder="详细说明任务要求，如：请确认前门是否有异常，拍摄周围环境照片..."></textarea>
+              <label class="form-label">补充说明</label>
+              <textarea id="taskDescription" class="form-input" rows="2" placeholder="可选：补充任务要求..."></textarea>
             </div>
           </div>
           <div class="modal-footer">
@@ -1444,23 +1488,27 @@ function renderTasksPage(container) {
         <div class="card">
           ${state.tasks.map(t => {
             const purposeLabels = { 
-              CONFIRM_SAFETY: '🔍 现场确认', 
-              PHOTO_CHECK: '📷 拍照取证', 
-              VIDEO_CHECK: '🎬 视频确认' 
+              CONFIRM_SAFETY: '🔍 确认', 
+              PHOTO_CHECK: '📷 拍照', 
+              VIDEO_CHECK: '🎬 视频' 
             };
             const entryLabels = {
               front_door: '前门', back_door: '后门', garage: '车库',
               side_door: '侧门', window: '窗户', yard: '院子', other: '其他'
             };
+            // purpose 可能是逗号分隔的多个值
+            const purposes = (t.purpose || '').split(',').filter(p => p);
+            const purposeBadges = purposes.map(p => `<span class="badge badge-info" style="font-size: 11px; margin-right: 4px;">${purposeLabels[p.trim()] || p}</span>`).join('');
+            
             return `
             <div class="list-item">
               <div class="list-item-left">
                 <div class="list-item-content">
                   <div class="list-item-title">${t.title || 'Task'}</div>
                   <div class="list-item-subtitle">
-                    ${t.purpose ? `<span class="badge" style="font-size: 11px; margin-right: 4px;">${purposeLabels[t.purpose] || t.purpose}</span>` : ''}
+                    ${purposeBadges}
                     ${t.targetEntry ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">📍 ${entryLabels[t.targetEntry] || t.targetEntry}</span>` : ''}
-                    ${t.description || ''}
+                    <span class="text-muted">${t.description || ''}</span>
                   </div>
                 </div>
               </div>
@@ -1479,9 +1527,27 @@ function renderTasksPage(container) {
 
 async function handleCreateTask(e) {
   e.preventDefault();
-  const eventId = document.getElementById('taskEventId').value || null;
-  const purpose = document.getElementById('taskPurpose').value;
-  const targetEntry = document.getElementById('taskTargetEntry').value || null;
+  
+  // 获取 eventId 和 targetEntry（优先使用 hidden 字段，即从事件详情自动填充的）
+  const eventIdHidden = document.getElementById('taskEventIdHidden').value;
+  const eventIdSelect = document.getElementById('taskEventId').value;
+  const eventId = eventIdHidden || eventIdSelect || null;
+  
+  const targetEntryHidden = document.getElementById('taskTargetEntryHidden').value;
+  const targetEntrySelect = document.getElementById('taskTargetEntry').value;
+  const targetEntry = targetEntryHidden || targetEntrySelect || null;
+  
+  // 收集多选的 purpose
+  const purposes = [];
+  if (document.getElementById('purposeConfirm').checked) purposes.push('CONFIRM_SAFETY');
+  if (document.getElementById('purposePhoto').checked) purposes.push('PHOTO_CHECK');
+  if (document.getElementById('purposeVideo').checked) purposes.push('VIDEO_CHECK');
+  
+  if (purposes.length === 0) {
+    toast('请至少选择一个任务目的', 'warning');
+    return;
+  }
+  
   const title = document.getElementById('taskTitle').value;
   const description = document.getElementById('taskDescription').value;
   
@@ -1492,7 +1558,7 @@ async function handleCreateTask(e) {
         title, 
         description,
         eventId,
-        purpose,
+        purpose: purposes.join(','),  // 多个目的用逗号分隔
         targetEntry
       } 
     });
@@ -1501,25 +1567,39 @@ async function handleCreateTask(e) {
     closeModal('createTaskModal');
     toast('任务已创建并发布', 'success');
     renderCurrentTab();
-    // Reset form
-    document.getElementById('taskEventId').value = '';
-    document.getElementById('taskPurpose').value = 'CONFIRM_SAFETY';
-    document.getElementById('taskTargetEntry').value = '';
-    document.getElementById('taskTitle').value = '';
-    document.getElementById('taskDescription').value = '';
+    resetTaskForm();
   } catch (err) {
     toast(err.message, 'error');
   }
 }
 
-// 打开创建任务 Modal 时加载活跃事件
-async function openCreateTaskModal(preselectedEventId = null) {
+function resetTaskForm() {
+  // 重置表单
+  document.getElementById('taskEventIdHidden').value = '';
+  document.getElementById('taskTargetEntryHidden').value = '';
+  document.getElementById('taskEventId').value = '';
+  document.getElementById('taskTargetEntry').value = '';
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskDescription').value = '';
+  document.getElementById('purposeConfirm').checked = true;
+  document.getElementById('purposePhoto').checked = false;
+  document.getElementById('purposeVideo').checked = false;
+  
+  // 显示选择控件
+  document.getElementById('taskEventDisplay').style.display = 'none';
+  document.getElementById('taskEventId').style.display = '';
+  document.getElementById('taskEntryGroup').style.display = '';
+}
+
+// 打开创建任务 Modal（手动模式）
+async function openCreateTaskModal() {
+  resetTaskForm();
+  openModal('createTaskModal');
+  
+  // 加载活跃事件供选择
   const select = document.getElementById('taskEventId');
   select.innerHTML = '<option value="">-- 加载中... --</option>';
   
-  openModal('createTaskModal');
-  
-  // 加载活跃事件
   const edgeUrl = getEdgeUrl();
   if (edgeUrl) {
     try {
@@ -1527,33 +1607,55 @@ async function openCreateTaskModal(preselectedEventId = null) {
       if (res.ok) {
         const data = await res.json();
         const events = data.incidents || [];
-        select.innerHTML = '<option value="">-- 无关联事件 --</option>' + 
-          events.map(e => `<option value="${e.incident_id}"${e.incident_id === preselectedEventId ? ' selected' : ''}>${e.location || '未知位置'} - ${e.threat_state} (${formatDateTime(e.created_at)})</option>`).join('');
+        select.innerHTML = '<option value="">-- 无关联事件（独立任务）--</option>' + 
+          events.map(e => `<option value="${e.incident_id}">${e.location || '未知位置'} - ${e.threat_state} (${formatDateTime(e.created_at)})</option>`).join('');
       } else {
-        select.innerHTML = '<option value="">-- 无关联事件 --</option>';
+        select.innerHTML = '<option value="">-- 无活跃事件 --</option>';
       }
     } catch {
       select.innerHTML = '<option value="">-- 无法加载事件 --</option>';
     }
   } else {
-    select.innerHTML = '<option value="">-- 未配置 Edge --</option>';
-  }
-  
-  // 如果有预选事件，自动设置标题
-  if (preselectedEventId && state.selectedIncident) {
-    const titleInput = document.getElementById('taskTitle');
-    const loc = state.selectedIncident.location || '未知位置';
-    const ts = state.selectedIncident.threat_state || '';
-    titleInput.value = `协助确认: ${loc}`;
+    select.innerHTML = '<option value="">-- 未连接 Edge --</option>';
   }
 }
 
-// 从事件详情页面请求帮助
+// 从事件详情页面请求帮助（自动填充模式）
 function requestHelpForEvent(eventId) {
+  const incident = state.selectedIncident;
+  if (!incident) {
+    toast('无法获取事件信息', 'error');
+    return;
+  }
+  
   // 关闭事件详情 Modal
   closeModal('eventDetailModal');
-  // 打开创建任务 Modal 并预选事件
-  openCreateTaskModal(eventId);
+  
+  // 重置表单
+  resetTaskForm();
+  
+  // 自动填充事件信息
+  document.getElementById('taskEventIdHidden').value = eventId;
+  document.getElementById('taskTargetEntryHidden').value = incident.location || incident.entry_point || '';
+  
+  // 显示事件信息（只读）
+  const location = incident.location || incident.entry_point || '未知位置';
+  const threatState = incident.threat_state || '';
+  const threatLabels = { none: '正常', pre: '警戒', pending: '待确认', triggered: '已触发' };
+  
+  document.getElementById('taskEventTitle').textContent = `📍 ${location}`;
+  document.getElementById('taskEventMeta').textContent = `状态: ${threatLabels[threatState] || threatState} | ${formatDateTime(incident.created_at)}`;
+  document.getElementById('taskEventDisplay').style.display = 'block';
+  document.getElementById('taskEventId').style.display = 'none';
+  
+  // 隐藏入口选择（已自动填充）
+  document.getElementById('taskEntryGroup').style.display = 'none';
+  
+  // 自动生成标题
+  document.getElementById('taskTitle').value = `协助确认: ${location}`;
+  
+  // 打开 Modal
+  openModal('createTaskModal');
 }
 
 async function offerTask(id) {
