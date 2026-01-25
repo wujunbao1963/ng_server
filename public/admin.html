@@ -424,6 +424,33 @@
     .quick-btn:hover { background: var(--gray-100); }
     .quick-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+    /* Live View (from app.html) */
+    .camera-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .camera-btn {
+      padding: 10px 12px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      background: white;
+      cursor: pointer;
+      text-align: left;
+      font-size: 13px;
+    }
+    .camera-btn:hover { border-color: var(--gray-400); }
+    .camera-btn.active { border-color: var(--primary); background: #eff6ff; }
+    .camera-btn.offline { opacity: 0.5; }
+    .camera-name { display: flex; align-items: center; gap: 8px; }
+    .camera-status { width: 8px; height: 8px; border-radius: 50%; }
+    .camera-status.online { background: var(--success); }
+    .camera-status.offline { background: var(--danger); }
+    .live-container { background: #000; border-radius: 12px; overflow: hidden; }
+    .live-frame { aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; position: relative; }
+    .live-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .live-badge { position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: white; }
+    .live-badge.local { background: var(--success); }
+    .live-badge.remote { background: var(--warning); }
+    .live-placeholder { color: white; text-align: center; }
+    .live-placeholder .icon { font-size: 48px; margin-bottom: 12px; }
+
     /* Helpers */
     .mt-2 { margin-top: 8px; }
     .mt-4 { margin-top: 16px; }
@@ -794,11 +821,18 @@ const state = {
   // Evidence viewer state
   evidenceList: [],
   evidenceIndex: 0,
+  // Live view state
+  cameras: [],
+  selectedCamera: null,
+  snapshotInterval: null,
+  snapshotErrorCount: 0,
+  snapshotDisabled: false,
 };
 
 // Refresh intervals
 let statusRefreshInterval = null;
 let eventsRefreshInterval = null;
+let currentBlobUrl = null;
 
 // =============================================================================
 // API Client
@@ -964,6 +998,7 @@ function buildNavigation() {
     ...(state.currentCircle ? [
       ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
       ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
+      ...(canViewDashboard ? [{ id: 'live', icon: '📹', label: '实时视频' }] : []),
       { id: 'members', icon: '👥', label: '成员' },
       { id: 'tasks', icon: '📋', label: '任务' },
       { id: 'edge', icon: '📡', label: 'Edge' },
@@ -989,6 +1024,10 @@ function switchTab(tab) {
   if (state.currentTab === 'dashboard' || state.currentTab === 'events') {
     stopAllIntervals();
   }
+  // Stop live snapshots when leaving live tab
+  if (state.currentTab === 'live' && tab !== 'live') {
+    stopLiveSnapshots();
+  }
   state.currentTab = tab;
   buildNavigation();
   renderCurrentTab();
@@ -1001,6 +1040,7 @@ function renderCurrentTab() {
     case 'circles': renderCirclesPage(content); break;
     case 'dashboard': renderDashboardPage(content); break;
     case 'events': renderEventsPage(content); break;
+    case 'live': renderLivePage(content); break;
     case 'members': renderMembersPage(content); break;
     case 'tasks': renderTasksPage(content); break;
     case 'edge': renderEdgePage(content); break;
@@ -1555,10 +1595,239 @@ function stopAllIntervals() {
   if (eventsRefreshInterval) { clearInterval(eventsRefreshInterval); eventsRefreshInterval = null; }
 }
 
+function stopLiveSnapshots() {
+  if (state.snapshotInterval) {
+    clearInterval(state.snapshotInterval);
+    state.snapshotInterval = null;
+  }
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = null;
+  }
+}
+
 function startDashboardIntervals() {
   stopAllIntervals();
   statusRefreshInterval = setInterval(loadEdgeStatus, 5000);
   eventsRefreshInterval = setInterval(() => loadEdgeEvents(false), 10000);
+}
+
+// =============================================================================
+// Live Page (from app.html)
+// =============================================================================
+function renderLivePage(container) {
+  if (!state.currentCircle) {
+    container.innerHTML = '<div class="empty-state"><p>请先选择一个圈子</p></div>';
+    return;
+  }
+  
+  const edgeUrl = getEdgeUrl();
+  if (!edgeUrl) {
+    container.innerHTML = `
+      <div class="flex-between mb-4">
+        <h2>📹 实时视频</h2>
+      </div>
+      <div class="card">
+        <div class="empty-state">
+          <div class="empty-icon">📡</div>
+          <h3>未配置 Edge</h3>
+          <p>请先配置 Edge 设备连接</p>
+          <button class="btn btn-primary mt-4" onclick="openEdgeConfigModal()">配置 Edge URL</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  state.edgeUrl = edgeUrl;
+  
+  container.innerHTML = `
+    <div class="flex-between mb-4">
+      <h2>📹 实时视频</h2>
+      <button class="btn btn-sm btn-outline" onclick="openEdgeConfigModal()">⚙️</button>
+    </div>
+    
+    <div class="card" style="padding: 16px; margin-bottom: 16px;">
+      <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">选择摄像头</h3>
+      <div id="cameraGrid" class="camera-grid">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <div class="live-container">
+      <div id="liveFrame" class="live-frame">
+        <div class="live-placeholder">
+          <div class="icon">📷</div>
+          <p>选择摄像头查看</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  loadCameras();
+}
+
+async function loadCameras() {
+  const grid = document.getElementById('cameraGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    const res = await fetch(`${state.edgeUrl}/api/live/cameras`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    state.cameras = data.cameras || [];
+
+    if (state.cameras.length === 0) {
+      grid.innerHTML = '<p style="color: var(--gray-400); text-align: center; grid-column: 1/-1;">没有摄像头</p>';
+      return;
+    }
+
+    grid.innerHTML = state.cameras.map(c => `
+      <button class="camera-btn ${c.cameraId === state.selectedCamera ? 'active' : ''} ${!c.connected ? 'offline' : ''}" onclick="selectCamera('${c.cameraId}')">
+        <div class="camera-name">
+          <span class="camera-status ${c.connected ? 'online' : 'offline'}"></span>
+          <span>${c.name || c.cameraId}</span>
+        </div>
+      </button>
+    `).join('');
+
+    if (!state.selectedCamera && state.cameras.length > 0) {
+      selectCamera(state.cameras[0].cameraId);
+    }
+  } catch {
+    grid.innerHTML = '<p style="color: var(--gray-400); text-align: center; grid-column: 1/-1;">加载失败</p>';
+  }
+}
+
+function selectCamera(id) {
+  state.selectedCamera = id;
+  state.snapshotErrorCount = 0;
+  state.snapshotDisabled = false;
+  
+  document.querySelectorAll('.camera-btn').forEach(b => {
+    b.classList.toggle('active', b.onclick.toString().includes(id));
+  });
+  
+  // 显示连接中
+  const frame = document.getElementById('liveFrame');
+  if (!frame) return;
+  frame.innerHTML = `
+    <span class="live-badge remote">☁️ REMOTE</span>
+    <div class="live-placeholder">
+      <div class="icon">⏳</div>
+      <p>连接中...</p>
+    </div>
+  `;
+  
+  startSnapshots(id);
+}
+
+function startSnapshots(id) {
+  // 停止旧的轮询
+  stopLiveSnapshots();
+
+  const frame = document.getElementById('liveFrame');
+  if (!frame) return;
+  
+  const load = async () => {
+    if (state.snapshotDisabled || state.selectedCamera !== id) return;
+    
+    try {
+      const res = await fetch(`${state.edgeUrl}/api/live/cameras/${id}/snapshot`);
+      
+      // 202 = 摄像头正在连接
+      if (res.status === 202) {
+        if (!frame.querySelector('img')) {
+          frame.innerHTML = `
+            <span class="live-badge remote">☁️ REMOTE</span>
+            <div class="live-placeholder">
+              <div class="icon">📷</div>
+              <p>摄像头连接中...</p>
+            </div>
+          `;
+        }
+        return;
+      }
+      
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      const blob = await res.blob();
+      const newUrl = URL.createObjectURL(blob);
+      
+      // 预加载图片，完成后再显示
+      const img = new Image();
+      img.onload = () => {
+        // 检查是否还是当前摄像头
+        if (state.selectedCamera !== id) {
+          URL.revokeObjectURL(newUrl);
+          return;
+        }
+        
+        // 更新显示
+        const existingImg = frame.querySelector('img');
+        if (existingImg) {
+          // 已有图片，直接更新 src（更平滑）
+          const oldUrl = existingImg.src;
+          existingImg.src = newUrl;
+          if (oldUrl && oldUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(oldUrl);
+          }
+        } else {
+          // 首次加载，创建 img
+          if (currentBlobUrl) {
+            URL.revokeObjectURL(currentBlobUrl);
+          }
+          frame.innerHTML = `
+            <span class="live-badge remote">☁️ REMOTE</span>
+            <img src="${newUrl}" style="width: 100%; height: 100%; object-fit: contain;">
+          `;
+        }
+        currentBlobUrl = newUrl;
+        
+        // 成功，重置错误计数
+        state.snapshotErrorCount = 0;
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(newUrl);
+        handleSnapshotError('图片解码失败');
+      };
+      
+      img.src = newUrl;
+      
+    } catch (e) {
+      handleSnapshotError(e.message);
+    }
+  };
+
+  // 立即加载第一帧
+  load();
+  // 600ms 间隔更稳定
+  state.snapshotInterval = setInterval(load, 600);
+}
+
+function handleSnapshotError(msg) {
+  state.snapshotErrorCount = (state.snapshotErrorCount || 0) + 1;
+  console.warn(`[Live] 快照错误 #${state.snapshotErrorCount}: ${msg}`);
+  
+  // 连续 5 次错误后停止
+  if (state.snapshotErrorCount >= 5) {
+    state.snapshotDisabled = true;
+    stopLiveSnapshots();
+    
+    const frame = document.getElementById('liveFrame');
+    if (frame) {
+      frame.innerHTML = `
+        <span class="live-badge" style="background: var(--danger);">❌ 错误</span>
+        <div class="live-placeholder">
+          <div class="icon">😵</div>
+          <p>连接失败</p>
+          <button class="btn btn-sm btn-outline" style="margin-top: 12px;" onclick="selectCamera('${state.selectedCamera}')">重试</button>
+        </div>
+      `;
+    }
+  }
 }
 
 // =============================================================================
@@ -2067,24 +2336,37 @@ function renderEventDetailContent(i, ev, tl) {
   };
 
   // 分类证据
-  const vids = ev.filter(e => e.item_type === 'clip' || e.mime_type?.startsWith('video/'));
-  const snaps = ev.filter(e => e.item_type === 'snapshot' || e.item_type === 'thumbnail');
+  // 基于文件扩展名分类（更可靠）
+  const isVideo = (e) => {
+    const key = (e.evidence_key || '').toLowerCase();
+    return key.endsWith('.mp4') || key.endsWith('.webm') || key.endsWith('.mov') ||
+           (e.mime_type?.startsWith('video/') && !key.endsWith('.jpg'));
+  };
+  const isImage = (e) => {
+    const key = (e.evidence_key || '').toLowerCase();
+    return key.endsWith('.jpg') || key.endsWith('.jpeg') || key.endsWith('.png') || key.endsWith('.gif') ||
+           e.mime_type?.startsWith('image/');
+  };
+  const vids = ev.filter(isVideo);
+  const snaps = ev.filter(isImage);
   
   let html = '';
   
   // 顶部媒体预览区域 (like app.html)
   if (vids.length > 0 || snaps.length > 0) {
     const firstMedia = snaps[0] || vids[0];
-    const isVideo = firstMedia.item_type === 'clip' || firstMedia.mime_type?.startsWith('video/');
+    const firstKey = (firstMedia.evidence_key || '').toLowerCase();
+    const firstIsImage = firstKey.endsWith('.jpg') || firstKey.endsWith('.jpeg') || 
+                         firstKey.endsWith('.png') || firstKey.endsWith('.gif');
     const mediaUrl = `${state.edgeUrl}/api/evidence/${firstMedia.evidence_key}`;
     
     html += `
       <div style="background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px;">
         <div style="aspect-ratio: 16/9; position: relative; display: flex; align-items: center; justify-content: center;">
-          ${isVideo ? `
-            <video src="${mediaUrl}" style="width: 100%; height: 100%; object-fit: contain;" controls autoplay muted></video>
-          ` : `
+          ${firstIsImage ? `
             <img src="${mediaUrl}" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;" onclick="viewEvidence('${firstMedia.evidence_key}', 'snapshot', 0)">
+          ` : `
+            <video src="${mediaUrl}" style="width: 100%; height: 100%; object-fit: contain;" controls autoplay muted></video>
           `}
           <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">
             ${loc}
@@ -2209,9 +2491,15 @@ function showCurrentEvidence() {
   const ev = state.evidenceList[state.evidenceIndex];
   if (!ev) return;
   
-  const key = ev.evidence_key;
-  const type = ev.type || 'video';
+  const key = ev.evidence_key || '';
   const url = `${state.edgeUrl}/api/evidence/${key}`;
+  
+  // 基于扩展名判断类型（更可靠）
+  const keyLower = key.toLowerCase();
+  const isImage = keyLower.endsWith('.jpg') || keyLower.endsWith('.jpeg') || 
+                  keyLower.endsWith('.png') || keyLower.endsWith('.gif') ||
+                  ev.mime_type?.startsWith('image/');
+  const type = isImage ? 'snapshot' : 'video';
   
   const container = document.getElementById('mediaContainer');
   const counter = document.getElementById('mediaCounter');
@@ -2224,7 +2512,7 @@ function showCurrentEvidence() {
   counter.textContent = `${state.evidenceIndex + 1} / ${state.evidenceList.length}`;
   
   // Update info
-  typeEl.textContent = type === 'snapshot' ? '📷 快照' : '🎬 视频';
+  typeEl.textContent = isImage ? '📷 快照' : '🎬 视频';
   timeEl.textContent = ev.timestamp ? formatDateTime(ev.timestamp) : key.slice(0, 16);
   
   // Show/hide navigation
@@ -2236,7 +2524,7 @@ function showCurrentEvidence() {
   container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   
   // Render media
-  if (type === 'snapshot') {
+  if (isImage) {
     const img = new Image();
     img.onload = () => {
       container.innerHTML = '';
