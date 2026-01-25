@@ -1,7 +1,7 @@
 // NeighborGuard Service Worker
 // 处理 Web Push 通知
 
-const CACHE_VERSION = 'v3';  // ← 更新版本号，强制刷新
+const CACHE_VERSION = 'v5';  // ← 更新版本号，强制刷新
 const CACHE_NAME = `ng-cache-${CACHE_VERSION}`;
 
 // 安装事件 - 强制更新

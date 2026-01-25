@@ -3680,7 +3680,7 @@ async function enablePushByUser() {
 }
 
 async function syncSubscriptionWithServer(subscription) {
-  const token = localStorage.getItem('ng_token');
+  const token = localStorage.getItem('ng_jwt');
   if (!token) { console.log('[Push] Not logged in'); return; }
   try {
     const response = await fetch(API_BASE + '/v1/push/devices', {
@@ -3731,8 +3731,26 @@ async function checkPushStatus() {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
     updatePushButton(!!subscription);
+    
+    // 🔧 关键修复：如果有 subscription 且已登录，自动同步到服务器
+    if (subscription) {
+      const token = localStorage.getItem('ng_jwt');
+      if (token) {
+        console.log('[Push] Auto-syncing subscription to server...');
+        try {
+          await syncSubscriptionWithServer(subscription);
+          console.log('[Push] Auto-sync completed');
+        } catch (e) {
+          console.error('[Push] Auto-sync failed:', e);
+        }
+      }
+    }
+    
     return !!subscription;
-  } catch (err) { return false; }
+  } catch (err) { 
+    console.error('[Push] checkPushStatus error:', err);
+    return false; 
+  }
 }
 
 // 初始化 Service Worker
