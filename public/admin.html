@@ -3639,36 +3639,66 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   async function enablePushByUser() {
-    console.log('[Push] enablePushByUser called, isIOS:', isIOS(), 'isStandalone:', isStandalone());
+    // 收集调试信息
+    const debugInfo = {
+      isIOS: isIOS(),
+      isStandalone: isStandalone(),
+      hasNotification: 'Notification' in window,
+      hasServiceWorker: 'serviceWorker' in navigator,
+      hasPushManager: 'PushManager' in window,
+      userAgent: navigator.userAgent.substring(0, 80),
+      currentPermission: 'Notification' in window ? Notification.permission : 'N/A'
+    };
+    
+    console.log('[Push] Debug info:', debugInfo);
+    
+    // 显示调试信息弹窗
+    alert(`Push 调试信息:\n\n` +
+      `iOS: ${debugInfo.isIOS}\n` +
+      `主屏幕启动: ${debugInfo.isStandalone}\n` +
+      `Notification API: ${debugInfo.hasNotification}\n` +
+      `ServiceWorker API: ${debugInfo.hasServiceWorker}\n` +
+      `PushManager API: ${debugInfo.hasPushManager}\n` +
+      `当前权限: ${debugInfo.currentPermission}\n\n` +
+      `UA: ${debugInfo.userAgent}`
+    );
     
     // iOS 必须从主屏幕启动
     if (isIOS() && !isStandalone()) {
       toast('📱 请先"添加到主屏幕"，再从桌面图标打开', 'warning');
+      alert('❌ 检测到在 Safari 中打开，不是从主屏幕启动。\n\n请：\n1. 点击分享按钮\n2. 选择"添加到主屏幕"\n3. 从桌面图标打开');
       return false;
     }
     
     // 基本检查
     if (!('Notification' in window)) { 
-      toast('❌ 此浏览器不支持通知', 'error'); 
+      toast('❌ 此浏览器不支持通知', 'error');
+      alert('❌ Notification API 不可用');
       return false; 
     }
     if (!('serviceWorker' in navigator)) { 
-      toast('❌ 此浏览器不支持 Service Worker', 'error'); 
+      toast('❌ 此浏览器不支持 Service Worker', 'error');
+      alert('❌ ServiceWorker API 不可用');
       return false; 
     }
     if (!('PushManager' in window)) { 
-      toast('❌ 此浏览器不支持推送', 'error'); 
+      toast('❌ 此浏览器不支持推送', 'error');
+      alert('❌ PushManager API 不可用');
       return false; 
     }
     
     try {
       // ⚡ iOS 关键：requestPermission 必须是第一个 await
       console.log('[Push] Requesting permission (FIRST await)...');
+      alert('即将请求通知权限...\n\n如果没有弹出系统权限窗口，可能是：\n1. 权限已被拒绝过\n2. iOS 版本过低 (<16.4)\n3. 不是从主屏幕启动');
+      
       const permission = await Notification.requestPermission();
       console.log('[Push] Permission result:', permission);
+      alert('权限请求结果: ' + permission);
       
       if (permission !== 'granted') { 
-        toast('❌ 通知权限被拒绝', 'error'); 
+        toast('❌ 通知权限被拒绝', 'error');
+        alert('❌ 权限被拒绝或未授予: ' + permission);
         return false; 
       }
       
