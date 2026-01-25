@@ -3570,6 +3570,177 @@ function getRoleBanner(role) {
 }
 
 // =============================================================================
+// Web Push Notifications (全局函数)
+// =============================================================================
+
+let pushSubscription = null;
+let swRegistration = null;
+
+function isStandalone() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) { 
+    console.log('[Push] SW not supported'); 
+    return null; 
+  }
+  try {
+    swRegistration = await navigator.serviceWorker.register('/sw.js');
+    console.log('[Push] SW registered:', swRegistration.scope);
+    
+    swRegistration.addEventListener('updatefound', () => {
+      const newWorker = swRegistration.installing;
+      console.log('[SW] Update found, installing...');
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          console.log('[SW] New version available, refreshing...');
+          window.location.reload();
+        }
+      });
+    });
+    
+    swRegistration.update();
+    await navigator.serviceWorker.ready;
+    console.log('[Push] SW ready');
+    return swRegistration;
+  } catch (err) { 
+    console.error('[Push] SW registration failed:', err); 
+    return null; 
+  }
+}
+
+async function enablePushByUser() {
+  // 调试弹窗
+  const debugInfo = {
+    isIOS: isIOS(),
+    isStandalone: isStandalone(),
+    hasNotification: 'Notification' in window,
+    hasServiceWorker: 'serviceWorker' in navigator,
+    hasPushManager: 'PushManager' in window,
+    currentPermission: 'Notification' in window ? Notification.permission : 'N/A'
+  };
+  
+  console.log('[Push] Debug info:', debugInfo);
+  alert('Push 调试:\n\niOS: ' + debugInfo.isIOS + '\n主屏幕: ' + debugInfo.isStandalone + '\nNotification: ' + debugInfo.hasNotification + '\nSW: ' + debugInfo.hasServiceWorker + '\nPushManager: ' + debugInfo.hasPushManager + '\n权限: ' + debugInfo.currentPermission);
+  
+  // iOS 必须从主屏幕启动
+  if (isIOS() && !isStandalone()) {
+    toast('📱 请先添加到主屏幕', 'warning');
+    alert('请从主屏幕启动！\n\n1. 点击分享按钮\n2. 添加到主屏幕\n3. 从桌面图标打开');
+    return false;
+  }
+  
+  if (!('Notification' in window)) { alert('不支持 Notification'); return false; }
+  if (!('serviceWorker' in navigator)) { alert('不支持 ServiceWorker'); return false; }
+  if (!('PushManager' in window)) { alert('不支持 PushManager'); return false; }
+  
+  try {
+    alert('即将请求权限...');
+    const permission = await Notification.requestPermission();
+    alert('权限结果: ' + permission);
+    
+    if (permission !== 'granted') { 
+      toast('❌ 权限被拒绝', 'error'); 
+      return false; 
+    }
+    
+    if (!swRegistration) {
+      swRegistration = await registerServiceWorker();
+      if (!swRegistration) { alert('SW 注册失败'); return false; }
+    }
+    
+    pushSubscription = await swRegistration.pushManager.getSubscription();
+    
+    if (!pushSubscription) {
+      const vapidResponse = await fetch(API_BASE + '/v1/push/vapid-public-key');
+      if (!vapidResponse.ok) { alert('服务器未配置 VAPID'); return false; }
+      const { vapidPublicKey } = await vapidResponse.json();
+      
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      pushSubscription = await swRegistration.pushManager.subscribe({ 
+        userVisibleOnly: true, 
+        applicationServerKey 
+      });
+    }
+    
+    await syncSubscriptionWithServer(pushSubscription);
+    toast('✅ 推送已启用', 'success');
+    updatePushButton(true);
+    return true;
+  } catch (err) { 
+    console.error('[Push] Error:', err); 
+    alert('错误: ' + err.message);
+    return false; 
+  }
+}
+
+async function syncSubscriptionWithServer(subscription) {
+  const token = localStorage.getItem('ng_token');
+  if (!token) { console.log('[Push] Not logged in'); return; }
+  try {
+    const response = await fetch(API_BASE + '/v1/push/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        platform: 'web',
+        token: JSON.stringify(subscription.toJSON()),
+        deviceId: getDeviceId(),
+        appVersion: '1.0.0',
+        locale: navigator.language,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+    console.log('[Push] Sync result:', response.status);
+  } catch (err) { console.error('[Push] Sync error:', err); }
+}
+
+function getDeviceId() {
+  let id = localStorage.getItem('ng_device_id');
+  if (!id) { 
+    id = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now(); 
+    localStorage.setItem('ng_device_id', id); 
+  }
+  return id;
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function updatePushButton(enabled) {
+  const btn = document.getElementById('pushToggleBtn');
+  if (btn) { 
+    btn.textContent = enabled ? '🔔' : '🔕'; 
+    btn.title = enabled ? '推送已启用' : '点击启用推送'; 
+  }
+}
+
+async function checkPushStatus() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    updatePushButton(!!subscription);
+    return !!subscription;
+  } catch (err) { return false; }
+}
+
+// 初始化 Service Worker
+if ('serviceWorker' in navigator) {
+  registerServiceWorker().then(() => checkPushStatus());
+}
+
+// =============================================================================
 // Init
 // =============================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -3589,252 +3760,6 @@ document.addEventListener('DOMContentLoaded', () => {
       closeMediaModal();
     }
   });
-
-  // =============================================================================
-  // Web Push Notifications
-  // =============================================================================
-  
-  let pushSubscription = null;
-  let swRegistration = null;
-  
-  function isStandalone() {
-    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-  }
-  
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  }
-  
-  async function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) { 
-      console.log('[Push] SW not supported'); 
-      return null; 
-    }
-    try {
-      swRegistration = await navigator.serviceWorker.register('/sw.js');
-      console.log('[Push] SW registered:', swRegistration.scope);
-      
-      // 检测 Service Worker 更新
-      swRegistration.addEventListener('updatefound', () => {
-        const newWorker = swRegistration.installing;
-        console.log('[SW] Update found, installing...');
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[SW] New version available, refreshing...');
-            window.location.reload();
-          }
-        });
-      });
-      
-      // 强制检查更新
-      swRegistration.update();
-      
-      await navigator.serviceWorker.ready;
-      console.log('[Push] SW ready');
-      return swRegistration;
-    } catch (err) { 
-      console.error('[Push] SW registration failed:', err); 
-      return null; 
-    }
-  }
-  
-  async function enablePushByUser() {
-    // 收集调试信息
-    const debugInfo = {
-      isIOS: isIOS(),
-      isStandalone: isStandalone(),
-      hasNotification: 'Notification' in window,
-      hasServiceWorker: 'serviceWorker' in navigator,
-      hasPushManager: 'PushManager' in window,
-      userAgent: navigator.userAgent.substring(0, 80),
-      currentPermission: 'Notification' in window ? Notification.permission : 'N/A'
-    };
-    
-    console.log('[Push] Debug info:', debugInfo);
-    
-    // 显示调试信息弹窗
-    alert(`Push 调试信息:\n\n` +
-      `iOS: ${debugInfo.isIOS}\n` +
-      `主屏幕启动: ${debugInfo.isStandalone}\n` +
-      `Notification API: ${debugInfo.hasNotification}\n` +
-      `ServiceWorker API: ${debugInfo.hasServiceWorker}\n` +
-      `PushManager API: ${debugInfo.hasPushManager}\n` +
-      `当前权限: ${debugInfo.currentPermission}\n\n` +
-      `UA: ${debugInfo.userAgent}`
-    );
-    
-    // iOS 必须从主屏幕启动
-    if (isIOS() && !isStandalone()) {
-      toast('📱 请先"添加到主屏幕"，再从桌面图标打开', 'warning');
-      alert('❌ 检测到在 Safari 中打开，不是从主屏幕启动。\n\n请：\n1. 点击分享按钮\n2. 选择"添加到主屏幕"\n3. 从桌面图标打开');
-      return false;
-    }
-    
-    // 基本检查
-    if (!('Notification' in window)) { 
-      toast('❌ 此浏览器不支持通知', 'error');
-      alert('❌ Notification API 不可用');
-      return false; 
-    }
-    if (!('serviceWorker' in navigator)) { 
-      toast('❌ 此浏览器不支持 Service Worker', 'error');
-      alert('❌ ServiceWorker API 不可用');
-      return false; 
-    }
-    if (!('PushManager' in window)) { 
-      toast('❌ 此浏览器不支持推送', 'error');
-      alert('❌ PushManager API 不可用');
-      return false; 
-    }
-    
-    try {
-      // ⚡ iOS 关键：requestPermission 必须是第一个 await
-      console.log('[Push] Requesting permission (FIRST await)...');
-      alert('即将请求通知权限...\n\n如果没有弹出系统权限窗口，可能是：\n1. 权限已被拒绝过\n2. iOS 版本过低 (<16.4)\n3. 不是从主屏幕启动');
-      
-      const permission = await Notification.requestPermission();
-      console.log('[Push] Permission result:', permission);
-      alert('权限请求结果: ' + permission);
-      
-      if (permission !== 'granted') { 
-        toast('❌ 通知权限被拒绝', 'error');
-        alert('❌ 权限被拒绝或未授予: ' + permission);
-        return false; 
-      }
-      
-      // 权限已获得，现在可以做其他异步操作
-      console.log('[Push] Permission granted, registering SW...');
-      if (!swRegistration) {
-        swRegistration = await registerServiceWorker();
-        if (!swRegistration) { 
-          toast('❌ Service Worker 注册失败', 'error'); 
-          return false; 
-        }
-      }
-      
-      // 获取现有订阅或创建新订阅
-      pushSubscription = await swRegistration.pushManager.getSubscription();
-      console.log('[Push] Existing subscription:', !!pushSubscription);
-      
-      if (!pushSubscription) {
-        console.log('[Push] Fetching VAPID key...');
-        const vapidResponse = await fetch(API_BASE + '/v1/push/vapid-public-key');
-        if (!vapidResponse.ok) { 
-          toast('❌ 服务器未配置推送', 'error'); 
-          return false; 
-        }
-        const { vapidPublicKey } = await vapidResponse.json();
-        console.log('[Push] Got VAPID key');
-        
-        const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-        pushSubscription = await swRegistration.pushManager.subscribe({ 
-          userVisibleOnly: true, 
-          applicationServerKey 
-        });
-        console.log('[Push] New subscription created');
-      }
-      
-      await syncSubscriptionWithServer(pushSubscription);
-      toast('✅ 推送已启用', 'success');
-      updatePushButton(true);
-      return true;
-    } catch (err) { 
-      console.error('[Push] Error:', err); 
-      toast('❌ 启用失败: ' + err.message, 'error'); 
-      return false; 
-    }
-  }
-  
-  async function syncSubscriptionWithServer(subscription) {
-    const token = localStorage.getItem('ng_token');
-    if (!token) { 
-      console.log('[Push] Not logged in'); 
-      return; 
-    }
-    try {
-      const response = await fetch(API_BASE + '/v1/push/devices', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': 'Bearer ' + token 
-        },
-        body: JSON.stringify({
-          platform: 'web',
-          token: JSON.stringify(subscription.toJSON()),
-          deviceId: getDeviceId(),
-          appVersion: '1.0.0',
-          locale: navigator.language,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-      if (response.ok) {
-        console.log('[Push] Subscription synced');
-      } else {
-        console.error('[Push] Sync failed:', response.status);
-      }
-    } catch (err) { 
-      console.error('[Push] Sync error:', err); 
-    }
-  }
-  
-  function getDeviceId() {
-    let id = localStorage.getItem('ng_device_id');
-    if (!id) { 
-      id = 'web-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now(); 
-      localStorage.setItem('ng_device_id', id); 
-    }
-    return id;
-  }
-  
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  }
-  
-  function updatePushButton(enabled) {
-    const btn = document.getElementById('pushToggleBtn');
-    if (btn) { 
-      btn.textContent = enabled ? '🔔' : '🔕'; 
-      btn.title = enabled ? '推送已启用' : '点击启用推送'; 
-    }
-  }
-  
-  async function checkPushStatus() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      updatePushButton(!!subscription);
-      return !!subscription;
-    } catch (err) { 
-      console.error('[Push] Check error:', err); 
-      return false; 
-    }
-  }
-  
-  // 初始化 Service Worker 和 Push
-  if ('serviceWorker' in navigator) {
-    registerServiceWorker().then(() => checkPushStatus());
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      console.log('[Main] SW message:', event.data);
-      if (event.data && event.data.type === 'NOTIFICATION_CLICK' && event.data.data?.eventId) {
-        // 处理通知点击，跳转到事件详情
-        const eventId = event.data.data.eventId;
-        console.log('[Push] Notification click, eventId:', eventId);
-        // 如果有事件详情页，可以跳转
-      }
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[SW] Controller changed, reloading...');
-      window.location.reload();
-    });
-  }
 });
   </script>
 </body>
