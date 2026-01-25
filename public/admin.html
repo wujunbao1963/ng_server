@@ -136,6 +136,8 @@
     .badge-success { background: #dcfce7; color: #166534; }
     .badge-warning { background: #fef3c7; color: #92400e; }
     .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-secondary { background: var(--gray-100); color: var(--gray-600); }
+    .badge-info { background: #dbeafe; color: #1e40af; }
 
     /* List Items */
     .list-item {
@@ -633,12 +635,40 @@
         <form onsubmit="handleCreateTask(event)">
           <div class="modal-body">
             <div class="form-group">
+              <label class="form-label">关联事件</label>
+              <select id="taskEventId" class="form-input">
+                <option value="">-- 无关联事件 --</option>
+              </select>
+              <p class="text-sm text-muted mt-1">选择当前活跃的安防事件</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">任务目的 *</label>
+              <select id="taskPurpose" class="form-input" required>
+                <option value="CONFIRM_SAFETY">🔍 现场确认安全</option>
+                <option value="PHOTO_CHECK">📷 拍照取证</option>
+                <option value="VIDEO_CHECK">🎬 视频确认</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">目标入口</label>
+              <select id="taskTargetEntry" class="form-input">
+                <option value="">-- 选择入口 --</option>
+                <option value="front_door">前门</option>
+                <option value="back_door">后门</option>
+                <option value="garage">车库</option>
+                <option value="side_door">侧门</option>
+                <option value="window">窗户</option>
+                <option value="yard">院子</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label class="form-label">任务标题 *</label>
-              <input type="text" id="taskTitle" class="form-input" placeholder="例: 检查前门" required>
+              <input type="text" id="taskTitle" class="form-input" placeholder="例: 检查前门异常" required>
             </div>
             <div class="form-group">
               <label class="form-label">任务描述</label>
-              <textarea id="taskDescription" class="form-input" rows="3" placeholder="详细说明任务要求..."></textarea>
+              <textarea id="taskDescription" class="form-input" rows="3" placeholder="详细说明任务要求，如：请确认前门是否有异常，拍摄周围环境照片..."></textarea>
             </div>
           </div>
           <div class="modal-footer">
@@ -791,10 +821,10 @@ const MODE_CFG = {
 
 // Role permissions (from v8 spec)
 const ROLE_PERMISSIONS = {
-  owner: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 999 },
-  caretaker: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 7 },
-  acting_owner: { modeChange: true, viewEvents: true, resolveEvents: true, historyDays: 1 },
-  witness: { modeChange: false, viewEvents: false, resolveEvents: false, historyDays: 0 },
+  owner: { modeChange: true, viewEvents: true, resolveEvents: true, requestHelp: true, historyDays: 999 },
+  caretaker: { modeChange: true, viewEvents: true, resolveEvents: true, requestHelp: true, historyDays: 7 },
+  acting_owner: { modeChange: true, viewEvents: true, resolveEvents: true, requestHelp: false, historyDays: 1 },
+  witness: { modeChange: false, viewEvents: false, resolveEvents: false, requestHelp: false, historyDays: 0 },
 };
 
 // =============================================================================
@@ -1402,7 +1432,7 @@ function renderTasksPage(container) {
           <h2>Witness 任务</h2>
           <p class="text-sm text-muted">${state.tasks.length} 个任务</p>
         </div>
-        ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openModal(\'createTaskModal\')">+ 创建任务</button>' : ''}
+        ${isOwnerOrCaretaker ? '<button class="btn btn-primary" onclick="openCreateTaskModal()">+ 创建任务</button>' : ''}
       </div>
       ${state.tasks.length === 0 ? `
         <div class="empty-state">
@@ -1412,12 +1442,26 @@ function renderTasksPage(container) {
         </div>
       ` : `
         <div class="card">
-          ${state.tasks.map(t => `
+          ${state.tasks.map(t => {
+            const purposeLabels = { 
+              CONFIRM_SAFETY: '🔍 现场确认', 
+              PHOTO_CHECK: '📷 拍照取证', 
+              VIDEO_CHECK: '🎬 视频确认' 
+            };
+            const entryLabels = {
+              front_door: '前门', back_door: '后门', garage: '车库',
+              side_door: '侧门', window: '窗户', yard: '院子', other: '其他'
+            };
+            return `
             <div class="list-item">
               <div class="list-item-left">
                 <div class="list-item-content">
                   <div class="list-item-title">${t.title || 'Task'}</div>
-                  <div class="list-item-subtitle">${t.description || ''}</div>
+                  <div class="list-item-subtitle">
+                    ${t.purpose ? `<span class="badge" style="font-size: 11px; margin-right: 4px;">${purposeLabels[t.purpose] || t.purpose}</span>` : ''}
+                    ${t.targetEntry ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">📍 ${entryLabels[t.targetEntry] || t.targetEntry}</span>` : ''}
+                    ${t.description || ''}
+                  </div>
                 </div>
               </div>
               <div class="list-item-right">
@@ -1426,7 +1470,7 @@ function renderTasksPage(container) {
                 ${t.status === 'submitted' && isOwnerOrCaretaker ? `<button class="btn btn-sm btn-success" onclick="closeTask('${t.id}')">关闭</button>` : ''}
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       `}
     `;
@@ -1435,20 +1479,81 @@ function renderTasksPage(container) {
 
 async function handleCreateTask(e) {
   e.preventDefault();
+  const eventId = document.getElementById('taskEventId').value || null;
+  const purpose = document.getElementById('taskPurpose').value;
+  const targetEntry = document.getElementById('taskTargetEntry').value || null;
   const title = document.getElementById('taskTitle').value;
   const description = document.getElementById('taskDescription').value;
+  
   try {
-    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { method: 'POST', body: { title, description } });
+    const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`, { 
+      method: 'POST', 
+      body: { 
+        title, 
+        description,
+        eventId,
+        purpose,
+        targetEntry
+      } 
+    });
     // Auto offer
     await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${data.task.id}/offer`, { method: 'POST' });
     closeModal('createTaskModal');
     toast('任务已创建并发布', 'success');
     renderCurrentTab();
+    // Reset form
+    document.getElementById('taskEventId').value = '';
+    document.getElementById('taskPurpose').value = 'CONFIRM_SAFETY';
+    document.getElementById('taskTargetEntry').value = '';
     document.getElementById('taskTitle').value = '';
     document.getElementById('taskDescription').value = '';
   } catch (err) {
     toast(err.message, 'error');
   }
+}
+
+// 打开创建任务 Modal 时加载活跃事件
+async function openCreateTaskModal(preselectedEventId = null) {
+  const select = document.getElementById('taskEventId');
+  select.innerHTML = '<option value="">-- 加载中... --</option>';
+  
+  openModal('createTaskModal');
+  
+  // 加载活跃事件
+  const edgeUrl = getEdgeUrl();
+  if (edgeUrl) {
+    try {
+      const res = await fetch(`${edgeUrl}/api/incidents?filter=active`);
+      if (res.ok) {
+        const data = await res.json();
+        const events = data.incidents || [];
+        select.innerHTML = '<option value="">-- 无关联事件 --</option>' + 
+          events.map(e => `<option value="${e.incident_id}"${e.incident_id === preselectedEventId ? ' selected' : ''}>${e.location || '未知位置'} - ${e.threat_state} (${formatDateTime(e.created_at)})</option>`).join('');
+      } else {
+        select.innerHTML = '<option value="">-- 无关联事件 --</option>';
+      }
+    } catch {
+      select.innerHTML = '<option value="">-- 无法加载事件 --</option>';
+    }
+  } else {
+    select.innerHTML = '<option value="">-- 未配置 Edge --</option>';
+  }
+  
+  // 如果有预选事件，自动设置标题
+  if (preselectedEventId && state.selectedIncident) {
+    const titleInput = document.getElementById('taskTitle');
+    const loc = state.selectedIncident.location || '未知位置';
+    const ts = state.selectedIncident.threat_state || '';
+    titleInput.value = `协助确认: ${loc}`;
+  }
+}
+
+// 从事件详情页面请求帮助
+function requestHelpForEvent(eventId) {
+  // 关闭事件详情 Modal
+  closeModal('eventDetailModal');
+  // 打开创建任务 Modal 并预选事件
+  openCreateTaskModal(eventId);
 }
 
 async function offerTask(id) {
@@ -2437,15 +2542,22 @@ function renderEventActions(i) {
   
   const ts = i.threat_state;
   
+  // 请求帮助按钮（Owner/Caretaker 在活跃事件中可用）
+  const helpBtn = perms.requestHelp ? 
+    `<button class="action-btn" style="background: var(--warning); color: #92400e;" onclick="requestHelpForEvent('${i.incident_id}')">🆘 请求帮助</button>` : '';
+  
   if (ts === 'pending') {
-    // PENDING 状态：撤防
+    // PENDING 状态：撤防 + 请求帮助
     if (perms.modeChange) {
-      footer.innerHTML = `<button class="action-btn warning" onclick="confirmEventAction('disarm', '撤防', '确认撤防？')">🔓 撤防</button>`;
+      footer.innerHTML = `
+        <button class="action-btn warning" onclick="confirmEventAction('disarm', '撤防', '确认撤防？')">🔓 撤防</button>
+        ${helpBtn}
+      `;
     } else {
-      footer.innerHTML = '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
+      footer.innerHTML = helpBtn || '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
     }
   } else if (ts === 'triggered') {
-    // TRIGGERED 状态：静音、误报、解决
+    // TRIGGERED 状态：静音、误报、解决 + 请求帮助
     let html = '';
     
     if (perms.resolveEvents) {
@@ -2455,18 +2567,20 @@ function renderEventActions(i) {
         <button class="action-btn primary" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">✅ 确认安全</button>
       </div>`;
     }
+    html += helpBtn;
     
     footer.innerHTML = html || '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
   } else {
-    // 其他状态：忽略、解决
+    // 其他状态：忽略、解决 + 请求帮助
+    let html = '';
     if (perms.resolveEvents) {
-      footer.innerHTML = `<div class="action-row">
+      html = `<div class="action-row">
         <button class="action-btn secondary" onclick="confirmEventAction('dismiss', '忽略', '确认忽略？')">忽略</button>
         <button class="action-btn primary" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">✅ 确认安全</button>
       </div>`;
-    } else {
-      footer.innerHTML = '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
     }
+    html += helpBtn;
+    footer.innerHTML = html || '<p style="text-align: center; color: var(--gray-400);">无操作权限</p>';
   }
 }
 
