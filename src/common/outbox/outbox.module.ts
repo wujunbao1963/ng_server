@@ -40,6 +40,6 @@ import { NgPushDevice } from '../../notifications/ng-push-device.entity';
       inject: [PushNotificationHandler],
     },
   ],
-  exports: [OutboxService],
+  exports: [OutboxService, OutboxWorker],
 })
 export class OutboxModule {}
