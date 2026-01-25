@@ -130,19 +130,30 @@ let WitnessTasksService = class WitnessTasksService {
             await this.tasksRepo.save(task);
             throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to arrival timeout');
         }
-        const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-        const proximityResult = this.verifyProximity(dto.latitude, dto.longitude, circle?.latitude ?? null, circle?.longitude ?? null, task.proximityRadiusM, dto.accuracy);
-        task.arrivalLatitude = dto.latitude;
-        task.arrivalLongitude = dto.longitude;
-        task.arrivalAccuracyM = dto.accuracy ?? null;
-        task.proximityVerified = proximityResult.verified;
-        task.proximityFailureReason = proximityResult.failureReason ?? null;
-        if (!proximityResult.verified) {
-            throw this.makeError(400, 'PROXIMITY_FAILED', proximityResult.failureReason ?? 'Proximity verification failed', {
-                distance: proximityResult.distance,
-                required: task.proximityRadiusM,
-                reason: proximityResult.failureReason,
-            });
+        const skipProximityCheck = process.env.SKIP_PROXIMITY_CHECK === 'true';
+        if (skipProximityCheck) {
+            task.arrivalLatitude = dto.latitude ?? 0;
+            task.arrivalLongitude = dto.longitude ?? 0;
+            task.arrivalAccuracyM = dto.accuracy ?? null;
+            task.proximityVerified = true;
+            task.proximityFailureReason = null;
+            console.log('[WitnessTask] Proximity check SKIPPED (SKIP_PROXIMITY_CHECK=true)');
+        }
+        else {
+            const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
+            const proximityResult = this.verifyProximity(dto.latitude, dto.longitude, circle?.latitude ?? null, circle?.longitude ?? null, task.proximityRadiusM, dto.accuracy);
+            task.arrivalLatitude = dto.latitude;
+            task.arrivalLongitude = dto.longitude;
+            task.arrivalAccuracyM = dto.accuracy ?? null;
+            task.proximityVerified = proximityResult.verified;
+            task.proximityFailureReason = proximityResult.failureReason ?? null;
+            if (!proximityResult.verified) {
+                throw this.makeError(400, 'PROXIMITY_FAILED', proximityResult.failureReason ?? 'Proximity verification failed', {
+                    distance: proximityResult.distance,
+                    required: task.proximityRadiusM,
+                    reason: proximityResult.failureReason,
+                });
+            }
         }
         task.status = 'arrived';
         task.arrivedAt = new Date();

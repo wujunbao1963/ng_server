@@ -257,29 +257,45 @@ export class WitnessTasksService {
       throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to arrival timeout');
     }
 
-    // Proximity 验证
-    const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
-    const proximityResult = this.verifyProximity(
-      dto.latitude,
-      dto.longitude,
-      circle?.latitude ?? null,
-      circle?.longitude ?? null,
-      task.proximityRadiusM,
-      dto.accuracy,
-    );
+    // ========================================
+    // GPS Proximity 验证 - 暂时禁用用于 PC 测试
+    // 设置 SKIP_PROXIMITY_CHECK=true 可跳过验证
+    // ========================================
+    const skipProximityCheck = process.env.SKIP_PROXIMITY_CHECK === 'true';
+    
+    if (skipProximityCheck) {
+      // 跳过 GPS 验证，直接标记为已验证
+      task.arrivalLatitude = dto.latitude ?? 0;
+      task.arrivalLongitude = dto.longitude ?? 0;
+      task.arrivalAccuracyM = dto.accuracy ?? null;
+      task.proximityVerified = true;
+      task.proximityFailureReason = null;
+      console.log('[WitnessTask] Proximity check SKIPPED (SKIP_PROXIMITY_CHECK=true)');
+    } else {
+      // 正常 Proximity 验证
+      const circle = await this.circlesRepo.findOne({ where: { id: circleId } });
+      const proximityResult = this.verifyProximity(
+        dto.latitude,
+        dto.longitude,
+        circle?.latitude ?? null,
+        circle?.longitude ?? null,
+        task.proximityRadiusM,
+        dto.accuracy,
+      );
 
-    task.arrivalLatitude = dto.latitude;
-    task.arrivalLongitude = dto.longitude;
-    task.arrivalAccuracyM = dto.accuracy ?? null;
-    task.proximityVerified = proximityResult.verified;
-    task.proximityFailureReason = proximityResult.failureReason ?? null;
+      task.arrivalLatitude = dto.latitude;
+      task.arrivalLongitude = dto.longitude;
+      task.arrivalAccuracyM = dto.accuracy ?? null;
+      task.proximityVerified = proximityResult.verified;
+      task.proximityFailureReason = proximityResult.failureReason ?? null;
 
-    if (!proximityResult.verified) {
-      throw this.makeError(400, 'PROXIMITY_FAILED', proximityResult.failureReason ?? 'Proximity verification failed', {
-        distance: proximityResult.distance,
-        required: task.proximityRadiusM,
-        reason: proximityResult.failureReason,
-      });
+      if (!proximityResult.verified) {
+        throw this.makeError(400, 'PROXIMITY_FAILED', proximityResult.failureReason ?? 'Proximity verification failed', {
+          distance: proximityResult.distance,
+          required: task.proximityRadiusM,
+          reason: proximityResult.failureReason,
+        });
+      }
     }
 
     task.status = 'arrived';
