@@ -1,7 +1,7 @@
 // NeighborGuard Service Worker
 // 处理 Web Push 通知
 
-const CACHE_VERSION = 'v2';  // ← 更新版本号
+const CACHE_VERSION = 'v3';  // ← 更新版本号，强制刷新
 const CACHE_NAME = `ng-cache-${CACHE_VERSION}`;
 
 // 安装事件 - 强制更新
@@ -87,9 +87,9 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // 查找已打开的窗口
+        // 查找已打开的窗口 (支持 app.html 和 admin.html)
         for (const client of clientList) {
-          if (client.url.includes('/app') && 'focus' in client) {
+          if ((client.url.includes('/app') || client.url.includes('/admin')) && 'focus' in client) {
             // 发送消息给页面
             client.postMessage({
               type: 'NOTIFICATION_CLICK',
@@ -101,7 +101,7 @@ self.addEventListener('notificationclick', (event) => {
         }
         
         // 没有找到已打开的窗口，打开新窗口
-        let url = '/app.html';
+        let url = '/admin.html';
         if (data.eventId) {
           url += `?event=${data.eventId}`;
         }

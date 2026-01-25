@@ -2,7 +2,7 @@
   "name": "NeighborGuard",
   "short_name": "NG",
   "description": "智能家居安防系统",
-  "start_url": "/app.html",
+  "start_url": "/admin.html",
   "display": "standalone",
   "background_color": "#1e3a8a",
   "theme_color": "#2563eb",
