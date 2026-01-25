@@ -1,12 +1,12 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as fs from 'fs';
 
 import { AppModule } from './app.module';
 import { NgExceptionFilter } from './common/errors/ng-exception.filter';
-import { NestExpressApplication } from '@nestjs/platform-express';
 
 function exists(p: string) {
   try {
@@ -17,9 +17,9 @@ function exists(p: string) {
 }
 
 async function bootstrap() {
-const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-  logger: ['error', 'warn', 'log'],
-});
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
 
   // ---- DIAGNOSTICS (safe) ----
   const adapterType =
@@ -45,8 +45,29 @@ const app = await NestFactory.create<NestExpressApplication>(AppModule, {
   console.log('[diag] staticDirChosen=', staticDir);
 
   // Serve /index.html from chosen static directory
-  // (Express adapter supports this directly)
   app.useStaticAssets(staticDir);
+
+  // ========================================
+  // 证据上传静态文件服务
+  // ========================================
+  const uploadDir = process.env.EVIDENCE_UPLOAD_DIR || './uploads';
+  const uploadPath = join(process.cwd(), uploadDir);
+  
+  // 确保上传目录存在
+  if (!exists(uploadPath)) {
+    try {
+      fs.mkdirSync(uploadPath, { recursive: true });
+      console.log('[uploads] Created upload directory:', uploadPath);
+    } catch (e) {
+      console.log('[uploads] Failed to create upload directory:', String(e));
+    }
+  }
+  
+  // 提供 /uploads/ 路径访问证据文件
+  app.useStaticAssets(uploadPath, {
+    prefix: '/uploads/',
+  });
+  console.log('[uploads] Evidence files served from:', uploadPath, '-> /uploads/');
 
   // Optional: debug endpoint to view what server sees (no secrets)
   try {
@@ -63,6 +84,7 @@ const app = await NestFactory.create<NestExpressApplication>(AppModule, {
           distIndexExists: exists(distIndex),
           rootIndexExists: exists(rootIndex),
           staticDirChosen: staticDir,
+          uploadDir: uploadPath,
         });
       });
     }
@@ -86,4 +108,3 @@ const app = await NestFactory.create<NestExpressApplication>(AppModule, {
 }
 
 bootstrap();
-

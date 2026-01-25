@@ -8,8 +8,16 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import * as crypto from 'crypto';
 import {
   WitnessTasksService,
   CreateTaskDto,
@@ -20,6 +28,50 @@ import {
 } from './witness-tasks.service';
 import { JwtUser } from '../auth/auth.types';
 
+// ============================================================================
+// 证据上传配置
+// ============================================================================
+
+const UPLOAD_DIR = process.env.EVIDENCE_UPLOAD_DIR || './uploads/evidence';
+
+// 确保上传目录存在
+if (!existsSync(UPLOAD_DIR)) {
+  mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+// 存储配置
+const evidenceStorage = diskStorage({
+  destination: (req, file, cb) => {
+    const now = new Date();
+    const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+    const fullPath = join(UPLOAD_DIR, datePath);
+    if (!existsSync(fullPath)) {
+      mkdirSync(fullPath, { recursive: true });
+    }
+    cb(null, fullPath);
+  },
+  filename: (req, file, cb) => {
+    const taskId = (req.params as any).taskId || 'unknown';
+    const uniqueSuffix = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const ext = extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${taskId}_${uniqueSuffix}${ext}`);
+  },
+});
+
+// 文件类型过滤
+const fileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+  const allowedMimes = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'video/mp4', 'video/quicktime', 'video/webm',
+    'audio/aac', 'audio/mpeg', 'audio/mp4',
+  ];
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new BadRequestException(`Unsupported file type: ${file.mimetype}`), false);
+  }
+};
+
 /**
  * Witness Tasks Controller
  * 
@@ -29,12 +81,13 @@ import { JwtUser } from '../auth/auth.types';
  * - POST   /api/circles/:circleId/witness-tasks/:id/close    - 关闭任务
  * - POST   /api/circles/:circleId/witness-tasks/:id/cancel   - 取消任务
  * 
- * Witness 操作:
+ * Witness / Acting Owner 操作:
  * - GET    /api/circles/:circleId/witness-tasks/available    - 可领取的任务
  * - POST   /api/circles/:circleId/witness-tasks/:id/claim    - 领取任务
  * - POST   /api/circles/:circleId/witness-tasks/:id/arrive   - 到达确认
  * - POST   /api/circles/:circleId/witness-tasks/:id/submit   - 提交报告
  * - POST   /api/circles/:circleId/witness-tasks/:id/risk-abort - 风险退出 (E3)
+ * - POST   /api/circles/:circleId/witness-tasks/:id/evidence - 上传证据 (NEW)
  * 
  * 通用:
  * - GET    /api/circles/:circleId/witness-tasks              - 任务列表
@@ -177,6 +230,50 @@ export class WitnessTasksController {
   ) {
     const task = await this.tasksService.riskAbortTask(req.user.userId, circleId, taskId, dto);
     return { task: this.formatTask(task) };
+  }
+
+  /**
+   * 上传证据 (Witness / Acting Owner)
+   * 
+   * POST /api/circles/:circleId/witness-tasks/:taskId/evidence
+   * Content-Type: multipart/form-data
+   * Body: file (binary)
+   * 
+   * 允许状态: claimed, arrived
+   * 限制: 最大 10MB，最多 10 个文件
+   */
+  @Post('api/circles/:circleId/witness-tasks/:taskId/evidence')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: evidenceStorage,
+      fileFilter: fileFilter,
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
+  async uploadEvidence(
+    @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
+    @Param('taskId', new ParseUUIDPipe({ version: '4' })) taskId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: { user: JwtUser },
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const evidence = await this.tasksService.addEvidence(
+      req.user.userId,
+      circleId,
+      taskId,
+      {
+        filename: file.filename,
+        originalName: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        path: file.path,
+      },
+    );
+
+    return { success: true, evidence };
   }
 
   /**

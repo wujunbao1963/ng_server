@@ -370,6 +370,77 @@ export class WitnessTasksService {
     return task;
   }
 
+  /**
+   * 添加证据 (Witness / Acting Owner)
+   * 
+   * POST /api/circles/:circleId/witness-tasks/:taskId/evidence
+   * 
+   * Witness 可在 CLAIMED 或 ARRIVED 状态上传证据
+   */
+  async addEvidence(
+    userId: string,
+    circleId: string,
+    taskId: string,
+    dto: {
+      filename: string;
+      originalName: string;
+      mimetype: string;
+      size: number;
+      path: string;
+    },
+  ): Promise<{
+    id: string;
+    url: string;
+    filename: string;
+    originalName: string;
+    mimetype: string;
+    size: number;
+    uploadedAt: string;
+  }> {
+    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+
+    const task = await this.getTaskOrThrow(taskId, circleId);
+
+    // 只能在 CLAIMED 或 ARRIVED 状态上传证据
+    if (!['claimed', 'arrived'].includes(task.status)) {
+      throw this.makeError(400, 'INVALID_STATE', `Cannot upload evidence in status: ${task.status}`);
+    }
+
+    // 验证是当前 Witness
+    if (task.witnessUserId !== userId) {
+      throw this.makeError(403, NgErrorCodes.FORBIDDEN, 'Only assigned witness can upload evidence');
+    }
+
+    // 构建 URL
+    const now = new Date();
+    const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+    const baseUrl = process.env.BASE_URL || '';
+    const url = `${baseUrl}/uploads/evidence/${datePath}/${dto.filename}`;
+
+    // 创建证据记录
+    const evidenceRecord = {
+      id: crypto.randomUUID(),
+      url,
+      filename: dto.filename,
+      originalName: dto.originalName,
+      mimetype: dto.mimetype,
+      size: dto.size,
+      uploadedAt: new Date().toISOString(),
+    };
+
+    // 更新 submissionPhotos
+    const existing = task.submissionPhotos || [];
+    task.submissionPhotos = [...existing, evidenceRecord] as any;
+
+    // 限制数量 (E3: 最多 10 个)
+    if (task.submissionPhotos.length > 10) {
+      throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
+    }
+
+    await this.tasksRepo.save(task);
+    return evidenceRecord;
+  }
+
   // ==========================================================================
   // 关闭/取消任务 (Owner / Caretaker)
   // ==========================================================================
