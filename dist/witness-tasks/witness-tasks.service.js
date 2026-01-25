@@ -43,6 +43,8 @@ let WitnessTasksService = class WitnessTasksService {
             eventId: dto.eventId ?? null,
             title: dto.title,
             description: dto.description ?? null,
+            purpose: dto.purpose ?? null,
+            targetEntry: dto.targetEntry ?? null,
             status: 'created',
             creatorUserId: userId,
             creatorRole: role.role,
@@ -78,7 +80,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async listAvailableTasks(userId, circleId) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness']);
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
         await this.expireOverdueTasks(circleId);
         const tasks = await this.tasksRepo.find({
             where: {
@@ -90,7 +92,7 @@ let WitnessTasksService = class WitnessTasksService {
         return tasks;
     }
     async claimTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness']);
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (task.status !== 'offered') {
             throw this.makeError(400, 'INVALID_STATE', `Cannot claim task in status: ${task.status}`);
@@ -113,7 +115,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async arriveAtTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness']);
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (task.status !== 'claimed') {
             throw this.makeError(400, 'INVALID_STATE', `Cannot arrive at task in status: ${task.status}`);
@@ -148,7 +150,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async submitTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness']);
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (task.status !== 'arrived') {
             throw this.makeError(400, 'INVALID_STATE', `Cannot submit task in status: ${task.status}`);
@@ -165,13 +167,63 @@ let WitnessTasksService = class WitnessTasksService {
         }
         task.status = 'submitted';
         task.submittedAt = new Date();
-        task.submissionNotes = dto.notes ?? null;
+        task.conclusion = dto.conclusion ?? null;
+        task.conclusionNote = dto.conclusionNote ?? null;
+        task.submissionNotes = dto.notes ?? dto.conclusionNote ?? null;
         task.submissionPhotos = dto.photos?.map(p => ({
             url: p.url,
             uploadedAt: new Date().toISOString(),
         })) ?? null;
         await this.tasksRepo.save(task);
         return task;
+    }
+    async riskAbortTask(userId, circleId, taskId, dto) {
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        const task = await this.getTaskOrThrow(taskId, circleId);
+        if (!['claimed', 'arrived'].includes(task.status)) {
+            throw this.makeError(400, 'INVALID_STATE', `Cannot risk-abort task in status: ${task.status}`);
+        }
+        if (task.witnessUserId !== userId) {
+            throw this.makeError(403, ng_http_error_1.NgErrorCodes.FORBIDDEN, 'You are not the assigned witness');
+        }
+        if (!dto.reason || dto.reason.trim().length === 0) {
+            throw this.makeError(400, 'INVALID_INPUT', 'Risk abort reason is required');
+        }
+        task.status = 'risk_aborted';
+        task.riskAbortReason = dto.reason;
+        task.riskAbortedAt = new Date();
+        await this.tasksRepo.save(task);
+        return task;
+    }
+    async addEvidence(userId, circleId, taskId, dto) {
+        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        const task = await this.getTaskOrThrow(taskId, circleId);
+        if (!['claimed', 'arrived'].includes(task.status)) {
+            throw this.makeError(400, 'INVALID_STATE', `Cannot upload evidence in status: ${task.status}`);
+        }
+        if (task.witnessUserId !== userId) {
+            throw this.makeError(403, ng_http_error_1.NgErrorCodes.FORBIDDEN, 'Only assigned witness can upload evidence');
+        }
+        const now = new Date();
+        const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+        const baseUrl = process.env.BASE_URL || '';
+        const url = `${baseUrl}/uploads/evidence/${datePath}/${dto.filename}`;
+        const evidenceRecord = {
+            id: crypto.randomUUID(),
+            url,
+            filename: dto.filename,
+            originalName: dto.originalName,
+            mimetype: dto.mimetype,
+            size: dto.size,
+            uploadedAt: new Date().toISOString(),
+        };
+        const existing = task.submissionPhotos || [];
+        task.submissionPhotos = [...existing, evidenceRecord];
+        if (task.submissionPhotos && task.submissionPhotos.length > 10) {
+            throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
+        }
+        await this.tasksRepo.save(task);
+        return evidenceRecord;
     }
     async closeTask(userId, circleId, taskId) {
         await this.circles.mustHaveRole(userId, circleId, ['owner', 'caretaker']);
@@ -209,7 +261,21 @@ let WitnessTasksService = class WitnessTasksService {
         const role = await this.circles.mustBeMember(userId, circleId);
         const where = { circleId };
         if (role.role === 'witness') {
-            where.witnessUserId = userId;
+            const [offeredTasks, myTasks] = await Promise.all([
+                this.tasksRepo.find({
+                    where: { circleId, status: 'offered' },
+                    order: { createdAt: 'DESC' },
+                }),
+                this.tasksRepo.find({
+                    where: { circleId, witnessUserId: userId },
+                    order: { createdAt: 'DESC' },
+                }),
+            ]);
+            const taskMap = new Map();
+            [...offeredTasks, ...myTasks].forEach(t => taskMap.set(t.id, t));
+            const tasks = Array.from(taskMap.values())
+                .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+            return { tasks, total: tasks.length };
         }
         if (opts?.status) {
             where.status = opts.status;

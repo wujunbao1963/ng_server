@@ -15,7 +15,46 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WitnessTasksController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_1 = require("multer");
+const path_1 = require("path");
+const fs_1 = require("fs");
+const crypto = require("crypto");
 const witness_tasks_service_1 = require("./witness-tasks.service");
+const UPLOAD_DIR = process.env.EVIDENCE_UPLOAD_DIR || './uploads/evidence';
+if (!(0, fs_1.existsSync)(UPLOAD_DIR)) {
+    (0, fs_1.mkdirSync)(UPLOAD_DIR, { recursive: true });
+}
+const evidenceStorage = (0, multer_1.diskStorage)({
+    destination: (req, file, cb) => {
+        const now = new Date();
+        const datePath = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+        const fullPath = (0, path_1.join)(UPLOAD_DIR, datePath);
+        if (!(0, fs_1.existsSync)(fullPath)) {
+            (0, fs_1.mkdirSync)(fullPath, { recursive: true });
+        }
+        cb(null, fullPath);
+    },
+    filename: (req, file, cb) => {
+        const taskId = req.params.taskId || 'unknown';
+        const uniqueSuffix = `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        const ext = (0, path_1.extname)(file.originalname).toLowerCase() || '.jpg';
+        cb(null, `${taskId}_${uniqueSuffix}${ext}`);
+    },
+});
+const fileFilter = (req, file, cb) => {
+    const allowedMimes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'video/mp4', 'video/quicktime', 'video/webm',
+        'audio/aac', 'audio/mpeg', 'audio/mp4',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+    }
+    else {
+        cb(new common_1.BadRequestException(`Unsupported file type: ${file.mimetype}`), false);
+    }
+};
 let WitnessTasksController = class WitnessTasksController {
     constructor(tasksService) {
         this.tasksService = tasksService;
@@ -59,6 +98,23 @@ let WitnessTasksController = class WitnessTasksController {
         const task = await this.tasksService.submitTask(req.user.userId, circleId, taskId, dto);
         return { task: this.formatTask(task) };
     }
+    async riskAbortTask(circleId, taskId, dto, req) {
+        const task = await this.tasksService.riskAbortTask(req.user.userId, circleId, taskId, dto);
+        return { task: this.formatTask(task) };
+    }
+    async uploadEvidence(circleId, taskId, file, req) {
+        if (!file) {
+            throw new common_1.BadRequestException('No file uploaded');
+        }
+        const evidence = await this.tasksService.addEvidence(req.user.userId, circleId, taskId, {
+            filename: file.filename,
+            originalName: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            path: file.path,
+        });
+        return { success: true, evidence };
+    }
     async closeTask(circleId, taskId, req) {
         const task = await this.tasksService.closeTask(req.user.userId, circleId, taskId);
         return { task: this.formatTask(task) };
@@ -78,6 +134,8 @@ let WitnessTasksController = class WitnessTasksController {
             eventId: task.eventId,
             title: task.title,
             description: task.description,
+            purpose: task.purpose,
+            targetEntry: task.targetEntry,
             status: task.status,
             creatorUserId: task.creatorUserId,
             creatorRole: task.creatorRole,
@@ -92,9 +150,13 @@ let WitnessTasksController = class WitnessTasksController {
             expiresAt: task.expiresAt?.toISOString?.() ?? task.expiresAt,
             proximityVerified: task.proximityVerified,
             proximityFailureReason: task.proximityFailureReason,
+            conclusion: task.conclusion,
+            conclusionNote: task.conclusionNote,
             submissionNotes: task.submissionNotes,
             submissionPhotos: task.submissionPhotos,
             cancelReason: task.cancelReason,
+            riskAbortReason: task.riskAbortReason,
+            riskAbortedAt: task.riskAbortedAt?.toISOString?.() ?? task.riskAbortedAt,
         };
     }
 };
@@ -175,6 +237,31 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], WitnessTasksController.prototype, "submitTask", null);
+__decorate([
+    (0, common_1.Post)('api/circles/:circleId/witness-tasks/:taskId/risk-abort'),
+    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(1, (0, common_1.Param)('taskId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], WitnessTasksController.prototype, "riskAbortTask", null);
+__decorate([
+    (0, common_1.Post)('api/circles/:circleId/witness-tasks/:taskId/evidence'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
+        storage: evidenceStorage,
+        fileFilter: fileFilter,
+        limits: { fileSize: 10 * 1024 * 1024 },
+    })),
+    __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(1, (0, common_1.Param)('taskId', new common_1.ParseUUIDPipe({ version: '4' }))),
+    __param(2, (0, common_1.UploadedFile)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], WitnessTasksController.prototype, "uploadEvidence", null);
 __decorate([
     (0, common_1.Post)('api/circles/:circleId/witness-tasks/:taskId/close'),
     __param(0, (0, common_1.Param)('circleId', new common_1.ParseUUIDPipe({ version: '4' }))),

@@ -8,6 +8,8 @@ export interface CreateTaskDto {
     title: string;
     description?: string;
     eventId?: string;
+    purpose?: string;
+    targetEntry?: string;
     claimTtlSec?: number;
     arriveTtlSec?: number;
     submitTtlSec?: number;
@@ -22,10 +24,15 @@ export interface ArriveDto {
     accuracy?: number;
 }
 export interface SubmitDto {
+    conclusion?: 'SAFE' | 'ABNORMAL' | 'NEEDS_ACTION';
+    conclusionNote?: string;
     notes?: string;
     photos?: Array<{
         url: string;
     }>;
+}
+export interface RiskAbortDto {
+    reason: string;
 }
 export declare class WitnessTasksService {
     private readonly tasksRepo;
@@ -40,6 +47,22 @@ export declare class WitnessTasksService {
     claimTask(userId: string, circleId: string, taskId: string, dto?: ClaimTaskDto): Promise<NgWitnessTask>;
     arriveAtTask(userId: string, circleId: string, taskId: string, dto: ArriveDto): Promise<NgWitnessTask>;
     submitTask(userId: string, circleId: string, taskId: string, dto: SubmitDto): Promise<NgWitnessTask>;
+    riskAbortTask(userId: string, circleId: string, taskId: string, dto: RiskAbortDto): Promise<NgWitnessTask>;
+    addEvidence(userId: string, circleId: string, taskId: string, dto: {
+        filename: string;
+        originalName: string;
+        mimetype: string;
+        size: number;
+        path: string;
+    }): Promise<{
+        id: string;
+        url: string;
+        filename: string;
+        originalName: string;
+        mimetype: string;
+        size: number;
+        uploadedAt: string;
+    }>;
     closeTask(userId: string, circleId: string, taskId: string): Promise<NgWitnessTask>;
     cancelTask(userId: string, circleId: string, taskId: string, reason?: string): Promise<NgWitnessTask>;
     getTask(userId: string, circleId: string, taskId: string): Promise<NgWitnessTask>;

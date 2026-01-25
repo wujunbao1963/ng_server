@@ -34,6 +34,21 @@ async function bootstrap() {
     const staticDir = exists(distIndex) ? distPublic : (exists(rootIndex) ? rootPublic : distPublic);
     console.log('[diag] staticDirChosen=', staticDir);
     app.useStaticAssets(staticDir);
+    const uploadDir = process.env.EVIDENCE_UPLOAD_DIR || './uploads';
+    const uploadPath = (0, path_1.join)(process.cwd(), uploadDir);
+    if (!exists(uploadPath)) {
+        try {
+            fs.mkdirSync(uploadPath, { recursive: true });
+            console.log('[uploads] Created upload directory:', uploadPath);
+        }
+        catch (e) {
+            console.log('[uploads] Failed to create upload directory:', String(e));
+        }
+    }
+    app.useStaticAssets(uploadPath, {
+        prefix: '/uploads/',
+    });
+    console.log('[uploads] Evidence files served from:', uploadPath, '-> /uploads/');
     try {
         const http = app.getHttpAdapter();
         const inst = http.getInstance();
@@ -48,6 +63,7 @@ async function bootstrap() {
                     distIndexExists: exists(distIndex),
                     rootIndexExists: exists(rootIndex),
                     staticDirChosen: staticDir,
+                    uploadDir: uploadPath,
                 });
             });
         }

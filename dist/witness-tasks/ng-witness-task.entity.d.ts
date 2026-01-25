@@ -4,7 +4,9 @@ export declare class NgWitnessTask {
     eventId: string | null;
     title: string;
     description: string | null;
-    status: 'created' | 'offered' | 'claimed' | 'arrived' | 'submitted' | 'closed' | 'canceled' | 'expired' | 'abandoned';
+    purpose: string | null;
+    targetEntry: string | null;
+    status: 'created' | 'offered' | 'claimed' | 'arrived' | 'submitted' | 'closed' | 'canceled' | 'expired' | 'abandoned' | 'risk_aborted';
     creatorUserId: string;
     creatorRole: 'owner' | 'caretaker';
     witnessUserId: string | null;
@@ -25,6 +27,8 @@ export declare class NgWitnessTask {
     arrivalAccuracyM: number | null;
     proximityVerified: boolean;
     proximityFailureReason: string | null;
+    conclusion: 'SAFE' | 'ABNORMAL' | 'NEEDS_ACTION' | null;
+    conclusionNote: string | null;
     submissionNotes: string | null;
     submissionPhotos: Array<{
         url: string;
@@ -32,5 +36,7 @@ export declare class NgWitnessTask {
     }> | null;
     canceledByUserId: string | null;
     cancelReason: string | null;
+    riskAbortReason: string | null;
+    riskAbortedAt: Date | null;
     metadata: Record<string, any> | null;
 }

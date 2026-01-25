@@ -433,7 +433,7 @@ export class WitnessTasksService {
     task.submissionPhotos = [...existing, evidenceRecord] as any;
 
     // 限制数量 (E3: 最多 10 个)
-    if (task.submissionPhotos.length > 10) {
+    if (task.submissionPhotos && task.submissionPhotos.length > 10) {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 

@@ -25,7 +25,7 @@ __decorate([
 ], NgWitnessTask.prototype, "circleId", void 0);
 __decorate([
     (0, typeorm_1.Index)(),
-    (0, typeorm_1.Column)({ type: 'uuid', name: 'event_id', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, name: 'event_id', nullable: true }),
     __metadata("design:type", Object)
 ], NgWitnessTask.prototype, "eventId", void 0);
 __decorate([
@@ -36,6 +36,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", Object)
 ], NgWitnessTask.prototype, "description", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "purpose", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, name: 'target_entry', nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "targetEntry", void 0);
 __decorate([
     (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'created' }),
@@ -124,6 +132,14 @@ __decorate([
     __metadata("design:type", Object)
 ], NgWitnessTask.prototype, "proximityFailureReason", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "conclusion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', name: 'conclusion_note', nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "conclusionNote", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'text', name: 'submission_notes', nullable: true }),
     __metadata("design:type", Object)
 ], NgWitnessTask.prototype, "submissionNotes", void 0);
@@ -139,6 +155,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 200, name: 'cancel_reason', nullable: true }),
     __metadata("design:type", Object)
 ], NgWitnessTask.prototype, "cancelReason", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', name: 'risk_abort_reason', nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "riskAbortReason", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamptz', name: 'risk_aborted_at', nullable: true }),
+    __metadata("design:type", Object)
+], NgWitnessTask.prototype, "riskAbortedAt", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
     __metadata("design:type", Object)

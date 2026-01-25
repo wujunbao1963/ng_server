@@ -28,6 +28,19 @@ import {
 } from './witness-tasks.service';
 import { JwtUser } from '../auth/auth.types';
 
+// Multer 文件类型
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer?: Buffer;
+}
+
 // ============================================================================
 // 证据上传配置
 // ============================================================================
@@ -59,7 +72,7 @@ const evidenceStorage = diskStorage({
 });
 
 // 文件类型过滤
-const fileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+const fileFilter = (req: any, file: { mimetype: string; originalname: string }, cb: any) => {
   const allowedMimes = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'video/mp4', 'video/quicktime', 'video/webm',
@@ -253,7 +266,7 @@ export class WitnessTasksController {
   async uploadEvidence(
     @Param('circleId', new ParseUUIDPipe({ version: '4' })) circleId: string,
     @Param('taskId', new ParseUUIDPipe({ version: '4' })) taskId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: MulterFile,
     @Req() req: { user: JwtUser },
   ) {
     if (!file) {
