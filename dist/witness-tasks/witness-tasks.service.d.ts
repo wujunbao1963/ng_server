@@ -4,6 +4,7 @@ import { NgCircle } from '../circles/ng-circle.entity';
 import { NgRole } from '../roles/ng-role.entity';
 import { NgUser } from '../auth/ng-user.entity';
 import { CirclesService } from '../circles/circles.service';
+import { WitnessAlertsService } from '../witness-alerts/witness-alerts.service';
 export interface CreateTaskDto {
     title: string;
     description?: string;
@@ -40,7 +41,8 @@ export declare class WitnessTasksService {
     private readonly rolesRepo;
     private readonly usersRepo;
     private readonly circles;
-    constructor(tasksRepo: Repository<NgWitnessTask>, circlesRepo: Repository<NgCircle>, rolesRepo: Repository<NgRole>, usersRepo: Repository<NgUser>, circles: CirclesService);
+    private readonly witnessAlerts;
+    constructor(tasksRepo: Repository<NgWitnessTask>, circlesRepo: Repository<NgCircle>, rolesRepo: Repository<NgRole>, usersRepo: Repository<NgUser>, circles: CirclesService, witnessAlerts: WitnessAlertsService);
     createTask(userId: string, circleId: string, dto: CreateTaskDto): Promise<NgWitnessTask>;
     offerTask(userId: string, circleId: string, taskId: string): Promise<NgWitnessTask>;
     listAvailableTasks(userId: string, circleId: string): Promise<NgWitnessTask[]>;

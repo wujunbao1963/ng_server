@@ -31,6 +31,8 @@ import { RahaActionsModule } from './raha-actions/raha-actions.module';
 
 import { WitnessTasksModule } from './witness-tasks/witness-tasks.module';
 import { OsheModule } from './oshe/oshe.module';
+import { WitnessAlertsModule } from './witness-alerts/witness-alerts.module';
+
 
 @Module({
   imports: [
@@ -97,6 +99,7 @@ import { OsheModule } from './oshe/oshe.module';
     RahaActionsModule,
     WitnessTasksModule,  // ← 添加这行    
     OsheModule,  // ← 添加    
+    WitnessAlertsModule,
   ],
   providers: [
     // Global interceptor for request tracking

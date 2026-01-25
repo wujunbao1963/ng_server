@@ -22,14 +22,16 @@ const ng_circle_entity_1 = require("../circles/ng-circle.entity");
 const ng_role_entity_1 = require("../roles/ng-role.entity");
 const ng_user_entity_1 = require("../auth/ng-user.entity");
 const circles_service_1 = require("../circles/circles.service");
+const witness_alerts_service_1 = require("../witness-alerts/witness-alerts.service");
 const ng_http_error_1 = require("../common/errors/ng-http-error");
 let WitnessTasksService = class WitnessTasksService {
-    constructor(tasksRepo, circlesRepo, rolesRepo, usersRepo, circles) {
+    constructor(tasksRepo, circlesRepo, rolesRepo, usersRepo, circles, witnessAlerts) {
         this.tasksRepo = tasksRepo;
         this.circlesRepo = circlesRepo;
         this.rolesRepo = rolesRepo;
         this.usersRepo = usersRepo;
         this.circles = circles;
+        this.witnessAlerts = witnessAlerts;
     }
     async createTask(userId, circleId, dto) {
         const role = await this.circles.mustHaveRole(userId, circleId, ['owner', 'caretaker']);
@@ -112,6 +114,7 @@ let WitnessTasksService = class WitnessTasksService {
             };
         }
         await this.tasksRepo.save(task);
+        this.witnessAlerts.notifyTaskClaimed(task.creatorUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId).catch(err => console.error('[WitnessAlert] Failed to notify task claimed:', err));
         return task;
     }
     async arriveAtTask(userId, circleId, taskId, dto) {
@@ -158,6 +161,7 @@ let WitnessTasksService = class WitnessTasksService {
         task.status = 'arrived';
         task.arrivedAt = new Date();
         await this.tasksRepo.save(task);
+        this.witnessAlerts.notifyTaskArrived(task.creatorUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId).catch(err => console.error('[WitnessAlert] Failed to notify task arrived:', err));
         return task;
     }
     async submitTask(userId, circleId, taskId, dto) {
@@ -186,6 +190,7 @@ let WitnessTasksService = class WitnessTasksService {
             uploadedAt: new Date().toISOString(),
         })) ?? null;
         await this.tasksRepo.save(task);
+        this.witnessAlerts.notifyTaskSubmitted(task.creatorUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId, task.conclusion ?? undefined).catch(err => console.error('[WitnessAlert] Failed to notify task submitted:', err));
         return task;
     }
     async riskAbortTask(userId, circleId, taskId, dto) {
@@ -204,6 +209,7 @@ let WitnessTasksService = class WitnessTasksService {
         task.riskAbortReason = dto.reason;
         task.riskAbortedAt = new Date();
         await this.tasksRepo.save(task);
+        this.witnessAlerts.notifyTaskRiskAborted(task.creatorUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId, dto.reason).catch(err => console.error('[WitnessAlert] Failed to notify task risk aborted:', err));
         return task;
     }
     async addEvidence(userId, circleId, taskId, dto) {
@@ -262,6 +268,9 @@ let WitnessTasksService = class WitnessTasksService {
         task.canceledByUserId = userId;
         task.cancelReason = reason ?? null;
         await this.tasksRepo.save(task);
+        if (task.witnessUserId) {
+            this.witnessAlerts.notifyTaskCanceled(task.witnessUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId, role.role, reason).catch(err => console.error('[WitnessAlert] Failed to notify task canceled:', err));
+        }
         return task;
     }
     async getTask(userId, circleId, taskId) {
@@ -387,6 +396,7 @@ exports.WitnessTasksService = WitnessTasksService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        circles_service_1.CirclesService])
+        circles_service_1.CirclesService,
+        witness_alerts_service_1.WitnessAlertsService])
 ], WitnessTasksService);
 //# sourceMappingURL=witness-tasks.service.js.map

@@ -7,6 +7,7 @@ import { NgCircle } from '../circles/ng-circle.entity';
 import { NgRole } from '../roles/ng-role.entity';
 import { NgUser } from '../auth/ng-user.entity';
 import { CirclesService } from '../circles/circles.service';
+import { WitnessAlertsService } from '../witness-alerts/witness-alerts.service';
 import { NgHttpError, NgErrorCodes } from '../common/errors/ng-http-error';
 
 // ============================================================================
@@ -85,6 +86,7 @@ export class WitnessTasksService {
     @InjectRepository(NgUser)
     private readonly usersRepo: Repository<NgUser>,
     private readonly circles: CirclesService,
+    private readonly witnessAlerts: WitnessAlertsService,
   ) {}
 
   // ==========================================================================
@@ -227,6 +229,14 @@ export class WitnessTasksService {
     }
 
     await this.tasksRepo.save(task);
+    
+    // 通知 Creator: 任务已被领取
+    this.witnessAlerts.notifyTaskClaimed(
+      task.creatorUserId,
+      { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+      userId,
+    ).catch(err => console.error('[WitnessAlert] Failed to notify task claimed:', err));
+    
     return task;
   }
 
@@ -302,6 +312,14 @@ export class WitnessTasksService {
     task.arrivedAt = new Date();
 
     await this.tasksRepo.save(task);
+    
+    // 通知 Creator: Witness 已到达现场
+    this.witnessAlerts.notifyTaskArrived(
+      task.creatorUserId,
+      { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+      userId,
+    ).catch(err => console.error('[WitnessAlert] Failed to notify task arrived:', err));
+    
     return task;
   }
 
@@ -347,6 +365,15 @@ export class WitnessTasksService {
     })) ?? null;
 
     await this.tasksRepo.save(task);
+    
+    // 通知 Creator: 报告已提交
+    this.witnessAlerts.notifyTaskSubmitted(
+      task.creatorUserId,
+      { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+      userId,
+      task.conclusion ?? undefined,
+    ).catch(err => console.error('[WitnessAlert] Failed to notify task submitted:', err));
+    
     return task;
   }
 
@@ -381,7 +408,13 @@ export class WitnessTasksService {
 
     await this.tasksRepo.save(task);
     
-    // TODO: 通知 Creator (Owner/Caretaker) 任务被风险退出
+    // 通知 Creator: 风险退出 (高优先级)
+    this.witnessAlerts.notifyTaskRiskAborted(
+      task.creatorUserId,
+      { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+      userId,
+      dto.reason,
+    ).catch(err => console.error('[WitnessAlert] Failed to notify task risk aborted:', err));
     
     return task;
   }
@@ -509,6 +542,18 @@ export class WitnessTasksService {
     task.cancelReason = reason ?? null;
 
     await this.tasksRepo.save(task);
+    
+    // 通知 Witness: 任务已取消 (如果已有 Witness 领取)
+    if (task.witnessUserId) {
+      this.witnessAlerts.notifyTaskCanceled(
+        task.witnessUserId,
+        { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+        userId,
+        role.role,
+        reason,
+      ).catch(err => console.error('[WitnessAlert] Failed to notify task canceled:', err));
+    }
+    
     return task;
   }
 

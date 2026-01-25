@@ -16,6 +16,7 @@ const ng_user_entity_1 = require("../auth/ng-user.entity");
 const witness_tasks_service_1 = require("./witness-tasks.service");
 const witness_tasks_controller_1 = require("./witness-tasks.controller");
 const circles_module_1 = require("../circles/circles.module");
+const witness_alerts_module_1 = require("../witness-alerts/witness-alerts.module");
 let WitnessTasksModule = class WitnessTasksModule {
 };
 exports.WitnessTasksModule = WitnessTasksModule;
@@ -24,6 +25,7 @@ exports.WitnessTasksModule = WitnessTasksModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([ng_witness_task_entity_1.NgWitnessTask, ng_circle_entity_1.NgCircle, ng_role_entity_1.NgRole, ng_user_entity_1.NgUser]),
             circles_module_1.CirclesModule,
+            witness_alerts_module_1.WitnessAlertsModule,
         ],
         controllers: [witness_tasks_controller_1.WitnessTasksController],
         providers: [witness_tasks_service_1.WitnessTasksService],

@@ -7,11 +7,13 @@ import { NgUser } from '../auth/ng-user.entity';
 import { WitnessTasksService } from './witness-tasks.service';
 import { WitnessTasksController } from './witness-tasks.controller';
 import { CirclesModule } from '../circles/circles.module';
+import { WitnessAlertsModule } from '../witness-alerts/witness-alerts.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([NgWitnessTask, NgCircle, NgRole, NgUser]),
     CirclesModule,
+    WitnessAlertsModule, // Witness 专用消息通知
   ],
   controllers: [WitnessTasksController],
   providers: [WitnessTasksService],
