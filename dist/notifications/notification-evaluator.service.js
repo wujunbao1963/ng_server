@@ -29,10 +29,41 @@ let NotificationEvaluator = NotificationEvaluator_1 = class NotificationEvaluato
         this.logger = new common_1.Logger(NotificationEvaluator_1.name);
     }
     async evaluateEdgeEvent(input) {
-        const { threatState, workflowClass, triggerReason, mode } = input;
+        const { threatState, workflowClass, triggerReason, mode, notificationEligible, notificationHint } = input;
         const houseId = input.circleId;
         this.logger.log(`Evaluating event: eventId=${input.eventId} threatState=${threatState} ` +
-            `workflowClass=${workflowClass} mode=${mode}`);
+            `workflowClass=${workflowClass} mode=${mode} notificationEligible=${notificationEligible}`);
+        if (notificationEligible === false) {
+            this.logger.log(`Edge suppressed notification: eventId=${input.eventId} ` +
+                `reason=${notificationHint?.suppressReason || 'EDGE_DECIDED'}`);
+            return {
+                shouldNotify: false,
+                reason: `edge_suppressed:${notificationHint?.suppressReason || 'unspecified'}`,
+                edgeDecided: true,
+            };
+        }
+        if (notificationEligible === true) {
+            this.logger.log(`Edge approved notification: eventId=${input.eventId}`);
+            const notificationType = this.mapToNotificationType(input);
+            if (!notificationType) {
+                return { shouldNotify: false, reason: 'no_matching_type', edgeDecided: true };
+            }
+            const config = await this.getOrCreateConfig(houseId);
+            const throttled = await this.checkThrottle(houseId, input.eventId, notificationType, config);
+            if (throttled) {
+                return { shouldNotify: false, throttled: true, reason: 'throttled', edgeDecided: true };
+            }
+            return {
+                shouldNotify: true,
+                notificationType,
+                priority: this.getPriority(notificationType, threatState),
+                severity: this.getSeverity(notificationType, threatState),
+                preLevel: notificationHint?.preLevel || input.preLevel,
+                reason: 'edge_approved',
+                edgeDecided: true,
+            };
+        }
+        this.logger.debug(`Fallback to server evaluation: eventId=${input.eventId} (Edge did not send notificationEligible)`);
         const notificationType = this.mapToNotificationType(input);
         if (!notificationType) {
             return { shouldNotify: false, reason: 'no_matching_type' };
@@ -40,7 +71,7 @@ let NotificationEvaluator = NotificationEvaluator_1 = class NotificationEvaluato
         if (mode?.toLowerCase() === 'home') {
             const isAllowed = this.isAllowedInHomeMode(threatState, triggerReason, workflowClass);
             if (!isAllowed) {
-                return { shouldNotify: false, reason: 'home_mode_silent' };
+                return { shouldNotify: false, reason: 'home_mode_silent_fallback' };
             }
         }
         if (notificationType === 'SECURITY_PRE_ALERT' && input.preLevel === 'L0') {
@@ -70,7 +101,7 @@ let NotificationEvaluator = NotificationEvaluator_1 = class NotificationEvaluato
             priority: this.getPriority(notificationType, threatState),
             severity: this.getSeverity(notificationType, threatState),
             preLevel: input.preLevel,
-            reason: 'approved',
+            reason: 'approved_fallback',
         };
     }
     mapToNotificationType(input) {

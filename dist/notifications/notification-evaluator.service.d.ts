@@ -12,6 +12,11 @@ export interface EdgeEventInput {
     entryPointId?: string;
     preLevel?: PreLevel;
     entryDelaySec?: number;
+    notificationEligible?: boolean;
+    notificationHint?: {
+        suppressReason?: 'MODE_HOME' | 'MODE_DISARM' | 'BELOW_THRESHOLD' | null;
+        preLevel?: PreLevel;
+    };
 }
 export interface NotificationEvaluation {
     shouldNotify: boolean;
@@ -24,6 +29,7 @@ export interface NotificationEvaluation {
     deferred?: boolean;
     deferredUntil?: Date;
     reason?: string;
+    edgeDecided?: boolean;
 }
 export interface RecipientInfo {
     userId: string;

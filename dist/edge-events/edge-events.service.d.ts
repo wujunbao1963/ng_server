@@ -18,6 +18,19 @@ export type EdgeEventSummaryUpsertV77 = {
     triggerReason?: string;
     [k: string]: unknown;
 };
+export type EdgeEventSummaryUpsertV771 = EdgeEventSummaryUpsertV77 & {
+    notificationEligible?: boolean;
+    notificationHint?: {
+        suppressReason?: 'MODE_HOME' | 'MODE_DISARM' | 'BELOW_THRESHOLD' | null;
+        preLevel?: 'L0' | 'L1' | 'L2';
+    };
+    evidenceCapture?: {
+        sessionCount?: number;
+        clipCount?: number;
+        anchorCount?: number;
+        hasPresenceSession?: boolean;
+    };
+};
 export type EdgeSummaryUpsertResult = {
     applied: boolean;
     reason: 'applied' | 'stale_sequence' | 'stale_timestamp' | 'duplicate_payload';

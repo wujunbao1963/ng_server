@@ -55,6 +55,14 @@ __decorate([
     __metadata("design:type", String)
 ], NgEdgeIngestAudit.prototype, "messageType", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', name: 'notification_eligible', nullable: true }),
+    __metadata("design:type", Object)
+], NgEdgeIngestAudit.prototype, "notificationEligible", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', name: 'notification_suppress_reason', nullable: true }),
+    __metadata("design:type", Object)
+], NgEdgeIngestAudit.prototype, "notificationSuppressReason", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz', name: 'received_at' }),
     __metadata("design:type", Date)
 ], NgEdgeIngestAudit.prototype, "receivedAt", void 0);

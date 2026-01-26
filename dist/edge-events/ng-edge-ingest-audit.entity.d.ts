@@ -9,5 +9,7 @@ export declare class NgEdgeIngestAudit {
     reason: string;
     schemaVersion: string;
     messageType: string;
+    notificationEligible: boolean | null;
+    notificationSuppressReason: string | null;
     receivedAt: Date;
 }

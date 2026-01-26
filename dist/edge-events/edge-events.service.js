@@ -215,6 +215,8 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                     lastPayloadHash: payloadHash,
                 });
                 await repo.save(created);
+                const notificationEligible = payload.notificationEligible ?? null;
+                const notificationHint = payload.notificationHint;
                 await audit.insert({
                     circleId: payload.circleId,
                     eventId: payload.eventId,
@@ -225,6 +227,8 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                     reason: 'applied',
                     schemaVersion: payload.schemaVersion,
                     messageType: 'event_summary_upsert',
+                    notificationEligible,
+                    notificationSuppressReason: notificationHint?.suppressReason ?? null,
                 });
                 return { applied: true, reason: 'applied' };
             }
@@ -281,6 +285,8 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
             existing.summaryJson = payload;
             existing.lastPayloadHash = payloadHash;
             await repo.save(existing);
+            const notificationEligible = payload.notificationEligible ?? null;
+            const notificationHint = payload.notificationHint;
             await audit.insert({
                 circleId: payload.circleId,
                 eventId: payload.eventId,
@@ -291,6 +297,8 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                 reason: 'applied',
                 schemaVersion: payload.schemaVersion,
                 messageType: 'event_summary_upsert',
+                notificationEligible,
+                notificationSuppressReason: notificationHint?.suppressReason ?? null,
             });
             return { applied: true, reason: 'applied' };
         });
@@ -346,23 +354,34 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
         const triggerReason = payload.triggerReason;
         const threatState = payload.threatState;
         const mode = payload.mode;
-        this.logger.log(`maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} threatState=${threatState} triggerReason=${triggerReason}`);
+        const notificationEligible = payload.notificationEligible;
+        const notificationHint = payload.notificationHint;
+        this.logger.log(`maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} ` +
+            `threatState=${threatState} triggerReason=${triggerReason} ` +
+            `notificationEligible=${notificationEligible} suppressReason=${notificationHint?.suppressReason}`);
+        if (notificationEligible === false) {
+            this.logger.log(`Notification suppressed by Edge decision: eventId=${payload.eventId} ` +
+                `reason=${notificationHint?.suppressReason || 'EDGE_DECIDED'}`);
+            return;
+        }
         try {
             const ownerUserId = await this.circlesService.getCircleOwner(payload.circleId);
             if (!ownerUserId) {
                 this.logger.log(`No owner found for circle ${payload.circleId}, skipping notification`);
                 return;
             }
-            if (mode?.toLowerCase() === 'home') {
-                const isStrongSecurityEvent = threatState === 'TRIGGERED' ||
-                    triggerReason === 'glass_break';
-                const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
-                    triggerReason === 'delivery_detected';
-                if (!isStrongSecurityEvent && !isLogisticsEvent) {
-                    this.logger.log(`Home mode: skipping notification for threatState=${threatState} triggerReason=${triggerReason} (silent recording)`);
-                    return;
+            if (notificationEligible === undefined) {
+                if (mode?.toLowerCase() === 'home') {
+                    const isStrongSecurityEvent = threatState === 'TRIGGERED' ||
+                        triggerReason === 'glass_break';
+                    const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
+                        triggerReason === 'delivery_detected';
+                    if (!isStrongSecurityEvent && !isLogisticsEvent) {
+                        this.logger.log(`[Fallback] Home mode: skipping notification for threatState=${threatState} ` +
+                            `triggerReason=${triggerReason} (Edge did not send notificationEligible)`);
+                        return;
+                    }
                 }
-                this.logger.log(`Home mode: allowing notification (strongSecurity=${isStrongSecurityEvent}, logistics=${isLogisticsEvent})`);
             }
             if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
                 await this.notificationsService.createParcelNotification({

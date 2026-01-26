@@ -12,6 +12,9 @@ import { CirclesService } from '../circles/circles.service';
 import { EdgeCommandsService } from './edge-commands.service';
 import { EventViewModelService, EventViewModel } from './event-viewmodel.service';
 
+/**
+ * v7.7 EventSummaryUpsert schema
+ */
 export type EdgeEventSummaryUpsertV77 = {
   schemaVersion: 'v7.7';
   circleId: string;
@@ -22,6 +25,34 @@ export type EdgeEventSummaryUpsertV77 = {
   sequence?: number;
   triggerReason?: string;
   [k: string]: unknown;
+};
+
+/**
+ * v7.7.1 EventSummaryUpsert schema extension
+ * 
+ * 根据 NG_EVIDENCE_NOTIFICATION_ENGINEERING_SPEC_v1 §6.2:
+ * - notificationEligible: Edge 决定是否应该发送通知
+ * - notificationHint: Edge 提供的额外上下文（用于审计/调试）
+ * 
+ * 关键原则：
+ * > Edge is the sole authority for notification eligibility.
+ * > Server executes Edge's decision; Server does NOT interpret `mode` to make suppression decisions.
+ */
+export type EdgeEventSummaryUpsertV771 = EdgeEventSummaryUpsertV77 & {
+  // Edge-authoritative notification decision (v7.7.1)
+  notificationEligible?: boolean;
+  notificationHint?: {
+    suppressReason?: 'MODE_HOME' | 'MODE_DISARM' | 'BELOW_THRESHOLD' | null;
+    preLevel?: 'L0' | 'L1' | 'L2';
+  };
+  
+  // Evidence capture metadata (v7.7.1 Phase 3+)
+  evidenceCapture?: {
+    sessionCount?: number;
+    clipCount?: number;
+    anchorCount?: number;
+    hasPresenceSession?: boolean;
+  };
 };
 
 export type EdgeSummaryUpsertResult = {
@@ -340,6 +371,11 @@ export class EdgeEventsService {
           lastPayloadHash: payloadHash,
         });
         await repo.save(created);
+        
+        // v7.7.1: 提取通知决策字段用于审计
+        const notificationEligible = (payload as EdgeEventSummaryUpsertV771).notificationEligible ?? null;
+        const notificationHint = (payload as EdgeEventSummaryUpsertV771).notificationHint;
+        
         await audit.insert({
           circleId: payload.circleId,
           eventId: payload.eventId,
@@ -350,6 +386,8 @@ export class EdgeEventsService {
           reason: 'applied',
           schemaVersion: payload.schemaVersion,
           messageType: 'event_summary_upsert',
+          notificationEligible,
+          notificationSuppressReason: notificationHint?.suppressReason ?? null,
         });
         return { applied: true, reason: 'applied' };
       }
@@ -414,6 +452,10 @@ export class EdgeEventsService {
       existing.lastPayloadHash = payloadHash;
       await repo.save(existing);
 
+      // v7.7.1: 提取通知决策字段用于审计
+      const notificationEligible = (payload as EdgeEventSummaryUpsertV771).notificationEligible ?? null;
+      const notificationHint = (payload as EdgeEventSummaryUpsertV771).notificationHint;
+
       await audit.insert({
         circleId: payload.circleId,
         eventId: payload.eventId,
@@ -424,6 +466,8 @@ export class EdgeEventsService {
         reason: 'applied',
         schemaVersion: payload.schemaVersion,
         messageType: 'event_summary_upsert',
+        notificationEligible,
+        notificationSuppressReason: notificationHint?.suppressReason ?? null,
       });
 
       return { applied: true, reason: 'applied' };
@@ -503,24 +547,44 @@ export class EdgeEventsService {
   /**
    * 检查是否需要为该事件创建通知
    * 
+   * v7.7.1 Edge-Authoritative Notification (NG_EVIDENCE_NOTIFICATION_ENGINEERING_SPEC_v1 §6.2):
+   * - 如果 Edge 发送了 notificationEligible 字段，Server 直接遵循 Edge 的决定
+   * - 如果 notificationEligible 不存在（老版本 Edge），回退到 Server 端评估（向后兼容）
+   * 
+   * 关键原则：
+   * > Edge is the sole authority for notification eligibility.
+   * > Server executes Edge's decision; Server does NOT interpret `mode` to make suppression decisions.
+   * 
    * 当前支持：
    * - LOGISTICS 工作流 + delivery_detected 触发原因 → 快递到达通知
    * - SECURITY/SECURITY_HEAVY 工作流或有 threatState 的事件 → 安全警报通知
-   * 
-   * v7.7.1 Home Mode 静默规则：
-   * - HOME 模式下只有 TRIGGERED 或 glass_break 才推送通知
-   * - PRE_L1/PRE_L2/PENDING/门开关 在 HOME 模式下不推送（避免打扰）
-   * - 所有事件仍然记录到数据库，App 可查询
    */
-  private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77): Promise<void> {
+  private async maybeCreateNotification(payload: EdgeEventSummaryUpsertV77 | EdgeEventSummaryUpsertV771): Promise<void> {
     const workflowClass = (payload as any).workflowClass as string | undefined;
     const triggerReason = payload.triggerReason;
     const threatState = payload.threatState;
     const mode = (payload as any).mode as string | undefined;
 
+    // ========================================================================
+    // v7.7.1: 检查 Edge 的 notificationEligible 决定
+    // ========================================================================
+    const notificationEligible = (payload as EdgeEventSummaryUpsertV771).notificationEligible;
+    const notificationHint = (payload as EdgeEventSummaryUpsertV771).notificationHint;
+
     this.logger.log(
-      `maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} threatState=${threatState} triggerReason=${triggerReason}`
+      `maybeCreateNotification: eventId=${payload.eventId} mode=${mode} workflowClass=${workflowClass} ` +
+      `threatState=${threatState} triggerReason=${triggerReason} ` +
+      `notificationEligible=${notificationEligible} suppressReason=${notificationHint?.suppressReason}`
     );
+
+    // v7.7.1: 如果 Edge 明确设置了 notificationEligible=false，直接跳过
+    if (notificationEligible === false) {
+      this.logger.log(
+        `Notification suppressed by Edge decision: eventId=${payload.eventId} ` +
+        `reason=${notificationHint?.suppressReason || 'EDGE_DECIDED'}`
+      );
+      return;
+    }
 
     try {
       // 获取 Circle owner
@@ -531,38 +595,33 @@ export class EdgeEventsService {
       }
 
       // ========================================================================
-      // v7.7.1 Home Mode 静默规则
-      // HOME 模式下只有强安全事件和快递事件才推送通知，其他事件静默记录
+      // v7.7.1: 如果 Edge 没有发送 notificationEligible（老版本 Edge），
+      // 回退到 Server 端评估（向后兼容）
       // ========================================================================
-      if (mode?.toLowerCase() === 'home') {
-        // Home 模式下允许推送的情况:
-        // 1. TRIGGERED 状态（强安全事件，如入侵警报）
-        // 2. glass_break 触发原因（玻璃破碎，强证据）
-        // 3. LOGISTICS 快递事件（用户在家也想收到快递通知）
-        const isStrongSecurityEvent = 
-          threatState === 'TRIGGERED' || 
-          triggerReason === 'glass_break';
-        
-        const isLogisticsEvent = 
-          workflowClass === 'LOGISTICS' && 
-          triggerReason === 'delivery_detected';
-        
-        if (!isStrongSecurityEvent && !isLogisticsEvent) {
-          this.logger.log(
-            `Home mode: skipping notification for threatState=${threatState} triggerReason=${triggerReason} (silent recording)`
-          );
-          return;
+      if (notificationEligible === undefined) {
+        // Home Mode 静默规则（Server 端回退逻辑，未来应由 Edge 控制）
+        if (mode?.toLowerCase() === 'home') {
+          const isStrongSecurityEvent = 
+            threatState === 'TRIGGERED' || 
+            triggerReason === 'glass_break';
+          
+          const isLogisticsEvent = 
+            workflowClass === 'LOGISTICS' && 
+            triggerReason === 'delivery_detected';
+          
+          if (!isStrongSecurityEvent && !isLogisticsEvent) {
+            this.logger.log(
+              `[Fallback] Home mode: skipping notification for threatState=${threatState} ` +
+              `triggerReason=${triggerReason} (Edge did not send notificationEligible)`
+            );
+            return;
+          }
         }
-        
-        this.logger.log(
-          `Home mode: allowing notification (strongSecurity=${isStrongSecurityEvent}, logistics=${isLogisticsEvent})`
-        );
       }
       // ========================================================================
 
       // 1. 处理 LOGISTICS 快递事件
       if (workflowClass === 'LOGISTICS' && triggerReason === 'delivery_detected') {
-        // Home 模式下快递通知也静默（已在上面处理）
         await this.notificationsService.createParcelNotification({
           userId: ownerUserId,
           circleId: payload.circleId,

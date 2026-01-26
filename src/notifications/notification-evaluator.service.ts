@@ -15,6 +15,10 @@ import { OutboxService, OutboxMessageType } from '../common/outbox';
 
 /**
  * Edge 事件输入
+ * 
+ * v7.7.1: 新增 notificationEligible 和 notificationHint 字段
+ * 根据 NG_EVIDENCE_NOTIFICATION_ENGINEERING_SPEC_v1 §6.2:
+ * > Edge is the sole authority for notification eligibility.
  */
 export interface EdgeEventInput {
   eventId: string;
@@ -27,6 +31,13 @@ export interface EdgeEventInput {
   entryPointId?: string;
   preLevel?: PreLevel;
   entryDelaySec?: number;
+  
+  // v7.7.1: Edge-authoritative notification decision
+  notificationEligible?: boolean;
+  notificationHint?: {
+    suppressReason?: 'MODE_HOME' | 'MODE_DISARM' | 'BELOW_THRESHOLD' | null;
+    preLevel?: PreLevel;
+  };
 }
 
 /**
@@ -43,6 +54,9 @@ export interface NotificationEvaluation {
   deferred?: boolean;
   deferredUntil?: Date;
   reason?: string;
+  
+  // v7.7.1: 标记此决定是否来自 Edge
+  edgeDecided?: boolean;
 }
 
 /**
@@ -94,15 +108,71 @@ export class NotificationEvaluator {
 
   /**
    * 评估 Edge 事件并决定是否需要发送通知
+   * 
+   * v7.7.1 Edge-Authoritative Notification:
+   * - 如果 Edge 发送了 notificationEligible 字段，Server 直接遵循 Edge 的决定
+   * - 如果 notificationEligible 不存在（老版本 Edge），回退到 Server 端评估
+   * 
+   * 根据 NG_EVIDENCE_NOTIFICATION_ENGINEERING_SPEC_v1 §6.2:
+   * > Edge is the sole authority for notification eligibility.
+   * > Server executes Edge's decision; Server does NOT interpret `mode` to make suppression decisions.
    */
   async evaluateEdgeEvent(input: EdgeEventInput): Promise<NotificationEvaluation> {
-    const { threatState, workflowClass, triggerReason, mode } = input;
+    const { threatState, workflowClass, triggerReason, mode, notificationEligible, notificationHint } = input;
     const houseId = input.circleId;
 
     this.logger.log(
       `Evaluating event: eventId=${input.eventId} threatState=${threatState} ` +
-      `workflowClass=${workflowClass} mode=${mode}`
+      `workflowClass=${workflowClass} mode=${mode} notificationEligible=${notificationEligible}`
     );
+
+    // ========================================================================
+    // v7.7.1: 如果 Edge 明确设置了 notificationEligible，直接遵循
+    // ========================================================================
+    if (notificationEligible === false) {
+      this.logger.log(
+        `Edge suppressed notification: eventId=${input.eventId} ` +
+        `reason=${notificationHint?.suppressReason || 'EDGE_DECIDED'}`
+      );
+      return { 
+        shouldNotify: false, 
+        reason: `edge_suppressed:${notificationHint?.suppressReason || 'unspecified'}`,
+        edgeDecided: true,
+      };
+    }
+
+    if (notificationEligible === true) {
+      // Edge 明确允许通知，跳过 Server 端的 mode 检查
+      this.logger.log(`Edge approved notification: eventId=${input.eventId}`);
+      
+      const notificationType = this.mapToNotificationType(input);
+      if (!notificationType) {
+        return { shouldNotify: false, reason: 'no_matching_type', edgeDecided: true };
+      }
+
+      // 仍然执行节流检查（这是 Server 的职责）
+      const config = await this.getOrCreateConfig(houseId);
+      const throttled = await this.checkThrottle(houseId, input.eventId, notificationType, config);
+      if (throttled) {
+        return { shouldNotify: false, throttled: true, reason: 'throttled', edgeDecided: true };
+      }
+
+      return {
+        shouldNotify: true,
+        notificationType,
+        priority: this.getPriority(notificationType, threatState),
+        severity: this.getSeverity(notificationType, threatState),
+        preLevel: notificationHint?.preLevel || input.preLevel,
+        reason: 'edge_approved',
+        edgeDecided: true,
+      };
+    }
+    // ========================================================================
+
+    // ========================================================================
+    // 回退：老版本 Edge 没有发送 notificationEligible，使用 Server 端评估
+    // ========================================================================
+    this.logger.debug(`Fallback to server evaluation: eventId=${input.eventId} (Edge did not send notificationEligible)`);
 
     // 1. 确定通知类型
     const notificationType = this.mapToNotificationType(input);
@@ -110,11 +180,11 @@ export class NotificationEvaluator {
       return { shouldNotify: false, reason: 'no_matching_type' };
     }
 
-    // 2. Home 模式静默规则
+    // 2. Home 模式静默规则（回退逻辑）
     if (mode?.toLowerCase() === 'home') {
       const isAllowed = this.isAllowedInHomeMode(threatState, triggerReason, workflowClass);
       if (!isAllowed) {
-        return { shouldNotify: false, reason: 'home_mode_silent' };
+        return { shouldNotify: false, reason: 'home_mode_silent_fallback' };
       }
     }
 
@@ -154,7 +224,7 @@ export class NotificationEvaluator {
       priority: this.getPriority(notificationType, threatState),
       severity: this.getSeverity(notificationType, threatState),
       preLevel: input.preLevel,
-      reason: 'approved',
+      reason: 'approved_fallback',
     };
   }
 
