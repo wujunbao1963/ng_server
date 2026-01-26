@@ -1,6 +1,7 @@
 export declare class NgIncidentManifest {
     id: string;
     circleId: string;
+    deviceId: string;
     eventId: string;
     edgeInstanceId: string;
     edgeUpdatedAt: Date;

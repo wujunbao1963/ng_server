@@ -14,6 +14,9 @@ export class NgIncidentManifest {
   @Column({ type: 'uuid', name: 'circle_id' })
   circleId!: string;
 
+  @Column({ type: 'uuid', name: 'device_id' })
+  deviceId!: string;  // <-- 添加：对应数据库的 device_id 列
+
   @Column({ type: 'text', name: 'event_id' })
   eventId!: string;
 

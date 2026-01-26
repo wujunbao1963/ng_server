@@ -23,6 +23,10 @@ __decorate([
     __metadata("design:type", String)
 ], NgIncidentManifest.prototype, "circleId", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'uuid', name: 'device_id' }),
+    __metadata("design:type", String)
+], NgIncidentManifest.prototype, "deviceId", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'text', name: 'event_id' }),
     __metadata("design:type", String)
 ], NgIncidentManifest.prototype, "eventId", void 0);

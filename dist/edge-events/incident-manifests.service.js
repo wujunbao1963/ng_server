@@ -55,6 +55,7 @@ let IncidentManifestsService = IncidentManifestsService_1 = class IncidentManife
                     circleId: payload.circleId,
                     eventId: payload.eventId,
                     edgeInstanceId: payload.edgeInstanceId,
+                    deviceId: payload.edgeInstanceId,
                     edgeUpdatedAt: incomingUpdatedAt,
                     lastSequence: String(incomingSeq),
                     lastPayloadHash: payloadHash,
