@@ -62,11 +62,15 @@ export class IncidentManifestsService {
       });
 
       if (!existing) {
+        // 从 manifest 中提取 incidentPacketId
+        const incidentPacketId = (payload.manifest as any)?.incidentPacketId || `pkt_${payload.eventId}`;
+        
         const created = repo.create({
           circleId: payload.circleId,
           eventId: payload.eventId,
           edgeInstanceId: payload.edgeInstanceId,
-          deviceId: payload.edgeInstanceId,  // <-- 修复：添加 deviceId
+          deviceId: payload.edgeInstanceId,
+          incidentPacketId: incidentPacketId,  // <-- 添加
           edgeUpdatedAt: incomingUpdatedAt,
           lastSequence: String(incomingSeq),
           lastPayloadHash: payloadHash,

@@ -23,6 +23,9 @@ export class NgIncidentManifest {
   @Column({ type: 'text', name: 'edge_instance_id' })
   edgeInstanceId!: string;
 
+  @Column({ type: 'text', name: 'incident_packet_id' })
+  incidentPacketId!: string;
+
   @Column({ type: 'timestamptz', name: 'edge_updated_at' })
   edgeUpdatedAt!: Date;
 
