@@ -3042,11 +3042,13 @@ async function showEventDetail(id) {
   }
   
   try {
-    // Parallel fetch: incident, evidence, timeline (like app.html)
-    const [incidentRes, evidenceRes, timelineRes] = await Promise.all([
+    // Parallel fetch: incident, evidence, timeline, AND evidence-capture summary (v7.7.1)
+    const [incidentRes, evidenceRes, timelineRes, evidenceCaptureRes] = await Promise.all([
       fetch(`${state.edgeUrl}/api/incidents/${id}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${state.edgeUrl}/api/incidents/${id}/evidence`).then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
-      fetch(`${state.edgeUrl}/api/incidents/${id}/full-timeline`).then(r => r.ok ? r.json() : { timeline: [] }).catch(() => ({ timeline: [] }))
+      fetch(`${state.edgeUrl}/api/incidents/${id}/full-timeline`).then(r => r.ok ? r.json() : { timeline: [] }).catch(() => ({ timeline: [] })),
+      // Evidence Capture v7.7.1 summary
+      fetch(`${state.edgeUrl}/api/evidence-capture/incidents/${id}/summary`).then(r => r.ok ? r.json() : null).catch(() => null)
     ]);
     
     if (!incidentRes) throw new Error('无法加载事件');
@@ -3054,6 +3056,9 @@ async function showEventDetail(id) {
     const i = incidentRes.incident || incidentRes;
     const ev = evidenceRes.items || evidenceRes.evidence || [];
     const tl = timelineRes.timeline || timelineRes.items || [];
+    
+    // Store evidence capture data
+    i.evidenceCapture = evidenceCaptureRes;
     
     // Store for action use
     i.evidence = ev;
@@ -3109,6 +3114,77 @@ function getRelativeTime(ts) {
   if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
   if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
   return Math.floor(diff / 86400) + ' 天前';
+}
+
+// =============================================================================
+// Evidence Capture v7.7.1 摘要渲染
+// =============================================================================
+function renderEvidenceCaptureSummary(capture) {
+  if (!capture) return '';
+  
+  const { 
+    session_count = 0,
+    clip_count = 0, 
+    anchor_count = 0,
+    total_duration_sec = 0,
+    reentry_count = 0,
+    has_evidence = false,
+    sessions = []
+  } = capture;
+  
+  // 如果没有任何数据，不显示
+  if (!has_evidence && session_count === 0 && anchor_count === 0) {
+    return '';
+  }
+  
+  // 格式化时长
+  const fmtDuration = (sec) => {
+    if (!sec || sec < 1) return '-';
+    if (sec < 60) return `${Math.round(sec)}秒`;
+    return `${Math.floor(sec / 60)}分${Math.round(sec % 60)}秒`;
+  };
+  
+  return `
+    <div class="detail-section">
+      <h3>📊 活动摘要</h3>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px;">
+        <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: 600; color: var(--primary);">${session_count}</div>
+          <div style="font-size: 12px; color: var(--gray-500);">检测会话</div>
+        </div>
+        <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: 600; color: var(--warning);">${anchor_count}</div>
+          <div style="font-size: 12px; color: var(--gray-500);">门窗事件</div>
+        </div>
+        <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: 600; color: var(--success);">${fmtDuration(total_duration_sec)}</div>
+          <div style="font-size: 12px; color: var(--gray-500);">总时长</div>
+        </div>
+        <div style="background: var(--gray-50); padding: 12px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: 600; color: ${reentry_count > 0 ? 'var(--danger)' : 'var(--gray-400)'}">${reentry_count}</div>
+          <div style="font-size: 12px; color: var(--gray-500);">重新进入</div>
+        </div>
+      </div>
+      ${sessions.length > 0 ? `
+        <div style="margin-top: 16px;">
+          <div style="font-size: 13px; color: var(--gray-500); margin-bottom: 8px;">会话详情</div>
+          ${sessions.map(s => `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--gray-50); border-radius: 6px; margin-bottom: 6px;">
+              <span style="font-size: 16px;">📹</span>
+              <div style="flex: 1;">
+                <div style="font-size: 13px; font-weight: 500;">${s.camera_id || '摄像头'}</div>
+                <div style="font-size: 11px; color: var(--gray-400);">
+                  ${new Date(s.start_ts).toLocaleTimeString('zh-CN')} · 
+                  ${s.state === 'ACTIVE' ? '<span style="color: var(--success);">进行中</span>' : '已结束'}
+                  ${s.reentry_count > 0 ? ` · 重入 ${s.reentry_count} 次` : ''}
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
 function renderEventDetailContent(i, ev, tl) {
@@ -3180,6 +3256,9 @@ function renderEventDetailContent(i, ev, tl) {
       </div>
     `;
   }
+
+  // ===== Evidence Capture v7.7.1 活动摘要 =====
+  html += renderEvidenceCaptureSummary(i.evidenceCapture);
 
   // 基本信息 (like app.html)
   html += `
