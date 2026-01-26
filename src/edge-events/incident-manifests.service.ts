@@ -66,6 +66,7 @@ export class IncidentManifestsService {
           circleId: payload.circleId,
           eventId: payload.eventId,
           edgeInstanceId: payload.edgeInstanceId,
+          deviceId: payload.edgeInstanceId,  // <-- 修复：添加 deviceId
           edgeUpdatedAt: incomingUpdatedAt,
           lastSequence: String(incomingSeq),
           lastPayloadHash: payloadHash,
