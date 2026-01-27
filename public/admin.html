@@ -1708,7 +1708,8 @@ function renderTaskItem(t, isOwnerOrCaretaker, isWitnessView) {
     if (t.status === 'offered') {
       actionBtns = `<button class="btn btn-sm btn-primary" onclick="claimTask('${t.id}')">领取</button>`;
     } else if (t.status === 'claimed') {
-      actionBtns = `<button class="btn btn-sm btn-warning" onclick="openArriveModal('${t.id}')">到场确认</button>`;
+      // 到场确认功能暂时关闭，直接显示提交反馈按钮
+      actionBtns = `<button class="btn btn-sm btn-success" onclick="openSubmitModal('${t.id}')">提交反馈</button>`;
     } else if (t.status === 'arrived') {
       actionBtns = `<button class="btn btn-sm btn-success" onclick="openSubmitModal('${t.id}')">提交反馈</button>`;
     }
@@ -2083,9 +2084,6 @@ async function submitTaskFeedback() {
   try {
     // 上传证据（如果有）
     const evidenceCount = state.taskEvidence?.length || 0;
-    console.log('=== 提交反馈开始 ===');
-    console.log('证据数量:', evidenceCount);
-    console.log('taskEvidence:', state.taskEvidence);
     
     if (state.taskEvidence && state.taskEvidence.length > 0) {
       submitBtn.textContent = `上传证据 (0/${state.taskEvidence.length})...`;
@@ -2094,14 +2092,12 @@ async function submitTaskFeedback() {
       for (let i = 0; i < state.taskEvidence.length; i++) {
         const ev = state.taskEvidence[i];
         submitBtn.textContent = `上传证据 (${i + 1}/${state.taskEvidence.length})...`;
-        console.log(`[${i+1}] 上传文件:`, ev.file.name, `(${(ev.file.size/1024).toFixed(1)}KB)`);
         
         try {
           const formData = new FormData();
           formData.append('file', ev.file);
           
           const uploadUrl = `${API_BASE}/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`;
-          console.log('上传URL:', uploadUrl);
           
           const uploadRes = await fetch(uploadUrl, {
             method: 'POST',
@@ -2111,21 +2107,19 @@ async function submitTaskFeedback() {
             body: formData
           });
           
-          const resText = await uploadRes.text();
-          console.log(`[${i+1}] 响应状态:`, uploadRes.status);
-          console.log(`[${i+1}] 响应内容:`, resText);
-          
           if (uploadRes.ok) {
             successCount++;
           }
         } catch (uploadErr) {
-          console.error(`[${i+1}] 上传错误:`, uploadErr);
+          console.error('上传错误:', uploadErr);
         }
       }
-      console.log(`上传结果: ${successCount}/${state.taskEvidence.length} 成功`);
+      
+      if (successCount < state.taskEvidence.length) {
+        toast(`部分证据上传失败 (${successCount}/${state.taskEvidence.length})`, 'warning');
+      }
     }
     
-    console.log('=== 提交反馈 ===');
     submitBtn.textContent = '提交反馈...';
     
     // 提交反馈（证据已通过 addEvidence 保存到 task）
@@ -2134,7 +2128,6 @@ async function submitTaskFeedback() {
       body: { conclusion, conclusionNote }
     });
     
-    console.log('=== 提交完成 ===');
     toast('反馈已提交', 'success');
     closeModal('submitModal');
     renderCurrentTab();
@@ -2319,7 +2312,8 @@ async function showTaskDetail(taskId) {
         actions.push(`<button class="btn btn-primary" onclick="claimTask('${task.id}'); closeModal('taskDetailModal');">领取任务</button>`);
       }
       if (task.status === 'claimed' && isMyTask) {
-        actions.push(`<button class="btn btn-warning" onclick="closeModal('taskDetailModal'); openArriveModal('${task.id}');">到场确认</button>`);
+        // 到场确认功能暂时关闭，直接显示提交反馈按钮
+        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}');">提交反馈</button>`);
       }
       if (task.status === 'arrived' && isMyTask) {
         actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}');">提交反馈</button>`);
@@ -3595,8 +3589,6 @@ async function executeConfirmedAction() {
     action: rahaAction
   };
   
-  console.log('RAHA request:', body);
-  
   try {
     const res = await fetch(`${state.edgeUrl}/api/raha/execute`, {
       method: 'POST',
@@ -3605,7 +3597,6 @@ async function executeConfirmedAction() {
     });
     
     const data = await res.json().catch(() => ({}));
-    console.log('RAHA response:', res.status, data);
     
     if (!res.ok) {
       toast(data.detail || data.error || '操作失败', 'error');
@@ -3745,19 +3736,15 @@ function isIOS() {
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) { 
-    console.log('[Push] SW not supported'); 
     return null; 
   }
   try {
     swRegistration = await navigator.serviceWorker.register('/sw.js');
-    console.log('[Push] SW registered:', swRegistration.scope);
     
     swRegistration.addEventListener('updatefound', () => {
       const newWorker = swRegistration.installing;
-      console.log('[SW] Update found, installing...');
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          console.log('[SW] New version available, refreshing...');
           window.location.reload();
         }
       });
@@ -3765,7 +3752,6 @@ async function registerServiceWorker() {
     
     swRegistration.update();
     await navigator.serviceWorker.ready;
-    console.log('[Push] SW ready');
     return swRegistration;
   } catch (err) { 
     console.error('[Push] SW registration failed:', err); 
@@ -3784,24 +3770,18 @@ async function enablePushByUser() {
     currentPermission: 'Notification' in window ? Notification.permission : 'N/A'
   };
   
-  console.log('[Push] Debug info:', debugInfo);
-  alert('Push 调试:\n\niOS: ' + debugInfo.isIOS + '\n主屏幕: ' + debugInfo.isStandalone + '\nNotification: ' + debugInfo.hasNotification + '\nSW: ' + debugInfo.hasServiceWorker + '\nPushManager: ' + debugInfo.hasPushManager + '\n权限: ' + debugInfo.currentPermission);
-  
   // iOS 必须从主屏幕启动
   if (isIOS() && !isStandalone()) {
-    toast('📱 请先添加到主屏幕', 'warning');
-    alert('请从主屏幕启动！\n\n1. 点击分享按钮\n2. 添加到主屏幕\n3. 从桌面图标打开');
+    toast('📱 请先添加到主屏幕后再启用推送', 'warning');
     return false;
   }
   
-  if (!('Notification' in window)) { alert('不支持 Notification'); return false; }
-  if (!('serviceWorker' in navigator)) { alert('不支持 ServiceWorker'); return false; }
-  if (!('PushManager' in window)) { alert('不支持 PushManager'); return false; }
+  if (!('Notification' in window)) { toast('不支持推送通知', 'warning'); return false; }
+  if (!('serviceWorker' in navigator)) { toast('不支持 ServiceWorker', 'warning'); return false; }
+  if (!('PushManager' in window)) { toast('不支持 PushManager', 'warning'); return false; }
   
   try {
-    alert('即将请求权限...');
     const permission = await Notification.requestPermission();
-    alert('权限结果: ' + permission);
     
     if (permission !== 'granted') { 
       toast('❌ 权限被拒绝', 'error'); 
@@ -3810,14 +3790,14 @@ async function enablePushByUser() {
     
     if (!swRegistration) {
       swRegistration = await registerServiceWorker();
-      if (!swRegistration) { alert('SW 注册失败'); return false; }
+      if (!swRegistration) { toast('SW 注册失败', 'error'); return false; }
     }
     
     pushSubscription = await swRegistration.pushManager.getSubscription();
     
     if (!pushSubscription) {
       const vapidResponse = await fetch(API_BASE + '/v1/push/vapid-public-key');
-      if (!vapidResponse.ok) { alert('服务器未配置 VAPID'); return false; }
+      if (!vapidResponse.ok) { toast('服务器未配置 VAPID', 'warning'); return false; }
       const { vapidPublicKey } = await vapidResponse.json();
       
       const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
@@ -3833,16 +3813,16 @@ async function enablePushByUser() {
     return true;
   } catch (err) { 
     console.error('[Push] Error:', err); 
-    alert('错误: ' + err.message);
+    toast('推送启用失败', 'error');
     return false; 
   }
 }
 
 async function syncSubscriptionWithServer(subscription) {
   const token = localStorage.getItem('ng_jwt');
-  if (!token) { console.log('[Push] Not logged in'); return; }
+  if (!token) { return; }
   try {
-    const response = await fetch(API_BASE + '/v1/push/devices', {
+    await fetch(API_BASE + '/v1/push/devices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({
@@ -3854,7 +3834,6 @@ async function syncSubscriptionWithServer(subscription) {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     });
-    console.log('[Push] Sync result:', response.status);
   } catch (err) { console.error('[Push] Sync error:', err); }
 }
 
@@ -3891,14 +3870,12 @@ async function checkPushStatus() {
     const subscription = await registration.pushManager.getSubscription();
     updatePushButton(!!subscription);
     
-    // 🔧 关键修复：如果有 subscription 且已登录，自动同步到服务器
+    // 如果有 subscription 且已登录，自动同步到服务器
     if (subscription) {
       const token = localStorage.getItem('ng_jwt');
       if (token) {
-        console.log('[Push] Auto-syncing subscription to server...');
         try {
           await syncSubscriptionWithServer(subscription);
-          console.log('[Push] Auto-sync completed');
         } catch (e) {
           console.error('[Push] Auto-sync failed:', e);
         }

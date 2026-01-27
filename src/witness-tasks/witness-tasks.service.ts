@@ -333,7 +333,8 @@ export class WitnessTasksService {
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 
-    if (task.status !== 'arrived') {
+    // 允许 claimed 或 arrived 状态提交（到场确认功能暂时关闭）
+    if (!['claimed', 'arrived'].includes(task.status)) {
       throw this.makeError(400, 'INVALID_STATE', `Cannot submit task in status: ${task.status}`);
     }
 
