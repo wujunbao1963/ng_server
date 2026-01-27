@@ -342,13 +342,14 @@ export class WitnessTasksService {
       throw this.makeError(403, NgErrorCodes.FORBIDDEN, 'You are not the assigned witness');
     }
 
-    // 检查提交超时
-    const arrivedAt = task.arrivedAt!;
-    const submitDeadline = new Date(arrivedAt.getTime() + task.submitTtlSec * 1000);
-    if (new Date() > submitDeadline) {
-      task.status = 'abandoned';
-      await this.tasksRepo.save(task);
-      throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to submission timeout');
+    // 检查提交超时（仅在 arrived 状态时检查，claimed 状态跳过）
+    if (task.status === 'arrived' && task.arrivedAt) {
+      const submitDeadline = new Date(task.arrivedAt.getTime() + task.submitTtlSec * 1000);
+      if (new Date() > submitDeadline) {
+        task.status = 'abandoned';
+        await this.tasksRepo.save(task);
+        throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to submission timeout');
+      }
     }
 
     task.status = 'submitted';
