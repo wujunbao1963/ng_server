@@ -2082,9 +2082,10 @@ async function submitTaskFeedback() {
   
   try {
     // 上传证据（如果有）
-    // 注意：addEvidence 接口会直接保存到 task.submissionPhotos
     const evidenceCount = state.taskEvidence?.length || 0;
-    toast(`开始提交，证据数量: ${evidenceCount}`, 'info');
+    console.log('=== 提交反馈开始 ===');
+    console.log('证据数量:', evidenceCount);
+    console.log('taskEvidence:', state.taskEvidence);
     
     if (state.taskEvidence && state.taskEvidence.length > 0) {
       submitBtn.textContent = `上传证据 (0/${state.taskEvidence.length})...`;
@@ -2093,14 +2094,16 @@ async function submitTaskFeedback() {
       for (let i = 0; i < state.taskEvidence.length; i++) {
         const ev = state.taskEvidence[i];
         submitBtn.textContent = `上传证据 (${i + 1}/${state.taskEvidence.length})...`;
+        console.log(`[${i+1}] 上传文件:`, ev.file.name, `(${(ev.file.size/1024).toFixed(1)}KB)`);
         
         try {
           const formData = new FormData();
           formData.append('file', ev.file);
           
-          toast(`上传中: ${ev.file.name} (${(ev.file.size/1024).toFixed(1)}KB)`, 'info');
+          const uploadUrl = `${API_BASE}/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`;
+          console.log('上传URL:', uploadUrl);
           
-          const uploadRes = await fetch(`${API_BASE}/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`, {
+          const uploadRes = await fetch(uploadUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${state.jwt}`
@@ -2108,24 +2111,21 @@ async function submitTaskFeedback() {
             body: formData
           });
           
+          const resText = await uploadRes.text();
+          console.log(`[${i+1}] 响应状态:`, uploadRes.status);
+          console.log(`[${i+1}] 响应内容:`, resText);
+          
           if (uploadRes.ok) {
-            const result = await uploadRes.json();
-            toast(`✅ 上传成功: ${ev.file.name}`, 'success');
-            console.log('Upload success:', result);
             successCount++;
-          } else {
-            const errText = await uploadRes.text();
-            console.error('Evidence upload failed:', errText);
-            toast(`❌ 上传失败: ${ev.file.name} - ${errText}`, 'error');
           }
         } catch (uploadErr) {
-          console.error('Evidence upload error:', uploadErr);
-          toast(`❌ 上传错误: ${ev.file.name} - ${uploadErr.message}`, 'error');
+          console.error(`[${i+1}] 上传错误:`, uploadErr);
         }
       }
-      toast(`证据上传完成: ${successCount}/${state.taskEvidence.length}`, successCount > 0 ? 'success' : 'warning');
+      console.log(`上传结果: ${successCount}/${state.taskEvidence.length} 成功`);
     }
     
+    console.log('=== 提交反馈 ===');
     submitBtn.textContent = '提交反馈...';
     
     // 提交反馈（证据已通过 addEvidence 保存到 task）
@@ -2134,11 +2134,13 @@ async function submitTaskFeedback() {
       body: { conclusion, conclusionNote }
     });
     
+    console.log('=== 提交完成 ===');
     toast('反馈已提交', 'success');
     closeModal('submitModal');
     renderCurrentTab();
     
   } catch (err) {
+    console.error('提交失败:', err);
     toast(err.message, 'error');
   } finally {
     submitBtn.disabled = false;
