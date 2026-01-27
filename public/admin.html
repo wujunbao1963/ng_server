@@ -3342,7 +3342,6 @@ function renderEventActions(i) {
     if (perms.resolveEvents) {
       html += `<button class="action-btn" style="background: var(--danger); color: white;" onclick="confirmEventAction('silence', '静音', '确认关闭警报？')">🔇 静音</button>`;
       html += `<div class="action-row">
-        <button class="action-btn secondary" onclick="confirmEventAction('dismiss', '误报', '确认标记为误报？')">❌ 误报</button>
         <button class="action-btn primary" onclick="confirmEventAction('resolve', '确认安全', '确认事件已安全解决？')">✅ 确认安全</button>
       </div>`;
     }
