@@ -1922,6 +1922,23 @@ function openArriveModal(taskId) {
 async function getLocationAndArrive() {
   const statusEl = document.getElementById('arriveStatus');
   
+  // 先检查任务状态，防止重复调用
+  try {
+    const taskRes = await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}`);
+    if (taskRes.task && taskRes.task.status !== 'claimed') {
+      statusEl.innerHTML = `
+        <div class="text-center">
+          <div style="font-size: 48px; margin-bottom: 12px;">${taskRes.task.status === 'arrived' ? '✅' : '⚠️'}</div>
+          <p>${taskRes.task.status === 'arrived' ? '已确认到场' : '任务状态已变更: ' + taskRes.task.status}</p>
+        </div>
+      `;
+      setTimeout(() => { closeModal('arriveModal'); renderCurrentTab(); }, 1500);
+      return;
+    }
+  } catch (e) {
+    // 继续执行
+  }
+  
   if (!navigator.geolocation) {
     statusEl.innerHTML = '<p class="text-danger">您的浏览器不支持地理位置功能</p>';
     return;
