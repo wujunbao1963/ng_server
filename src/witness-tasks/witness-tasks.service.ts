@@ -489,12 +489,12 @@ export class WitnessTasksService {
     task.submissionPhotos = existing as any;
 
     // 限制数量 (E3: 最多 10 个)
-    if (task.submissionPhotos.length > 10) {
+    if (existing.length > 10) {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 
     console.log('[addEvidence] taskId:', taskId);
-    console.log('[addEvidence] saving submissionPhotos count:', task.submissionPhotos.length);
+    console.log('[addEvidence] saving submissionPhotos count:', existing.length);
 
     await this.tasksRepo.save(task);
     

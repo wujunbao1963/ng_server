@@ -185,10 +185,12 @@ let WitnessTasksService = class WitnessTasksService {
         task.conclusion = dto.conclusion ?? null;
         task.conclusionNote = dto.conclusionNote ?? null;
         task.submissionNotes = dto.notes ?? dto.conclusionNote ?? null;
-        task.submissionPhotos = dto.photos?.map(p => ({
-            url: p.url,
-            uploadedAt: new Date().toISOString(),
-        })) ?? null;
+        if (dto.photos && dto.photos.length > 0) {
+            task.submissionPhotos = dto.photos.map(p => ({
+                url: p.url,
+                uploadedAt: new Date().toISOString(),
+            }));
+        }
         await this.tasksRepo.save(task);
         this.witnessAlerts.notifyTaskSubmitted(task.creatorUserId, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId, task.conclusion ?? undefined).catch(err => console.error('[WitnessAlert] Failed to notify task submitted:', err));
         return task;
@@ -236,16 +238,13 @@ let WitnessTasksService = class WitnessTasksService {
         };
         const existing = task.submissionPhotos ? [...task.submissionPhotos] : [];
         existing.push(evidenceRecord);
-        const newPhotos = existing;
-        if (newPhotos.length > 10) {
+        task.submissionPhotos = existing;
+        if (existing.length > 10) {
             throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
         }
         console.log('[addEvidence] taskId:', taskId);
-        console.log('[addEvidence] newPhotos count:', newPhotos.length);
-        task.submissionPhotos = newPhotos;
-        const manager = this.tasksRepo.manager;
-        const saved = await manager.save(ng_witness_task_entity_1.NgWitnessTask, task);
-        console.log('[addEvidence] saved.submissionPhotos:', JSON.stringify(saved.submissionPhotos));
+        console.log('[addEvidence] saving submissionPhotos count:', existing.length);
+        await this.tasksRepo.save(task);
         return evidenceRecord;
     }
     async closeTask(userId, circleId, taskId) {
