@@ -359,10 +359,16 @@ export class WitnessTasksService {
     
     // 旧字段，保留兼容 (notes 映射到 submissionNotes)
     task.submissionNotes = dto.notes ?? dto.conclusionNote ?? null;
-    task.submissionPhotos = dto.photos?.map(p => ({
-      url: p.url,
-      uploadedAt: new Date().toISOString(),
-    })) ?? null;
+    
+    // 只有当 dto.photos 有值时才更新 submissionPhotos
+    // 否则保留已通过 addEvidence 上传的证据
+    if (dto.photos && dto.photos.length > 0) {
+      task.submissionPhotos = dto.photos.map(p => ({
+        url: p.url,
+        uploadedAt: new Date().toISOString(),
+      })) as any;
+    }
+    // 如果 dto.photos 为空，不修改 task.submissionPhotos，保留现有值
 
     await this.tasksRepo.save(task);
     
@@ -480,26 +486,17 @@ export class WitnessTasksService {
     // 更新 submissionPhotos
     const existing = task.submissionPhotos ? [...task.submissionPhotos] : [];
     existing.push(evidenceRecord);
-    const newPhotos = existing;
+    task.submissionPhotos = existing as any;
 
     // 限制数量 (E3: 最多 10 个)
-    if (newPhotos.length > 10) {
+    if (task.submissionPhotos.length > 10) {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 
     console.log('[addEvidence] taskId:', taskId);
-    console.log('[addEvidence] newPhotos count:', newPhotos.length);
+    console.log('[addEvidence] saving submissionPhotos count:', task.submissionPhotos.length);
 
-    // 使用底层数据库连接直接执行 SQL，完全绕过 TypeORM 实体管理
-    const jsonStr = JSON.stringify(newPhotos);
-    const connection = this.tasksRepo.manager.connection;
-    
-    const result = await connection.query(
-      `UPDATE ng_witness_tasks SET submission_photos = $1::jsonb WHERE id = $2 RETURNING submission_photos`,
-      [jsonStr, taskId]
-    );
-    
-    console.log('[addEvidence] Direct SQL result:', JSON.stringify(result));
+    await this.tasksRepo.save(task);
     
     return evidenceRecord;
   }
