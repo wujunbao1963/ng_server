@@ -478,15 +478,24 @@ export class WitnessTasksService {
     };
 
     // 更新 submissionPhotos
-    const existing = task.submissionPhotos || [];
-    task.submissionPhotos = [...existing, evidenceRecord] as any;
+    // 注意：TypeORM 对 jsonb 字段需要重新赋值整个数组才能触发变更检测
+    const existing = task.submissionPhotos ? [...task.submissionPhotos] : [];
+    existing.push(evidenceRecord);
+    const newPhotos = existing;
 
     // 限制数量 (E3: 最多 10 个)
-    if (task.submissionPhotos && task.submissionPhotos.length > 10) {
+    if (newPhotos.length > 10) {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 
-    await this.tasksRepo.save(task);
+    // 使用 QueryBuilder 直接执行 SQL 更新，确保 jsonb 字段被正确更新
+    await this.tasksRepo
+      .createQueryBuilder()
+      .update(NgWitnessTask)
+      .set({ submissionPhotos: newPhotos as any })
+      .where('id = :id', { id: taskId })
+      .execute();
+    
     return evidenceRecord;
   }
 
