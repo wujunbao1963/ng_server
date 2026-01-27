@@ -490,14 +490,16 @@ export class WitnessTasksService {
     console.log('[addEvidence] taskId:', taskId);
     console.log('[addEvidence] newPhotos count:', newPhotos.length);
 
-    // 直接更新实体并保存
-    task.submissionPhotos = newPhotos as any;
+    // 使用底层数据库连接直接执行 SQL，完全绕过 TypeORM 实体管理
+    const jsonStr = JSON.stringify(newPhotos);
+    const connection = this.tasksRepo.manager.connection;
     
-    // 使用 manager.save 而不是 repository.save
-    const manager = this.tasksRepo.manager;
-    const saved = await manager.save(NgWitnessTask, task);
+    const result = await connection.query(
+      `UPDATE ng_witness_tasks SET submission_photos = $1::jsonb WHERE id = $2 RETURNING submission_photos`,
+      [jsonStr, taskId]
+    );
     
-    console.log('[addEvidence] saved.submissionPhotos:', JSON.stringify(saved.submissionPhotos));
+    console.log('[addEvidence] Direct SQL result:', JSON.stringify(result));
     
     return evidenceRecord;
   }

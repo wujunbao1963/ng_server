@@ -234,12 +234,18 @@ let WitnessTasksService = class WitnessTasksService {
             size: dto.size,
             uploadedAt: new Date().toISOString(),
         };
-        const existing = task.submissionPhotos || [];
-        task.submissionPhotos = [...existing, evidenceRecord];
-        if (task.submissionPhotos && task.submissionPhotos.length > 10) {
+        const existing = task.submissionPhotos ? [...task.submissionPhotos] : [];
+        existing.push(evidenceRecord);
+        const newPhotos = existing;
+        if (newPhotos.length > 10) {
             throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
         }
-        await this.tasksRepo.save(task);
+        console.log('[addEvidence] taskId:', taskId);
+        console.log('[addEvidence] newPhotos count:', newPhotos.length);
+        task.submissionPhotos = newPhotos;
+        const manager = this.tasksRepo.manager;
+        const saved = await manager.save(ng_witness_task_entity_1.NgWitnessTask, task);
+        console.log('[addEvidence] saved.submissionPhotos:', JSON.stringify(saved.submissionPhotos));
         return evidenceRecord;
     }
     async closeTask(userId, circleId, taskId) {

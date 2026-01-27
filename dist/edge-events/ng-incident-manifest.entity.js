@@ -35,6 +35,10 @@ __decorate([
     __metadata("design:type", String)
 ], NgIncidentManifest.prototype, "edgeInstanceId", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'text', name: 'incident_packet_id' }),
+    __metadata("design:type", String)
+], NgIncidentManifest.prototype, "incidentPacketId", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'timestamptz', name: 'edge_updated_at' }),
     __metadata("design:type", Date)
 ], NgIncidentManifest.prototype, "edgeUpdatedAt", void 0);

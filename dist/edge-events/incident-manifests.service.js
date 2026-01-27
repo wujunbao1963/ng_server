@@ -51,11 +51,13 @@ let IncidentManifestsService = IncidentManifestsService_1 = class IncidentManife
                 lock: { mode: 'pessimistic_write' },
             });
             if (!existing) {
+                const incidentPacketId = payload.manifest?.incidentPacketId || `pkt_${payload.eventId}`;
                 const created = repo.create({
                     circleId: payload.circleId,
                     eventId: payload.eventId,
                     edgeInstanceId: payload.edgeInstanceId,
                     deviceId: payload.edgeInstanceId,
+                    incidentPacketId: incidentPacketId,
                     edgeUpdatedAt: incomingUpdatedAt,
                     lastSequence: String(incomingSeq),
                     lastPayloadHash: payloadHash,

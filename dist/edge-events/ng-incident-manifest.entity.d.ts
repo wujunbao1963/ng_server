@@ -4,6 +4,7 @@ export declare class NgIncidentManifest {
     deviceId: string;
     eventId: string;
     edgeInstanceId: string;
+    incidentPacketId: string;
     edgeUpdatedAt: Date;
     lastSequence: string;
     lastPayloadHash: string | null;
