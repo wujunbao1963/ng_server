@@ -478,7 +478,6 @@ export class WitnessTasksService {
     };
 
     // 更新 submissionPhotos
-    // 注意：TypeORM 对 jsonb 字段需要重新赋值整个数组才能触发变更检测
     const existing = task.submissionPhotos ? [...task.submissionPhotos] : [];
     existing.push(evidenceRecord);
     const newPhotos = existing;
@@ -488,13 +487,18 @@ export class WitnessTasksService {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 
-    // 使用 QueryBuilder 直接执行 SQL 更新，确保 jsonb 字段被正确更新
-    await this.tasksRepo
-      .createQueryBuilder()
-      .update(NgWitnessTask)
-      .set({ submissionPhotos: newPhotos as any })
-      .where('id = :id', { id: taskId })
-      .execute();
+    // 调试日志
+    console.log('[addEvidence] taskId:', taskId);
+    console.log('[addEvidence] newPhotos:', JSON.stringify(newPhotos));
+
+    // 使用原始 SQL 确保 jsonb 正确更新
+    const jsonStr = JSON.stringify(newPhotos);
+    await this.tasksRepo.query(
+      `UPDATE ng_witness_tasks SET submission_photos = $1::jsonb WHERE id = $2`,
+      [jsonStr, taskId]
+    );
+    
+    console.log('[addEvidence] SQL executed, jsonStr:', jsonStr);
     
     return evidenceRecord;
   }
