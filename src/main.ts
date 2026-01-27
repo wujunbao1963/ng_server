@@ -51,7 +51,7 @@ async function bootstrap() {
   // 证据上传静态文件服务
   // ========================================
   const uploadDir = process.env.STATIC_UPLOAD_ROOT || './uploads';
-  const uploadPath = join(process.cwd(), uploadDir);
+  const uploadPath = uploadDir.startsWith('/') ? uploadDir : join(process.cwd(), uploadDir);
   
   // 确保上传目录存在
   if (!exists(uploadPath)) {
