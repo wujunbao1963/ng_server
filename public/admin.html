@@ -2795,7 +2795,7 @@ function renderDashboardPage(container) {
     </div>
     
     <!-- Recent Events -->
-    <div class="card">
+    <div class="card mb-4">
       <div class="card-header">
         <span>最近事件</span>
         <button class="btn btn-sm btn-outline" onclick="switchTab('events')">查看全部</button>
@@ -2804,11 +2804,23 @@ function renderDashboardPage(container) {
         <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
+    
+    <!-- Recent Tasks -->
+    <div class="card">
+      <div class="card-header">
+        <span>最近任务</span>
+        <button class="btn btn-sm btn-outline" onclick="switchTab('tasks')">查看全部</button>
+      </div>
+      <div id="recentTasksContent">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
   `;
   
   // Load data
   loadEdgeStatus();
   loadEdgeEvents();
+  loadRecentTasks();
   startDashboardIntervals();
 }
 
@@ -3020,6 +3032,55 @@ async function loadEdgeEvents(showLoading = true) {
       if (recentEl) recentEl.innerHTML = '<div class="empty-state" style="padding:24px;"><p>加载失败</p></div>';
       if (listEl) listEl.innerHTML = '<div class="empty-state" style="padding:24px;"><p>加载失败</p></div>';
     }
+  }
+}
+
+// Load recent tasks for dashboard
+async function loadRecentTasks() {
+  const el = document.getElementById('recentTasksContent');
+  if (!el || !state.currentCircle) return;
+  
+  try {
+    const res = await api(`/api/circles/${state.currentCircle.id}/witness-tasks`);
+    const tasks = res.tasks || [];
+    
+    // 显示最近 4 个任务
+    const recentTasks = tasks.slice(0, 4);
+    
+    if (recentTasks.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p>暂无任务</p></div>';
+      return;
+    }
+    
+    const statusLabels = {
+      created: '已创建', offered: '待领取', claimed: '已领取',
+      arrived: '已到达', submitted: '已提交', closed: '已完成',
+      canceled: '已取消', expired: '已过期', abandoned: '已放弃'
+    };
+    
+    const statusColors = {
+      created: 'var(--gray-500)', offered: 'var(--warning)',
+      claimed: 'var(--primary)', arrived: 'var(--success)',
+      submitted: 'var(--info)', closed: 'var(--gray-400)',
+      canceled: 'var(--danger)', expired: 'var(--gray-400)',
+      abandoned: 'var(--danger)'
+    };
+    
+    el.innerHTML = recentTasks.map(t => `
+      <div class="list-item" style="cursor: pointer;" onclick="openTaskDetail('${t.id}')">
+        <div class="list-item-icon" style="background: ${statusColors[t.status] || 'var(--gray-200)'}; color: white;">
+          ${t.status === 'closed' ? '✓' : t.status === 'canceled' ? '✕' : '📋'}
+        </div>
+        <div class="list-item-content">
+          <div class="list-item-title">${t.title || '协助任务'}</div>
+          <div class="list-item-subtitle">${statusLabels[t.status] || t.status} · ${formatTime(t.createdAt)}</div>
+        </div>
+      </div>
+    `).join('');
+    
+  } catch (e) {
+    console.error('Load recent tasks error:', e);
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p>加载失败</p></div>';
   }
 }
 
