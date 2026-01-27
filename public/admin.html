@@ -2083,9 +2083,13 @@ async function submitTaskFeedback() {
   try {
     // 上传证据（如果有）
     // 注意：addEvidence 接口会直接保存到 task.submissionPhotos
+    const evidenceCount = state.taskEvidence?.length || 0;
+    toast(`开始提交，证据数量: ${evidenceCount}`, 'info');
+    
     if (state.taskEvidence && state.taskEvidence.length > 0) {
       submitBtn.textContent = `上传证据 (0/${state.taskEvidence.length})...`;
       
+      let successCount = 0;
       for (let i = 0; i < state.taskEvidence.length; i++) {
         const ev = state.taskEvidence[i];
         submitBtn.textContent = `上传证据 (${i + 1}/${state.taskEvidence.length})...`;
@@ -2093,6 +2097,8 @@ async function submitTaskFeedback() {
         try {
           const formData = new FormData();
           formData.append('file', ev.file);
+          
+          toast(`上传中: ${ev.file.name} (${(ev.file.size/1024).toFixed(1)}KB)`, 'info');
           
           const uploadRes = await fetch(`${API_BASE}/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`, {
             method: 'POST',
@@ -2102,16 +2108,22 @@ async function submitTaskFeedback() {
             body: formData
           });
           
-          if (!uploadRes.ok) {
+          if (uploadRes.ok) {
+            const result = await uploadRes.json();
+            toast(`✅ 上传成功: ${ev.file.name}`, 'success');
+            console.log('Upload success:', result);
+            successCount++;
+          } else {
             const errText = await uploadRes.text();
             console.error('Evidence upload failed:', errText);
-            toast(`证据上传失败: ${ev.file.name}`, 'warning');
+            toast(`❌ 上传失败: ${ev.file.name} - ${errText}`, 'error');
           }
         } catch (uploadErr) {
           console.error('Evidence upload error:', uploadErr);
-          toast(`证据上传错误: ${ev.file.name}`, 'warning');
+          toast(`❌ 上传错误: ${ev.file.name} - ${uploadErr.message}`, 'error');
         }
       }
+      toast(`证据上传完成: ${successCount}/${state.taskEvidence.length}`, successCount > 0 ? 'success' : 'warning');
     }
     
     submitBtn.textContent = '提交反馈...';
