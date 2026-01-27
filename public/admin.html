@@ -1919,8 +1919,69 @@ function openArriveModal(taskId) {
 }
 
 // 获取 GPS 位置并确认到场
+// DEBUG_MODE: 设置为 true 跳过 GPS 验证（调试用）
+const DEBUG_SKIP_GPS = true;
+const DEBUG_COORDS = { latitude: 51.0806, longitude: -114.1333, accuracy: 10 }; // Calgary 坐标
+
 async function getLocationAndArrive() {
   const statusEl = document.getElementById('arriveStatus');
+  
+  // 调试模式：跳过 GPS，使用假坐标
+  if (DEBUG_SKIP_GPS) {
+    statusEl.innerHTML = `
+      <div class="text-center">
+        <p>🔧 调试模式</p>
+        <p class="text-sm text-muted">跳过 GPS 验证</p>
+        <div class="loading"><div class="spinner"></div><p>正在验证...</p></div>
+      </div>
+    `;
+    
+    try {
+      const result = await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/arrive`, {
+        method: 'POST',
+        body: { ...DEBUG_COORDS, skipProximityCheck: true }
+      });
+      
+      // 检查返回结果
+      if (result.task && (result.task.status === 'arrived' || result.task.proximityVerified)) {
+        statusEl.innerHTML = `
+          <div class="text-center">
+            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+            <p class="text-success">到场确认成功</p>
+          </div>
+        `;
+        toast('到场确认成功', 'success');
+        setTimeout(() => {
+          closeModal('arriveModal');
+          renderCurrentTab();
+        }, 1500);
+      } else {
+        statusEl.innerHTML = `
+          <div class="text-center">
+            <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+            <p class="text-warning">验证未通过</p>
+            <p class="text-sm text-muted">${result.proximityFailureReason || '请重试'}</p>
+            <button class="btn btn-primary mt-3" onclick="getLocationAndArrive()">重试</button>
+          </div>
+        `;
+      }
+    } catch (err) {
+      // 如果是 "already arrived" 错误，直接刷新页面
+      if (err.message && err.message.includes('arrived')) {
+        toast('任务已到达，请提交反馈', 'success');
+        closeModal('arriveModal');
+        renderCurrentTab();
+        return;
+      }
+      statusEl.innerHTML = `
+        <div class="text-center">
+          <p class="text-danger">确认失败: ${err.message}</p>
+          <button class="btn btn-primary mt-3" onclick="getLocationAndArrive()">重试</button>
+        </div>
+      `;
+    }
+    return;
+  }
   
   if (!navigator.geolocation) {
     statusEl.innerHTML = '<p class="text-danger">您的浏览器不支持地理位置功能</p>';
