@@ -487,18 +487,17 @@ export class WitnessTasksService {
       throw this.makeError(400, 'EVIDENCE_LIMIT', 'Maximum 10 evidence files allowed');
     }
 
-    // 调试日志
     console.log('[addEvidence] taskId:', taskId);
-    console.log('[addEvidence] newPhotos:', JSON.stringify(newPhotos));
+    console.log('[addEvidence] newPhotos count:', newPhotos.length);
 
-    // 使用原始 SQL 确保 jsonb 正确更新
-    const jsonStr = JSON.stringify(newPhotos);
-    await this.tasksRepo.query(
-      `UPDATE ng_witness_tasks SET submission_photos = $1::jsonb WHERE id = $2`,
-      [jsonStr, taskId]
-    );
+    // 直接更新实体并保存
+    task.submissionPhotos = newPhotos as any;
     
-    console.log('[addEvidence] SQL executed, jsonStr:', jsonStr);
+    // 使用 manager.save 而不是 repository.save
+    const manager = this.tasksRepo.manager;
+    const saved = await manager.save(NgWitnessTask, task);
+    
+    console.log('[addEvidence] saved.submissionPhotos:', JSON.stringify(saved.submissionPhotos));
     
     return evidenceRecord;
   }
