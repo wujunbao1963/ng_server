@@ -167,18 +167,19 @@ let WitnessTasksService = class WitnessTasksService {
     async submitTask(userId, circleId, taskId, dto) {
         await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
-        if (task.status !== 'arrived') {
+        if (!['claimed', 'arrived'].includes(task.status)) {
             throw this.makeError(400, 'INVALID_STATE', `Cannot submit task in status: ${task.status}`);
         }
         if (task.witnessUserId !== userId) {
             throw this.makeError(403, ng_http_error_1.NgErrorCodes.FORBIDDEN, 'You are not the assigned witness');
         }
-        const arrivedAt = task.arrivedAt;
-        const submitDeadline = new Date(arrivedAt.getTime() + task.submitTtlSec * 1000);
-        if (new Date() > submitDeadline) {
-            task.status = 'abandoned';
-            await this.tasksRepo.save(task);
-            throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to submission timeout');
+        if (task.status === 'arrived' && task.arrivedAt) {
+            const submitDeadline = new Date(task.arrivedAt.getTime() + task.submitTtlSec * 1000);
+            if (new Date() > submitDeadline) {
+                task.status = 'abandoned';
+                await this.tasksRepo.save(task);
+                throw this.makeError(400, 'TASK_ABANDONED', 'Task was abandoned due to submission timeout');
+            }
         }
         task.status = 'submitted';
         task.submittedAt = new Date();

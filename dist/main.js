@@ -34,8 +34,8 @@ async function bootstrap() {
     const staticDir = exists(distIndex) ? distPublic : (exists(rootIndex) ? rootPublic : distPublic);
     console.log('[diag] staticDirChosen=', staticDir);
     app.useStaticAssets(staticDir);
-    const uploadDir = process.env.EVIDENCE_UPLOAD_DIR || './uploads';
-    const uploadPath = (0, path_1.join)(process.cwd(), uploadDir);
+    const uploadDir = process.env.STATIC_UPLOAD_ROOT || './uploads';
+    const uploadPath = uploadDir.startsWith('/') ? uploadDir : (0, path_1.join)(process.cwd(), uploadDir);
     if (!exists(uploadPath)) {
         try {
             fs.mkdirSync(uploadPath, { recursive: true });

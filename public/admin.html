@@ -2375,6 +2375,12 @@ function renderEdgePage(container) {
     const hasBound = status?.hasBoundDevice;
     const device = status?.device;
     
+    // 构建绑定信息
+    const serverUrl = API_BASE;
+    const circleId = state.currentCircle.id;
+    const deviceId = device?.deviceId || device?.id || 'N/A';
+    const deviceKey = device?.deviceKey || null;
+    
     container.innerHTML = `
       <div class="flex-between mb-4">
         <h2>Edge 设备</h2>
@@ -2382,13 +2388,35 @@ function renderEdgePage(container) {
       <div class="card">
         <div class="card-body">
           ${hasBound ? `
-            <div class="flex-between mb-4">
-              <div>
+            <div class="mb-4">
+              <div class="flex-between mb-4">
                 <h3>✅ 设备已绑定</h3>
-                <p class="text-sm text-muted">Device ID: ${device?.deviceId || 'N/A'}</p>
-                <p class="text-sm text-muted">状态: ${device?.bindingStatus || 'N/A'}</p>
+                ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
               </div>
-              ${isOwner ? '<button class="btn btn-danger" onclick="revokeBinding()">撤销绑定</button>' : ''}
+              
+              <div style="background: var(--gray-50); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+                <div style="margin-bottom: 12px;">
+                  <div style="font-size: 12px; color: var(--gray-500); margin-bottom: 4px;">Server URL</div>
+                  <div style="font-family: monospace; font-size: 13px; word-break: break-all; background: white; padding: 8px; border-radius: 4px;">${serverUrl}</div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                  <div style="font-size: 12px; color: var(--gray-500); margin-bottom: 4px;">Circle ID</div>
+                  <div style="font-family: monospace; font-size: 13px; word-break: break-all; background: white; padding: 8px; border-radius: 4px;">${circleId}</div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                  <div style="font-size: 12px; color: var(--gray-500); margin-bottom: 4px;">Device ID (edge_instance_id)</div>
+                  <div style="font-family: monospace; font-size: 13px; word-break: break-all; background: white; padding: 8px; border-radius: 4px;">${deviceId}</div>
+                </div>
+                <div style="margin-bottom: 0;">
+                  <div style="font-size: 12px; color: var(--gray-500); margin-bottom: 4px;">Device Key</div>
+                  <div style="font-family: monospace; font-size: 13px; background: white; padding: 8px; border-radius: 4px; color: ${deviceKey ? 'inherit' : 'var(--gray-400)'};">${deviceKey || '⚠️ 仅生成时显示一次，请从保存的记录中获取'}</div>
+                </div>
+              </div>
+              
+              <div class="flex gap-2">
+                <span class="badge badge-${device?.status === 'active' ? 'success' : 'secondary'}">${device?.status || 'active'}</span>
+                <button class="btn btn-outline btn-sm" onclick="copyEdgeBindingParams('${serverUrl}', '${circleId}', '${deviceId}')">📋 复制参数</button>
+              </div>
             </div>
           ` : `
             <div class="empty-state">
@@ -2403,6 +2431,7 @@ function renderEdgePage(container) {
     `;
   });
 }
+
 
 async function generateBinding() {
   try {
@@ -2426,6 +2455,16 @@ async function revokeBinding() {
   } catch (err) {
     toast(err.message, 'error');
   }
+}
+
+function copyEdgeBindingParams(serverUrl, circleId, deviceId) {
+  const info = `cloud_server_url: ${serverUrl}
+circle_id: ${circleId}
+edge_instance_id: ${deviceId}
+device_key: (请从生成时保存的记录中获取)`;
+  
+  navigator.clipboard.writeText(info);
+  toast('已复制到剪贴板（device_key 需要从保存记录获取）', 'success');
 }
 
 function copyBindingInfo() {
@@ -3067,7 +3106,7 @@ async function loadRecentTasks() {
     };
     
     el.innerHTML = recentTasks.map(t => `
-      <div class="list-item" style="cursor: pointer;" onclick="openTaskDetail('${t.id}')">
+      <div class="list-item" style="cursor: pointer;" onclick="showTaskDetail('${t.id}')">
         <div class="list-item-icon" style="background: ${statusColors[t.status] || 'var(--gray-200)'}; color: white;">
           ${t.status === 'closed' ? '✓' : t.status === 'canceled' ? '✕' : '📋'}
         </div>
