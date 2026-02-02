@@ -3571,16 +3571,26 @@ function renderEventDetailContent(i, ev, tl) {
     'dismissed': '已忽略' 
   };
 
-  // 分类证据 - 基于 item_type 分类（与 app.html 一致）
-  const vids = ev.filter(e => e.item_type === 'clip' || e.mime_type?.startsWith('video/'));
-  const snaps = ev.filter(e => e.item_type === 'snapshot' || e.item_type === 'thumbnail');
+  // 分类证据 - 基于文件扩展名分类（edge 的 item_type 与实际内容不符，扩展名更可靠）
+  const isVideoFile = (e) => {
+    const key = (e.evidence_key || '').toLowerCase();
+    return key.endsWith('.mp4') || key.endsWith('.webm') || key.endsWith('.mov');
+  };
+  const isImageFile = (e) => {
+    const key = (e.evidence_key || '').toLowerCase();
+    return key.endsWith('.jpg') || key.endsWith('.jpeg') || key.endsWith('.png') || key.endsWith('.gif');
+  };
+  const vids = ev.filter(isVideoFile);
+  const snaps = ev.filter(isImageFile);
   
   let html = '';
   
   // 顶部媒体预览区域 (like app.html)
   if (vids.length > 0 || snaps.length > 0) {
     const firstMedia = snaps[0] || vids[0];
-    const firstIsImage = firstMedia.item_type === 'snapshot' || firstMedia.item_type === 'thumbnail';
+    const firstKey = (firstMedia.evidence_key || '').toLowerCase();
+    const firstIsImage = firstKey.endsWith('.jpg') || firstKey.endsWith('.jpeg') ||
+                         firstKey.endsWith('.png') || firstKey.endsWith('.gif');
     const mediaUrl = `${state.edgeUrl}/api/evidence/${firstMedia.evidence_key}`;
     
     html += `
