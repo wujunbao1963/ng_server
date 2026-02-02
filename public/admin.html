@@ -1480,7 +1480,7 @@ function renderCirclesPage(container) {
             <div class="list-item-right">
               <span class="badge badge-${c.role}">${c.role}</span>
               ${state.currentCircle?.id === c.id ? '<span class="badge badge-success">✓ 当前</span>' : ''}
-              ${c.role === 'owner' ? `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); openEditCircle('${c.id}')">编辑</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); openDeleteCircle('${c.id}')">删除</button>` : ''}
+              ${c.role === 'owner' ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); openDeleteCircle('${c.id}')">删除</button>` : ''}
             </div>
           </div>
         `).join('')}
@@ -1515,8 +1515,24 @@ async function handleCreateCircle(e) {
   }
 }
 
-function openEditCircle(circleId) {
-  const circle = state.circles.find(c => c.id === circleId);
+async function openEditCircle(circleId) {
+  // Use currentCircle which has full detail from selectCircle
+  let circle = state.currentCircle?.id === circleId ? state.currentCircle : null;
+  if (!circle || circle.address === undefined) {
+    try {
+      const detail = await api(`/api/circles/${circleId}`);
+      if (detail.circle) {
+        const base = state.circles.find(c => c.id === circleId);
+        circle = { ...base, ...detail.circle, role: base?.role };
+        if (state.currentCircle?.id === circleId) {
+          state.currentCircle = circle;
+        }
+      }
+    } catch (err) {
+      toast('无法加载圈子信息', 'error');
+      return;
+    }
+  }
   if (!circle) return;
   document.getElementById('editCircleId').value = circle.id;
   document.getElementById('editCircleName').value = circle.name || '';
@@ -1543,7 +1559,14 @@ async function handleEditCircle(e) {
     toast('圈子修改成功', 'success');
     await loadCircles();
     if (state.currentCircle?.id === circleId) {
-      state.currentCircle = state.circles.find(c => c.id === circleId) || state.currentCircle;
+      // Re-fetch full detail to keep currentCircle up-to-date
+      try {
+        const detail = await api(`/api/circles/${circleId}`);
+        const base = state.circles.find(c => c.id === circleId);
+        if (detail.circle && base) {
+          state.currentCircle = { ...base, ...detail.circle, role: base.role };
+        }
+      } catch (_) {}
     }
     renderCurrentTab();
   } catch (err) {
@@ -1582,15 +1605,26 @@ async function selectCircle(id) {
   if (circle) {
     // Stop any existing intervals
     stopAllIntervals();
-    
+
     state.currentCircle = circle;
+
+    // Fetch full circle detail (address, city, lat/lng, etc.)
+    try {
+      const detail = await api(`/api/circles/${id}`);
+      if (detail.circle) {
+        state.currentCircle = { ...circle, ...detail.circle, role: circle.role };
+      }
+    } catch (err) {
+      console.error('Load circle detail error:', err);
+    }
+
     state.edgeUrl = getEdgeUrl();
     state.edgeConnected = false;
     state.events = [];
-    
+
     updateRoleBadge();
     buildNavigation();
-    
+
     // Auto-switch to dashboard if user has permission and Edge URL is configured
     const role = circle.role || 'user';
     const canViewDashboard = ['owner', 'caretaker', 'acting_owner'].includes(role);
@@ -1600,7 +1634,7 @@ async function selectCircle(id) {
       switchTab('members');
       await loadMembers();
     }
-    
+
     toast(`已选择: ${circle.name}`, 'success');
   }
 }
@@ -1628,10 +1662,26 @@ function renderMembersPage(container) {
   
   loadMembers().then(() => {
     const isOwner = state.currentCircle.role === 'owner';
+    const c = state.currentCircle;
+    const infoParts = [c.address, c.city, c.state, c.country].filter(Boolean).join(', ');
+    const hasCoords = c.latitude != null && c.longitude != null;
     container.innerHTML = `
+      <div class="card mb-4" style="padding: 16px;">
+        <div class="flex-between">
+          <div>
+            <h2 style="margin:0">${c.name}</h2>
+            ${infoParts ? `<p class="text-sm text-muted" style="margin:4px 0 0">${infoParts}</p>` : ''}
+            ${hasCoords ? `<p class="text-sm text-muted" style="margin:2px 0 0">GPS: ${c.latitude}, ${c.longitude}</p>` : ''}
+          </div>
+          <div>
+            <span class="badge badge-${c.role}">${c.role}</span>
+            ${isOwner ? `<button class="btn btn-sm btn-outline" onclick="openEditCircle('${c.id}')" style="margin-left:8px">编辑</button>` : ''}
+          </div>
+        </div>
+      </div>
       <div class="flex-between mb-4">
         <div>
-          <h2>${state.currentCircle.name} - 成员</h2>
+          <h3 style="margin:0">成员</h3>
           <p class="text-sm text-muted">${state.members.length} 位成员</p>
         </div>
         ${isOwner ? '<button class="btn btn-primary" onclick="openModal(\'addMemberModal\')">+ 添加成员</button>' : ''}
