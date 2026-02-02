@@ -647,6 +647,73 @@
       </div>
     </div>
 
+    <!-- Edit Circle Modal -->
+    <div id="editCircleModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">编辑圈子</span>
+          <button class="btn-icon" onclick="closeModal('editCircleModal')">✕</button>
+        </div>
+        <form onsubmit="handleEditCircle(event)">
+          <input type="hidden" id="editCircleId">
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">圈子名称 *</label>
+              <input type="text" id="editCircleName" class="form-input" placeholder="例: 我的家" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">地址</label>
+              <input type="text" id="editCircleAddress" class="form-input" placeholder="街道地址">
+            </div>
+            <div class="form-group">
+              <label class="form-label">城市</label>
+              <input type="text" id="editCircleCity" class="form-input" placeholder="城市">
+            </div>
+            <div class="flex gap-2">
+              <div class="form-group" style="flex:1">
+                <label class="form-label">纬度</label>
+                <input type="number" step="any" id="editCircleLat" class="form-input" placeholder="51.0447">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">经度</label>
+                <input type="number" step="any" id="editCircleLng" class="form-input" placeholder="-114.0719">
+              </div>
+            </div>
+            <p class="text-sm text-muted">GPS 坐标用于 Witness 到达验证</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModal('editCircleModal')">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Circle Modal -->
+    <div id="deleteCircleModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">删除圈子</span>
+          <button class="btn-icon" onclick="closeModal('deleteCircleModal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="deleteCircleId">
+          <p>确定要删除圈子 <strong id="deleteCircleName"></strong> 吗？</p>
+          <p class="text-sm text-muted" style="margin-top:8px">此操作不可撤销，以下关联数据将被一并删除：</p>
+          <ul class="text-sm text-muted" style="margin:4px 0 0 16px; line-height:1.8">
+            <li>所有成员角色</li>
+            <li>绑定的 Edge 设备</li>
+            <li>所有事件及记录</li>
+            <li>账本条目</li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal('deleteCircleModal')">取消</button>
+          <button class="btn btn-danger" onclick="handleDeleteCircle()">确认删除</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Member Modal -->
     <div id="addMemberModal" class="modal">
       <div class="modal-content">
@@ -1412,6 +1479,7 @@ function renderCirclesPage(container) {
             <div class="list-item-right">
               <span class="badge badge-${c.role}">${c.role}</span>
               ${state.currentCircle?.id === c.id ? '<span class="badge badge-success">✓ 当前</span>' : ''}
+              ${c.role === 'owner' ? `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); openEditCircle('${c.id}')">编辑</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); openDeleteCircle('${c.id}')">删除</button>` : ''}
             </div>
           </div>
         `).join('')}
@@ -1441,6 +1509,68 @@ async function handleCreateCircle(e) {
     document.getElementById('circleCity').value = '';
     document.getElementById('circleLat').value = '';
     document.getElementById('circleLng').value = '';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openEditCircle(circleId) {
+  const circle = state.circles.find(c => c.id === circleId);
+  if (!circle) return;
+  document.getElementById('editCircleId').value = circle.id;
+  document.getElementById('editCircleName').value = circle.name || '';
+  document.getElementById('editCircleAddress').value = circle.address || '';
+  document.getElementById('editCircleCity').value = circle.city || '';
+  document.getElementById('editCircleLat').value = circle.latitude ?? '';
+  document.getElementById('editCircleLng').value = circle.longitude ?? '';
+  openModal('editCircleModal');
+}
+
+async function handleEditCircle(e) {
+  e.preventDefault();
+  const circleId = document.getElementById('editCircleId').value;
+  const body = {
+    name: document.getElementById('editCircleName').value,
+    address: document.getElementById('editCircleAddress').value || undefined,
+    city: document.getElementById('editCircleCity').value || undefined,
+    latitude: parseFloat(document.getElementById('editCircleLat').value) || undefined,
+    longitude: parseFloat(document.getElementById('editCircleLng').value) || undefined,
+  };
+  try {
+    await api(`/api/circles/${circleId}`, { method: 'PUT', body });
+    closeModal('editCircleModal');
+    toast('圈子修改成功', 'success');
+    await loadCircles();
+    if (state.currentCircle?.id === circleId) {
+      state.currentCircle = state.circles.find(c => c.id === circleId) || state.currentCircle;
+    }
+    renderCurrentTab();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openDeleteCircle(circleId) {
+  const circle = state.circles.find(c => c.id === circleId);
+  if (!circle) return;
+  document.getElementById('deleteCircleId').value = circle.id;
+  document.getElementById('deleteCircleName').textContent = circle.name;
+  openModal('deleteCircleModal');
+}
+
+async function handleDeleteCircle() {
+  const circleId = document.getElementById('deleteCircleId').value;
+  try {
+    await api(`/api/circles/${circleId}`, { method: 'DELETE' });
+    closeModal('deleteCircleModal');
+    toast('圈子已删除', 'success');
+    if (state.currentCircle?.id === circleId) {
+      state.currentCircle = null;
+      updateRoleBadge();
+      buildNavigation();
+    }
+    await loadCircles();
+    renderCurrentTab();
   } catch (err) {
     toast(err.message, 'error');
   }
