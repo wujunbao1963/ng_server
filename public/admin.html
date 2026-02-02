@@ -3571,29 +3571,16 @@ function renderEventDetailContent(i, ev, tl) {
     'dismissed': '已忽略' 
   };
 
-  // 分类证据
-  // 基于文件扩展名分类（更可靠）
-  const isVideo = (e) => {
-    const key = (e.evidence_key || '').toLowerCase();
-    return key.endsWith('.mp4') || key.endsWith('.webm') || key.endsWith('.mov') ||
-           (e.mime_type?.startsWith('video/') && !key.endsWith('.jpg'));
-  };
-  const isImage = (e) => {
-    const key = (e.evidence_key || '').toLowerCase();
-    return key.endsWith('.jpg') || key.endsWith('.jpeg') || key.endsWith('.png') || key.endsWith('.gif') ||
-           e.mime_type?.startsWith('image/');
-  };
-  const vids = ev.filter(isVideo);
-  const snaps = ev.filter(isImage);
+  // 分类证据 - 基于 item_type 分类（与 app.html 一致）
+  const vids = ev.filter(e => e.item_type === 'clip' || e.mime_type?.startsWith('video/'));
+  const snaps = ev.filter(e => e.item_type === 'snapshot' || e.item_type === 'thumbnail');
   
   let html = '';
   
   // 顶部媒体预览区域 (like app.html)
   if (vids.length > 0 || snaps.length > 0) {
     const firstMedia = snaps[0] || vids[0];
-    const firstKey = (firstMedia.evidence_key || '').toLowerCase();
-    const firstIsImage = firstKey.endsWith('.jpg') || firstKey.endsWith('.jpeg') || 
-                         firstKey.endsWith('.png') || firstKey.endsWith('.gif');
+    const firstIsImage = firstMedia.item_type === 'snapshot' || firstMedia.item_type === 'thumbnail';
     const mediaUrl = `${state.edgeUrl}/api/evidence/${firstMedia.evidence_key}`;
     
     html += `
@@ -3641,20 +3628,14 @@ function renderEventDetailContent(i, ev, tl) {
     `).join('')}</div></div>`;
   }
 
-  // 更多证据 (like app.html)
-  if (vids.length > 1 || snaps.length > 1 || (vids.length > 0 && snaps.length > 0)) {
-    html += `<div class="detail-section"><h3>更多证据</h3><div class="evidence-grid">
+  // 视频证据链接（缩略图已在顶部显示，不再重复）
+  if (vids.length > 0) {
+    html += `<div class="detail-section"><h3>视频证据</h3><div class="evidence-grid">
       ${vids.map((v, idx) => `
         <div class="evidence-item" onclick="viewEvidence('${v.evidence_key}', 'video', ${idx})">
           <div class="evidence-thumb">🎬</div>
           <div class="evidence-info"><div class="evidence-name">视频 ${idx + 1}</div><div class="evidence-size">${fmtSize(v.size_bytes)}</div></div>
           <div class="evidence-play">▶</div>
-        </div>
-      `).join('')}
-      ${snaps.map((s, idx) => `
-        <div class="evidence-item" onclick="viewEvidence('${s.evidence_key}', 'snapshot', ${vids.length + idx})">
-          <div class="evidence-thumb">📷</div>
-          <div class="evidence-info"><div class="evidence-name">截图 ${idx + 1}</div><div class="evidence-size">${fmtSize(s.size_bytes)}</div></div>
         </div>
       `).join('')}
     </div></div>`;
