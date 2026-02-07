@@ -351,7 +351,7 @@ let CirclesService = class CirclesService {
     }
     async getWitnessUserIds(circleId) {
         const roles = await this.rolesRepo.find({
-            where: { circleId, role: (0, typeorm_2.In)(['witness', 'acting_owner']), suspended: false },
+            where: { circleId, role: (0, typeorm_2.In)(['owner', 'caretaker', 'witness', 'acting_owner']), suspended: false },
         });
         return roles.map(r => r.userId);
     }

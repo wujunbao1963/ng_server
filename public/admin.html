@@ -1518,20 +1518,20 @@ function renderCirclesPage(container) {
       </div>
     `}
 
-    <!-- 我发起的协助请求 (Owner/Caretaker) -->
-    <div class="flex-between mb-2" style="margin-top: 24px;">
-      <h3>📤 我发起的协助请求</h3>
-      ${state.currentCircle && ['owner','caretaker'].includes(state.currentCircle.role) ? '<button class="btn btn-sm btn-primary" onclick="openCreateTaskModal()">+ 创建任务</button>' : ''}
-    </div>
-    <div id="myCreatedTasksContent" class="card mb-4">
-      <div class="loading"><div class="spinner"></div></div>
-    </div>
-
-    <!-- 待处理的协助请求 (跨圈子, Witness) -->
+    <!-- 待处理的协助请求 (跨圈子) -->
     <div class="mb-2" style="margin-top: 24px;">
       <h3>⚠️ 待处理的协助请求</h3>
     </div>
     <div id="availableTasksContent" class="card mb-4">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+
+    <!-- 我发起的协助请求 (Owner/Caretaker) -->
+    <div class="flex-between mb-2">
+      <h3>📤 我发起的协助请求</h3>
+      ${state.currentCircle && ['owner','caretaker'].includes(state.currentCircle.role) ? '<button class="btn btn-sm btn-primary" onclick="openCreateTaskModal()">+ 创建任务</button>' : ''}
+    </div>
+    <div id="myCreatedTasksContent" class="card mb-4">
       <div class="loading"><div class="spinner"></div></div>
     </div>
 
@@ -1545,8 +1545,8 @@ function renderCirclesPage(container) {
   `;
 
   // 加载任务数据
-  loadMyCreatedTasks();
   loadAvailableTasks();
+  loadMyCreatedTasks();
   loadMyTasksForCirclesPage();
 }
 

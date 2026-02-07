@@ -79,9 +79,10 @@ let WitnessTasksService = class WitnessTasksService {
         task.status = 'offered';
         task.offeredAt = new Date();
         await this.tasksRepo.save(task);
-        this.circles.getWitnessUserIds(circleId).then(witnessUserIds => {
-            if (witnessUserIds.length > 0) {
-                return this.witnessAlerts.notifyTaskOffered(witnessUserIds, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId);
+        this.circles.getWitnessUserIds(circleId).then(allUserIds => {
+            const recipients = allUserIds.filter(id => id !== userId);
+            if (recipients.length > 0) {
+                return this.witnessAlerts.notifyTaskOffered(recipients, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId);
             }
         }).catch(err => console.error('[WitnessAlert] Failed to notify task offered:', err));
         return task;
@@ -333,7 +334,7 @@ let WitnessTasksService = class WitnessTasksService {
     }
     async listAllAvailableTasks(userId) {
         const roles = await this.rolesRepo.find({
-            where: { userId, role: (0, typeorm_2.In)(['witness', 'acting_owner']) },
+            where: { userId, role: (0, typeorm_2.In)(['caretaker', 'witness', 'acting_owner']) },
         });
         const circleIds = roles.map(r => r.circleId);
         if (circleIds.length === 0)

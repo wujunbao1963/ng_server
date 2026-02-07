@@ -167,11 +167,12 @@ export class WitnessTasksService {
 
     await this.tasksRepo.save(task);
 
-    // 通知所有 Witness / Acting Owner: 有新任务需要协助
-    this.circles.getWitnessUserIds(circleId).then(witnessUserIds => {
-      if (witnessUserIds.length > 0) {
+    // 通知圈子内所有成员（排除创建者自己）
+    this.circles.getWitnessUserIds(circleId).then(allUserIds => {
+      const recipients = allUserIds.filter(id => id !== userId);
+      if (recipients.length > 0) {
         return this.witnessAlerts.notifyTaskOffered(
-          witnessUserIds,
+          recipients,
           { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
           userId,
         );
@@ -669,9 +670,9 @@ export class WitnessTasksService {
    * GET /api/me/available-witness-tasks
    */
   async listAllAvailableTasks(userId: string): Promise<NgWitnessTask[]> {
-    // 查找用户所有 witness/acting_owner 角色
+    // 查找用户所有 caretaker/witness/acting_owner 角色
     const roles = await this.rolesRepo.find({
-      where: { userId, role: In(['witness', 'acting_owner']) },
+      where: { userId, role: In(['caretaker', 'witness', 'acting_owner']) },
     });
 
     const circleIds = roles.map(r => r.circleId);

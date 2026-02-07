@@ -506,7 +506,7 @@ export class CirclesService {
    */
   async getWitnessUserIds(circleId: string): Promise<string[]> {
     const roles = await this.rolesRepo.find({
-      where: { circleId, role: In(['witness', 'acting_owner']), suspended: false },
+      where: { circleId, role: In(['owner', 'caretaker', 'witness', 'acting_owner']), suspended: false },
     });
     return roles.map(r => r.userId);
   }
