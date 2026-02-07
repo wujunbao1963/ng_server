@@ -1518,16 +1518,24 @@ function renderCirclesPage(container) {
       </div>
     `}
 
-    <!-- 协助请求 (跨圈子) -->
+    <!-- 我发起的协助请求 (Owner/Caretaker) -->
     <div class="flex-between mb-2" style="margin-top: 24px;">
-      <h3>⚠️ 待处理的协助请求</h3>
+      <h3>📤 我发起的协助请求</h3>
       ${state.currentCircle && ['owner','caretaker'].includes(state.currentCircle.role) ? '<button class="btn btn-sm btn-primary" onclick="openCreateTaskModal()">+ 创建任务</button>' : ''}
+    </div>
+    <div id="myCreatedTasksContent" class="card mb-4">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+
+    <!-- 待处理的协助请求 (跨圈子, Witness) -->
+    <div class="mb-2" style="margin-top: 24px;">
+      <h3>⚠️ 待处理的协助请求</h3>
     </div>
     <div id="availableTasksContent" class="card mb-4">
       <div class="loading"><div class="spinner"></div></div>
     </div>
 
-    <!-- 我参与的任务 -->
+    <!-- 我参与的任务 (Witness) -->
     <div class="mb-2">
       <h3>📋 我参与的任务</h3>
     </div>
@@ -1537,6 +1545,7 @@ function renderCirclesPage(container) {
   `;
 
   // 加载任务数据
+  loadMyCreatedTasks();
   loadAvailableTasks();
   loadMyTasksForCirclesPage();
 }
@@ -1798,6 +1807,60 @@ async function removeMember(userId) {
 // =============================================================================
 // Circles Page - Tasks Section
 // =============================================================================
+
+async function loadMyCreatedTasks() {
+  const el = document.getElementById('myCreatedTasksContent');
+  if (!el) return;
+
+  try {
+    const data = await api('/api/me/created-witness-tasks');
+    const tasks = data.tasks || [];
+
+    if (tasks.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">您尚未发起过协助请求</p></div>';
+      return;
+    }
+
+    const circleMap = {};
+    (state.circles || []).forEach(c => { circleMap[c.id] = c.name; });
+
+    const statusLabels = { created: '草稿', offered: '待领取', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已完成', canceled: '已取消' };
+    const statusColors = { created: '#999', offered: '#e67e22', claimed: '#3498db', arrived: '#9b59b6', submitted: '#27ae60', closed: '#95a5a6', canceled: '#e74c3c' };
+
+    el.innerHTML = tasks.map(t => {
+      const circleName = circleMap[t.circleId] || '';
+      const circleTag = circleName ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">${circleName}</span>` : '';
+      const statusLabel = statusLabels[t.status] || t.status;
+      const statusColor = statusColors[t.status] || '#999';
+
+      let actionBtn = '';
+      if (t.status === 'created') {
+        actionBtn = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); offerTask('${t.id}', '${t.circleId}')">发布</button>`;
+      } else if (t.status === 'submitted') {
+        actionBtn = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); closeTask('${t.id}', '${t.circleId}')">确认关闭</button>`;
+      }
+
+      return `
+        <div class="list-item" onclick="showTaskDetail('${t.id}', '${t.circleId}')" style="cursor:pointer; padding: 12px 16px;">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              ${circleTag}
+              <strong style="font-size:14px;">${t.title || '协助任务'}</strong>
+            </div>
+            <div style="font-size:12px; color:#888; margin-top:4px;">
+              <span style="color:${statusColor}; font-weight:500;">${statusLabel}</span>
+              <span style="margin-left:8px;">${t.createdAt ? new Date(t.createdAt).toLocaleString('zh-CN') : ''}</span>
+            </div>
+          </div>
+          ${actionBtn ? `<div style="flex-shrink:0; margin-left:8px;">${actionBtn}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Load created tasks error:', err);
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">加载失败</p></div>';
+  }
+}
 
 async function loadAvailableTasks() {
   const el = document.getElementById('availableTasksContent');

@@ -325,6 +325,12 @@ let WitnessTasksService = class WitnessTasksService {
             order: { createdAt: 'DESC' },
         });
     }
+    async listMyCreatedTasks(userId) {
+        return this.tasksRepo.find({
+            where: { creatorUserId: userId },
+            order: { createdAt: 'DESC' },
+        });
+    }
     async listAllAvailableTasks(userId) {
         const roles = await this.rolesRepo.find({
             where: { userId, role: (0, typeorm_2.In)(['witness', 'acting_owner']) },

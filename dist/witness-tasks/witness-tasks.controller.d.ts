@@ -439,6 +439,40 @@ export declare class WitnessTasksController {
             riskAbortedAt: any;
         }[];
     }>;
+    listMyCreatedTasks(req: {
+        user: JwtUser;
+    }): Promise<{
+        tasks: {
+            id: any;
+            circleId: any;
+            eventId: any;
+            title: any;
+            description: any;
+            purpose: any;
+            targetEntry: any;
+            status: any;
+            creatorUserId: any;
+            creatorRole: any;
+            witnessUserId: any;
+            createdAt: any;
+            offeredAt: any;
+            claimedAt: any;
+            arrivedAt: any;
+            submittedAt: any;
+            closedAt: any;
+            canceledAt: any;
+            expiresAt: any;
+            proximityVerified: any;
+            proximityFailureReason: any;
+            conclusion: any;
+            conclusionNote: any;
+            submissionNotes: any;
+            submissionPhotos: any;
+            cancelReason: any;
+            riskAbortReason: any;
+            riskAbortedAt: any;
+        }[];
+    }>;
     listAllAvailableTasks(req: {
         user: JwtUser;
     }): Promise<{

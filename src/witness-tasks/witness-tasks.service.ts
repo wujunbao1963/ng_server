@@ -654,6 +654,16 @@ export class WitnessTasksService {
   }
 
   /**
+   * 列出我创建的任务 (Owner/Caretaker)
+   */
+  async listMyCreatedTasks(userId: string): Promise<NgWitnessTask[]> {
+    return this.tasksRepo.find({
+      where: { creatorUserId: userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
    * 列出所有圈子中可领取的任务 (跨圈子)
    *
    * GET /api/me/available-witness-tasks

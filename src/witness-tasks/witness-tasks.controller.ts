@@ -331,6 +331,15 @@ export class WitnessTasksController {
   }
 
   /**
+   * 我创建的任务 (Owner/Caretaker)
+   */
+  @Get('api/me/created-witness-tasks')
+  async listMyCreatedTasks(@Req() req: { user: JwtUser }) {
+    const tasks = await this.tasksService.listMyCreatedTasks(req.user.userId);
+    return { tasks: tasks.map(t => this.formatTask(t)) };
+  }
+
+  /**
    * 所有圈子中可领取的任务 (跨圈子)
    */
   @Get('api/me/available-witness-tasks')
