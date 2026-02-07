@@ -166,6 +166,18 @@ export class WitnessTasksService {
     task.offeredAt = new Date();
 
     await this.tasksRepo.save(task);
+
+    // 通知所有 Witness / Acting Owner: 有新任务需要协助
+    this.circles.getWitnessUserIds(circleId).then(witnessUserIds => {
+      if (witnessUserIds.length > 0) {
+        return this.witnessAlerts.notifyTaskOffered(
+          witnessUserIds,
+          { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title },
+          userId,
+        );
+      }
+    }).catch(err => console.error('[WitnessAlert] Failed to notify task offered:', err));
+
     return task;
   }
 
@@ -637,6 +649,34 @@ export class WitnessTasksService {
   async listMyTasks(userId: string): Promise<NgWitnessTask[]> {
     return this.tasksRepo.find({
       where: { witnessUserId: userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * 列出所有圈子中可领取的任务 (跨圈子)
+   *
+   * GET /api/me/available-witness-tasks
+   */
+  async listAllAvailableTasks(userId: string): Promise<NgWitnessTask[]> {
+    // 查找用户所有 witness/acting_owner 角色
+    const roles = await this.rolesRepo.find({
+      where: { userId, role: In(['witness', 'acting_owner']) },
+    });
+
+    const circleIds = roles.map(r => r.circleId);
+    if (circleIds.length === 0) return [];
+
+    // 处理过期任务
+    for (const circleId of circleIds) {
+      await this.expireOverdueTasks(circleId);
+    }
+
+    return this.tasksRepo.find({
+      where: {
+        circleId: In(circleIds),
+        status: 'offered',
+      },
       order: { createdAt: 'DESC' },
     });
   }

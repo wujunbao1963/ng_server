@@ -501,6 +501,16 @@ export class CirclesService {
     return owner?.userId ?? null;
   }
 
+  /**
+   * 获取 Circle 中所有 Witness / Acting Owner 的 userId
+   */
+  async getWitnessUserIds(circleId: string): Promise<string[]> {
+    const roles = await this.rolesRepo.find({
+      where: { circleId, role: In(['witness', 'acting_owner']), suspended: false },
+    });
+    return roles.map(r => r.userId);
+  }
+
   async mustBeMember(userId: string, circleId: string): Promise<NgRole> {
     const role = await this.rolesRepo.findOne({ where: { userId, circleId } });
     if (!role) {

@@ -1,7 +1,7 @@
 // NeighborGuard Service Worker
 // 处理 Web Push 通知
 
-const CACHE_VERSION = 'v5';  // ← 更新版本号，强制刷新
+const CACHE_VERSION = 'v6';  // ← 更新版本号，强制刷新
 const CACHE_NAME = `ng-cache-${CACHE_VERSION}`;
 
 // 安装事件 - 强制更新
@@ -102,7 +102,9 @@ self.addEventListener('notificationclick', (event) => {
         
         // 没有找到已打开的窗口，打开新窗口
         let url = '/admin.html';
-        if (data.eventId) {
+        if (data.taskId) {
+          url += `?task=${data.taskId}&circle=${data.circleId || ''}`;
+        } else if (data.eventId) {
           url += `?event=${data.eventId}`;
         }
         

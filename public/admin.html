@@ -54,6 +54,30 @@
     .header-right { display: flex; align-items: center; gap: 8px; }
     .main { padding: 16px; max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
 
+    /* Alert Banner */
+    .alert-banner {
+      background: linear-gradient(135deg, #ff6b35, #e55100);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      animation: alertSlideDown 0.3s ease;
+    }
+    .alert-banner:hover { opacity: 0.95; }
+    .alert-banner-close {
+      background: none; border: none; color: white; font-size: 20px;
+      cursor: pointer; padding: 0 4px; line-height: 1; opacity: 0.8;
+    }
+    .alert-banner-close:hover { opacity: 1; }
+    @keyframes alertSlideDown {
+      from { transform: translateY(-100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
     /* Buttons */
     .btn {
       display: inline-flex;
@@ -595,6 +619,11 @@
           <button class="btn-icon" id="pushToggleBtn" onclick="enablePushByUser()" title="开启推送通知">🔕</button>
           <button class="btn-icon" onclick="logout()" title="退出">🚪</button>
         </div>
+      </div>
+      <!-- Notification Banner -->
+      <div id="alertBanner" style="display:none;" class="alert-banner" onclick="handleAlertBannerClick()">
+        <span id="alertBannerText"></span>
+        <button class="alert-banner-close" onclick="event.stopPropagation(); dismissAlertBanner();">&times;</button>
       </div>
       <!-- Nav Tabs (Desktop) -->
       <div class="nav-tabs" id="navTabs"></div>
@@ -1187,6 +1216,7 @@ function onLoginSuccess(data) {
 }
 
 function logout() {
+  stopAlertPolling();
   state.jwt = null;
   state.user = null;
   state.circles = [];
@@ -1221,6 +1251,9 @@ async function showMainApp() {
   // Load data
   await loadCircles();
   renderCurrentTab();
+
+  // Start alert polling
+  startAlertPolling();
 }
 
 function updateRoleBadge() {
@@ -1257,7 +1290,6 @@ function buildNavigation() {
       ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
       ...(canViewDashboard ? [{ id: 'live', icon: '📹', label: '实时视频' }] : []),
       ...(canManage ? [{ id: 'members', icon: '👥', label: '成员' }] : []),
-      { id: 'tasks', icon: '📋', label: isWitness ? '我的任务' : '任务' },
       ...(canManage ? [{ id: 'edge', icon: '📡', label: 'Edge' }] : []),
     ] : []),
   ];
@@ -1299,7 +1331,6 @@ function renderCurrentTab() {
     case 'events': renderEventsPage(content); break;
     case 'live': renderLivePage(content); break;
     case 'members': renderMembersPage(content); break;
-    case 'tasks': renderTasksPage(content); break;
     case 'edge': renderEdgePage(content); break;
     default: content.innerHTML = '<p>Unknown tab</p>';
   }
@@ -1486,7 +1517,28 @@ function renderCirclesPage(container) {
         `).join('')}
       </div>
     `}
+
+    <!-- 协助请求 (跨圈子) -->
+    <div class="flex-between mb-2" style="margin-top: 24px;">
+      <h3>⚠️ 待处理的协助请求</h3>
+      ${state.currentCircle && ['owner','caretaker'].includes(state.currentCircle.role) ? '<button class="btn btn-sm btn-primary" onclick="openCreateTaskModal()">+ 创建任务</button>' : ''}
+    </div>
+    <div id="availableTasksContent" class="card mb-4">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+
+    <!-- 我参与的任务 -->
+    <div class="mb-2">
+      <h3>📋 我参与的任务</h3>
+    </div>
+    <div id="myTasksContent" class="card">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
   `;
+
+  // 加载任务数据
+  loadAvailableTasks();
+  loadMyTasksForCirclesPage();
 }
 
 async function handleCreateCircle(e) {
@@ -1744,7 +1796,99 @@ async function removeMember(userId) {
 }
 
 // =============================================================================
-// Tasks Page
+// Circles Page - Tasks Section
+// =============================================================================
+
+async function loadAvailableTasks() {
+  const el = document.getElementById('availableTasksContent');
+  if (!el) return;
+
+  try {
+    const data = await api('/api/me/available-witness-tasks');
+    const tasks = data.tasks || [];
+
+    if (tasks.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">暂无待处理的协助请求</p></div>';
+      return;
+    }
+
+    // 找到每个 task 所属圈子名称
+    const circleMap = {};
+    (state.circles || []).forEach(c => { circleMap[c.id] = c.name; });
+
+    el.innerHTML = tasks.map(t => {
+      const circleName = circleMap[t.circleId] || '';
+      const circleTag = circleName ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">${circleName}</span>` : '';
+      return renderTaskItemForCirclesPage(t, circleTag);
+    }).join('');
+  } catch (err) {
+    console.error('Load available tasks error:', err);
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">加载失败</p></div>';
+  }
+}
+
+async function loadMyTasksForCirclesPage() {
+  const el = document.getElementById('myTasksContent');
+  if (!el) return;
+
+  try {
+    const data = await api('/api/me/witness-tasks');
+    const tasks = (data.tasks || []).slice(0, 10);
+
+    if (tasks.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">暂无参与的任务</p></div>';
+      return;
+    }
+
+    const circleMap = {};
+    (state.circles || []).forEach(c => { circleMap[c.id] = c.name; });
+
+    el.innerHTML = tasks.map(t => {
+      const circleName = circleMap[t.circleId] || '';
+      const circleTag = circleName ? `<span class="badge badge-secondary" style="font-size: 11px; margin-right: 4px;">${circleName}</span>` : '';
+      return renderTaskItemForCirclesPage(t, circleTag);
+    }).join('');
+  } catch (err) {
+    console.error('Load my tasks error:', err);
+    el.innerHTML = '<div class="empty-state" style="padding: 24px;"><p class="text-muted">加载失败</p></div>';
+  }
+}
+
+function renderTaskItemForCirclesPage(t, circleTag) {
+  const statusLabels = { created: '已创建', offered: '待领取', claimed: '已领取', arrived: '已到达', submitted: '已提交', closed: '已完成', canceled: '已取消', expired: '已过期' };
+  const purposeLabels = { CONFIRM_SAFETY: '确认', PHOTO_CHECK: '拍照', VIDEO_CHECK: '视频' };
+
+  const purposes = (t.purpose || '').split(',').filter(p => p);
+  const purposeBadges = purposes.map(p => `<span class="badge badge-info" style="font-size: 11px; margin-right: 4px;">${purposeLabels[p.trim()] || p}</span>`).join('');
+
+  let actionBtn = '';
+  if (t.status === 'offered') {
+    actionBtn = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); claimTask('${t.id}', '${t.circleId}')">领取</button>`;
+  } else if (['claimed', 'arrived'].includes(t.status) && t.witnessUserId === state.user?.id) {
+    actionBtn = `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); openSubmitModal('${t.id}', '${t.circleId}')">提交反馈</button>`;
+  }
+
+  return `
+    <div class="list-item" onclick="showTaskDetail('${t.id}', '${t.circleId}')" style="cursor: pointer;">
+      <div class="list-item-left">
+        <div class="list-item-content">
+          <div class="list-item-title">${t.title || 'Task'}</div>
+          <div class="list-item-subtitle">
+            ${circleTag}${purposeBadges}
+            <span class="text-muted">${t.description || ''}</span>
+          </div>
+        </div>
+      </div>
+      <div class="list-item-right" onclick="event.stopPropagation();">
+        <span class="task-status ${t.status}">${statusLabels[t.status] || t.status}</span>
+        ${actionBtn}
+      </div>
+    </div>
+  `;
+}
+
+// =============================================================================
+// Tasks Page (legacy functions kept for task operations)
 // =============================================================================
 async function loadTasks() {
   if (!state.currentCircle) return;
@@ -2051,9 +2195,11 @@ function requestHelpForEvent(eventId) {
   openModal('createTaskModal');
 }
 
-async function offerTask(id) {
+async function offerTask(id, circleId) {
+  const cid = circleId || state.currentCircle?.id;
+  if (!cid) { toast('未选择圈子', 'error'); return; }
   try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/offer`, { method: 'POST' });
+    await api(`/api/circles/${cid}/witness-tasks/${id}/offer`, { method: 'POST' });
     toast('任务已发布', 'success');
     renderCurrentTab();
   } catch (err) {
@@ -2061,9 +2207,11 @@ async function offerTask(id) {
   }
 }
 
-async function closeTask(id) {
+async function closeTask(id, circleId) {
+  const cid = circleId || state.currentCircle?.id;
+  if (!cid) { toast('未选择圈子', 'error'); return; }
   try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/close`, { method: 'POST' });
+    await api(`/api/circles/${cid}/witness-tasks/${id}/close`, { method: 'POST' });
     toast('任务已关闭', 'success');
     renderCurrentTab();
   } catch (err) {
@@ -2076,11 +2224,13 @@ async function closeTask(id) {
 // =============================================================================
 
 // 领取任务
-async function claimTask(id) {
+async function claimTask(id, circleId) {
   if (!confirm('确认领取此任务？领取后需要在规定时间内完成。')) return;
-  
+  const cid = circleId || state.currentCircle?.id;
+  if (!cid) { toast('未选择圈子', 'error'); return; }
+
   try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${id}/claim`, { method: 'POST' });
+    await api(`/api/circles/${cid}/witness-tasks/${id}/claim`, { method: 'POST' });
     toast('任务已领取', 'success');
     renderCurrentTab();
   } catch (err) {
@@ -2194,8 +2344,9 @@ async function getLocationAndArrive() {
 }
 
 // 打开提交反馈 Modal
-function openSubmitModal(taskId) {
+function openSubmitModal(taskId, circleId) {
   state.currentTaskId = taskId;
+  state.currentTaskCircleId = circleId || state.currentCircle?.id;
   state.taskEvidence = [];
   
   // 重置表单
@@ -2278,7 +2429,7 @@ async function submitTaskFeedback() {
           const formData = new FormData();
           formData.append('file', ev.file);
           
-          const uploadUrl = `${API_BASE}/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`;
+          const uploadUrl = `${API_BASE}/api/circles/${state.currentTaskCircleId || state.currentCircle.id}/witness-tasks/${state.currentTaskId}/evidence`;
           
           const uploadRes = await fetch(uploadUrl, {
             method: 'POST',
@@ -2304,7 +2455,7 @@ async function submitTaskFeedback() {
     submitBtn.textContent = '提交反馈...';
     
     // 提交反馈（证据已通过 addEvidence 保存到 task）
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${state.currentTaskId}/submit`, {
+    await api(`/api/circles/${state.currentTaskCircleId || state.currentCircle.id}/witness-tasks/${state.currentTaskId}/submit`, {
       method: 'POST',
       body: { conclusion, conclusionNote }
     });
@@ -2342,19 +2493,20 @@ async function riskAbort() {
 }
 
 // 任务详情
-async function showTaskDetail(taskId) {
+async function showTaskDetail(taskId, circleId) {
   openModal('taskDetailModal');
   const content = document.getElementById('taskDetailContent');
   const footer = document.getElementById('taskDetailFooter');
-  
+
   content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   footer.innerHTML = '';
-  
+
   try {
     // 从已加载的任务中查找，或重新加载
     let task = state.tasks?.find(t => t.id === taskId);
-    if (!task) {
-      const data = await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${taskId}`);
+    const cid = circleId || task?.circleId || state.currentCircle?.id;
+    if (!task && cid) {
+      const data = await api(`/api/circles/${cid}/witness-tasks/${taskId}`);
       task = data.task;
     }
     
@@ -2479,25 +2631,25 @@ async function showTaskDetail(taskId) {
     
     if (isOwnerOrCaretaker) {
       if (task.status === 'created') {
-        actions.push(`<button class="btn btn-primary" onclick="offerTask('${task.id}'); closeModal('taskDetailModal');">发布任务</button>`);
+        actions.push(`<button class="btn btn-primary" onclick="offerTask('${task.id}', '${task.circleId}'); closeModal('taskDetailModal');">发布任务</button>`);
       }
       if (task.status === 'submitted') {
-        actions.push(`<button class="btn btn-success" onclick="closeTask('${task.id}'); closeModal('taskDetailModal');">确认关闭</button>`);
+        actions.push(`<button class="btn btn-success" onclick="closeTask('${task.id}', '${task.circleId}'); closeModal('taskDetailModal');">确认关闭</button>`);
       }
       if (['created', 'offered', 'claimed'].includes(task.status)) {
-        actions.push(`<button class="btn btn-outline btn-danger" onclick="cancelTask('${task.id}')">取消任务</button>`);
+        actions.push(`<button class="btn btn-outline btn-danger" onclick="cancelTask('${task.id}', '${task.circleId}')">取消任务</button>`);
       }
     } else {
       // Witness 操作
       if (task.status === 'offered') {
-        actions.push(`<button class="btn btn-primary" onclick="claimTask('${task.id}'); closeModal('taskDetailModal');">领取任务</button>`);
+        actions.push(`<button class="btn btn-primary" onclick="claimTask('${task.id}', '${task.circleId}'); closeModal('taskDetailModal');">领取任务</button>`);
       }
       if (task.status === 'claimed' && isMyTask) {
         // 到场确认功能暂时关闭，直接显示提交反馈按钮
-        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}');">提交反馈</button>`);
+        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}', '${task.circleId}');">提交反馈</button>`);
       }
       if (task.status === 'arrived' && isMyTask) {
-        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}');">提交反馈</button>`);
+        actions.push(`<button class="btn btn-success" onclick="closeModal('taskDetailModal'); openSubmitModal('${task.id}', '${task.circleId}');">提交反馈</button>`);
       }
     }
     
@@ -2514,12 +2666,14 @@ async function showTaskDetail(taskId) {
 }
 
 // 取消任务
-async function cancelTask(taskId) {
+async function cancelTask(taskId, circleId) {
   const reason = prompt('请输入取消原因');
   if (reason === null) return;
-  
+  const cid = circleId || state.currentCircle?.id;
+  if (!cid) { toast('未选择圈子', 'error'); return; }
+
   try {
-    await api(`/api/circles/${state.currentCircle.id}/witness-tasks/${taskId}/cancel`, {
+    await api(`/api/circles/${cid}/witness-tasks/${taskId}/cancel`, {
       method: 'POST',
       body: { reason }
     });
@@ -3025,22 +3179,11 @@ function renderDashboardPage(container) {
       </div>
     </div>
     
-    <!-- Recent Tasks -->
-    <div class="card">
-      <div class="card-header">
-        <span>最近任务</span>
-        <button class="btn btn-sm btn-outline" onclick="switchTab('tasks')">查看全部</button>
-      </div>
-      <div id="recentTasksContent">
-        <div class="loading"><div class="spinner"></div></div>
-      </div>
-    </div>
   `;
-  
+
   // Load data
   loadEdgeStatus();
   loadEdgeEvents();
-  loadRecentTasks();
   startDashboardIntervals();
 }
 
@@ -4159,11 +4302,109 @@ if ('serviceWorker' in navigator) {
 }
 
 // =============================================================================
+// Alert Banner & Notification Polling
+// =============================================================================
+
+let alertPollTimer = null;
+let lastAlertCheckTime = null;
+let currentBannerAlert = null;
+
+// 显示通知横幅
+function showAlertBanner(text, alertData) {
+  currentBannerAlert = alertData;
+  const banner = document.getElementById('alertBanner');
+  document.getElementById('alertBannerText').textContent = text;
+  banner.style.display = 'flex';
+}
+
+// 隐藏通知横幅
+function dismissAlertBanner() {
+  document.getElementById('alertBanner').style.display = 'none';
+  // 标记已读
+  if (currentBannerAlert?.id) {
+    api(`/api/me/witness-alerts/${currentBannerAlert.id}/read`, { method: 'POST' }).catch(() => {});
+  }
+  currentBannerAlert = null;
+}
+
+// 点击通知横幅
+function handleAlertBannerClick() {
+  const data = currentBannerAlert;
+  dismissAlertBanner();
+  if (data?.taskId && data?.circleId) {
+    showTaskDetail(data.taskId, data.circleId);
+  } else {
+    switchTab('circles');
+  }
+}
+
+// 轮询未读 alert
+async function checkNewAlerts() {
+  if (!state.jwt) return;
+  try {
+    const data = await api('/api/me/witness-alerts?unreadOnly=true&limit=1&types=task_created');
+    if (data.alerts && data.alerts.length > 0) {
+      const alert = data.alerts[0];
+      // 只提示最近 5 分钟内的 alert，避免旧 alert 弹出
+      const alertTime = new Date(alert.createdAt).getTime();
+      if (Date.now() - alertTime < 5 * 60 * 1000) {
+        showAlertBanner(alert.body || alert.title, alert);
+      }
+    }
+  } catch (err) {
+    // 静默失败
+  }
+}
+
+function startAlertPolling() {
+  if (alertPollTimer) clearInterval(alertPollTimer);
+  // 首次检查
+  checkNewAlerts();
+  // 每 30 秒检查
+  alertPollTimer = setInterval(() => {
+    if (!document.hidden) {
+      checkNewAlerts();
+    }
+  }, 30000);
+}
+
+function stopAlertPolling() {
+  if (alertPollTimer) {
+    clearInterval(alertPollTimer);
+    alertPollTimer = null;
+  }
+}
+
+// Service Worker 消息监听（推送点击导航）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'NOTIFICATION_CLICK') {
+      const data = event.data.data || {};
+      if (data.taskId && data.circleId) {
+        showTaskDetail(data.taskId, data.circleId);
+      } else if (data.route === 'witness_alert') {
+        switchTab('circles');
+      }
+    }
+  });
+}
+
+// =============================================================================
 // Init
 // =============================================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (state.jwt && state.user) {
-    showMainApp();
+    await showMainApp();
+
+    // 处理 URL 参数（从推送通知打开）
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskParam = urlParams.get('task');
+    const circleParam = urlParams.get('circle');
+    if (taskParam) {
+      showTaskDetail(taskParam, circleParam || undefined);
+      // 清理 URL 参数
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }
   
   // Keyboard navigation for evidence viewer

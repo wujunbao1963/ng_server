@@ -79,6 +79,11 @@ let WitnessTasksService = class WitnessTasksService {
         task.status = 'offered';
         task.offeredAt = new Date();
         await this.tasksRepo.save(task);
+        this.circles.getWitnessUserIds(circleId).then(witnessUserIds => {
+            if (witnessUserIds.length > 0) {
+                return this.witnessAlerts.notifyTaskOffered(witnessUserIds, { id: task.id, circleId: task.circleId, eventId: task.eventId, title: task.title }, userId);
+            }
+        }).catch(err => console.error('[WitnessAlert] Failed to notify task offered:', err));
         return task;
     }
     async listAvailableTasks(userId, circleId) {
@@ -317,6 +322,24 @@ let WitnessTasksService = class WitnessTasksService {
     async listMyTasks(userId) {
         return this.tasksRepo.find({
             where: { witnessUserId: userId },
+            order: { createdAt: 'DESC' },
+        });
+    }
+    async listAllAvailableTasks(userId) {
+        const roles = await this.rolesRepo.find({
+            where: { userId, role: (0, typeorm_2.In)(['witness', 'acting_owner']) },
+        });
+        const circleIds = roles.map(r => r.circleId);
+        if (circleIds.length === 0)
+            return [];
+        for (const circleId of circleIds) {
+            await this.expireOverdueTasks(circleId);
+        }
+        return this.tasksRepo.find({
+            where: {
+                circleId: (0, typeorm_2.In)(circleIds),
+                status: 'offered',
+            },
             order: { createdAt: 'DESC' },
         });
     }

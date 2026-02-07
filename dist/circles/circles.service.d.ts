@@ -190,6 +190,7 @@ export declare class CirclesService {
         newOwner: string;
     }>;
     getCircleOwner(circleId: string): Promise<string | null>;
+    getWitnessUserIds(circleId: string): Promise<string[]>;
     mustBeMember(userId: string, circleId: string): Promise<NgRole>;
     mustHaveRole(userId: string, circleId: string, allowed: string[]): Promise<NgRole>;
     private formatCircle;

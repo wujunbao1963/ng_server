@@ -127,6 +127,10 @@ let WitnessTasksController = class WitnessTasksController {
         const tasks = await this.tasksService.listMyTasks(req.user.userId);
         return { tasks: tasks.map(t => this.formatTask(t)) };
     }
+    async listAllAvailableTasks(req) {
+        const tasks = await this.tasksService.listAllAvailableTasks(req.user.userId);
+        return { tasks: tasks.map(t => this.formatTask(t)) };
+    }
     formatTask(task) {
         return {
             id: task.id,
@@ -288,6 +292,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], WitnessTasksController.prototype, "listMyTasks", null);
+__decorate([
+    (0, common_1.Get)('api/me/available-witness-tasks'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], WitnessTasksController.prototype, "listAllAvailableTasks", null);
 exports.WitnessTasksController = WitnessTasksController = __decorate([
     (0, common_1.Controller)(),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

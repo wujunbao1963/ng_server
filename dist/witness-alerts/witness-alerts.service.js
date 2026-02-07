@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var WitnessAlertsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WitnessAlertsService = void 0;
 const common_1 = require("@nestjs/common");
@@ -18,53 +19,115 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto = require("crypto");
 const ng_witness_alert_entity_1 = require("./ng-witness-alert.entity");
-let WitnessAlertsService = class WitnessAlertsService {
-    constructor(alertsRepo) {
+const outbox_1 = require("../common/outbox");
+let WitnessAlertsService = WitnessAlertsService_1 = class WitnessAlertsService {
+    constructor(alertsRepo, outboxService, dataSource) {
         this.alertsRepo = alertsRepo;
+        this.outboxService = outboxService;
+        this.dataSource = dataSource;
+        this.logger = new common_1.Logger(WitnessAlertsService_1.name);
     }
     async create(dto) {
-        const alert = this.alertsRepo.create({
-            id: crypto.randomUUID(),
-            userId: dto.userId,
-            type: dto.type,
-            title: dto.title,
-            body: dto.body ?? null,
-            priority: dto.priority ?? ng_witness_alert_entity_1.WitnessAlertPriority.NORMAL,
-            circleId: dto.circleId ?? null,
-            taskId: dto.taskId ?? null,
-            eventId: dto.eventId ?? null,
-            actorUserId: dto.actorUserId ?? null,
-            actorRole: dto.actorRole ?? null,
-            data: dto.data ?? null,
-            read: false,
-            readAt: null,
-            expiresAt: dto.expiresAt ?? null,
+        const alertId = crypto.randomUUID();
+        const priority = dto.priority ?? ng_witness_alert_entity_1.WitnessAlertPriority.NORMAL;
+        const shouldPush = dto.push !== false && priority !== ng_witness_alert_entity_1.WitnessAlertPriority.LOW;
+        return this.dataSource.transaction(async (manager) => {
+            const alertsRepo = manager.getRepository(ng_witness_alert_entity_1.NgWitnessAlert);
+            const alert = alertsRepo.create({
+                id: alertId,
+                userId: dto.userId,
+                type: dto.type,
+                title: dto.title,
+                body: dto.body ?? null,
+                priority,
+                circleId: dto.circleId ?? null,
+                taskId: dto.taskId ?? null,
+                eventId: dto.eventId ?? null,
+                actorUserId: dto.actorUserId ?? null,
+                actorRole: dto.actorRole ?? null,
+                data: dto.data ?? null,
+                read: false,
+                readAt: null,
+                expiresAt: dto.expiresAt ?? null,
+            });
+            await alertsRepo.save(alert);
+            if (shouldPush) {
+                await this.outboxService.enqueue({
+                    messageType: outbox_1.OutboxMessageType.PUSH_NOTIFICATION,
+                    payload: {
+                        userId: dto.userId,
+                        title: dto.title,
+                        body: dto.body ?? '',
+                        data: {
+                            route: 'witness_alert',
+                            alertId,
+                            alertType: dto.type,
+                            taskId: dto.taskId ?? null,
+                            circleId: dto.circleId ?? null,
+                        },
+                    },
+                    aggregateId: alertId,
+                    aggregateType: 'WitnessAlert',
+                    idempotencyKey: `witness-alert:${alertId}`,
+                }, manager);
+            }
+            this.logger.log(`Created alert: ${dto.type} for user ${dto.userId}${shouldPush ? ' (with push)' : ''}`);
+            return alert;
         });
-        await this.alertsRepo.save(alert);
-        console.log(`[WitnessAlert] Created: ${dto.type} for user ${dto.userId}`);
-        return alert;
     }
     async createBatch(userIds, dto) {
-        const alerts = userIds.map(userId => this.alertsRepo.create({
-            id: crypto.randomUUID(),
-            userId,
-            type: dto.type,
-            title: dto.title,
-            body: dto.body ?? null,
-            priority: dto.priority ?? ng_witness_alert_entity_1.WitnessAlertPriority.NORMAL,
-            circleId: dto.circleId ?? null,
-            taskId: dto.taskId ?? null,
-            eventId: dto.eventId ?? null,
-            actorUserId: dto.actorUserId ?? null,
-            actorRole: dto.actorRole ?? null,
-            data: dto.data ?? null,
-            read: false,
-            readAt: null,
-            expiresAt: dto.expiresAt ?? null,
-        }));
-        await this.alertsRepo.save(alerts);
-        console.log(`[WitnessAlert] Created batch: ${dto.type} for ${userIds.length} users`);
-        return alerts;
+        if (userIds.length === 0)
+            return [];
+        const priority = dto.priority ?? ng_witness_alert_entity_1.WitnessAlertPriority.NORMAL;
+        const shouldPush = dto.push !== false && priority !== ng_witness_alert_entity_1.WitnessAlertPriority.LOW;
+        return this.dataSource.transaction(async (manager) => {
+            const alertsRepo = manager.getRepository(ng_witness_alert_entity_1.NgWitnessAlert);
+            const alerts = userIds.map(userId => {
+                const alertId = crypto.randomUUID();
+                return alertsRepo.create({
+                    id: alertId,
+                    userId,
+                    type: dto.type,
+                    title: dto.title,
+                    body: dto.body ?? null,
+                    priority,
+                    circleId: dto.circleId ?? null,
+                    taskId: dto.taskId ?? null,
+                    eventId: dto.eventId ?? null,
+                    actorUserId: dto.actorUserId ?? null,
+                    actorRole: dto.actorRole ?? null,
+                    data: dto.data ?? null,
+                    read: false,
+                    readAt: null,
+                    expiresAt: dto.expiresAt ?? null,
+                });
+            });
+            await alertsRepo.save(alerts);
+            if (shouldPush) {
+                for (const alert of alerts) {
+                    await this.outboxService.enqueue({
+                        messageType: outbox_1.OutboxMessageType.PUSH_NOTIFICATION,
+                        payload: {
+                            userId: alert.userId,
+                            title: dto.title,
+                            body: dto.body ?? '',
+                            data: {
+                                route: 'witness_alert',
+                                alertId: alert.id,
+                                alertType: dto.type,
+                                taskId: dto.taskId ?? null,
+                                circleId: dto.circleId ?? null,
+                            },
+                        },
+                        aggregateId: alert.id,
+                        aggregateType: 'WitnessAlert',
+                        idempotencyKey: `witness-alert:${alert.id}`,
+                    }, manager);
+                }
+            }
+            this.logger.log(`Created batch: ${dto.type} for ${userIds.length} users${shouldPush ? ' (with push)' : ''}`);
+            return alerts;
+        });
     }
     async listForUser(userId, options) {
         const where = { userId };
@@ -108,6 +171,21 @@ let WitnessAlertsService = class WitnessAlertsService {
             expiresAt: (0, typeorm_2.LessThan)(new Date()),
         });
         return result.affected ?? 0;
+    }
+    async notifyTaskOffered(witnessUserIds, task, creatorUserId) {
+        if (witnessUserIds.length === 0)
+            return [];
+        return this.createBatch(witnessUserIds, {
+            type: ng_witness_alert_entity_1.WitnessAlertType.TASK_CREATED,
+            title: '有邻居需要协助',
+            body: `「${task.title}」需要协助，请查看详情。`,
+            priority: ng_witness_alert_entity_1.WitnessAlertPriority.HIGH,
+            circleId: task.circleId,
+            taskId: task.id,
+            eventId: task.eventId ?? undefined,
+            actorUserId: creatorUserId,
+            actorRole: 'owner',
+        });
     }
     async notifyTaskClaimed(creatorUserId, task, witnessUserId) {
         return this.create({
@@ -217,9 +295,11 @@ let WitnessAlertsService = class WitnessAlertsService {
     }
 };
 exports.WitnessAlertsService = WitnessAlertsService;
-exports.WitnessAlertsService = WitnessAlertsService = __decorate([
+exports.WitnessAlertsService = WitnessAlertsService = WitnessAlertsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(ng_witness_alert_entity_1.NgWitnessAlert)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        outbox_1.OutboxService,
+        typeorm_2.DataSource])
 ], WitnessAlertsService);
 //# sourceMappingURL=witness-alerts.service.js.map

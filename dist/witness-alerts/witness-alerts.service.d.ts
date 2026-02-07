@@ -1,5 +1,6 @@
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { NgWitnessAlert, WitnessAlertType, WitnessAlertPriority } from './ng-witness-alert.entity';
+import { OutboxService } from '../common/outbox';
 export interface CreateWitnessAlertDto {
     userId: string;
     type: WitnessAlertType;
@@ -13,6 +14,7 @@ export interface CreateWitnessAlertDto {
     actorRole?: string;
     data?: Record<string, any>;
     expiresAt?: Date;
+    push?: boolean;
 }
 export interface WitnessAlertListOptions {
     unreadOnly?: boolean;
@@ -23,7 +25,10 @@ export interface WitnessAlertListOptions {
 }
 export declare class WitnessAlertsService {
     private readonly alertsRepo;
-    constructor(alertsRepo: Repository<NgWitnessAlert>);
+    private readonly outboxService;
+    private readonly dataSource;
+    private readonly logger;
+    constructor(alertsRepo: Repository<NgWitnessAlert>, outboxService: OutboxService, dataSource: DataSource);
     create(dto: CreateWitnessAlertDto): Promise<NgWitnessAlert>;
     createBatch(userIds: string[], dto: Omit<CreateWitnessAlertDto, 'userId'>): Promise<NgWitnessAlert[]>;
     listForUser(userId: string, options?: WitnessAlertListOptions): Promise<{
@@ -36,6 +41,12 @@ export declare class WitnessAlertsService {
     markAllAsRead(userId: string): Promise<number>;
     delete(userId: string, alertId: string): Promise<void>;
     cleanupExpired(): Promise<number>;
+    notifyTaskOffered(witnessUserIds: string[], task: {
+        id: string;
+        circleId: string;
+        eventId?: string | null;
+        title: string;
+    }, creatorUserId: string): Promise<NgWitnessAlert[]>;
     notifyTaskClaimed(creatorUserId: string, task: {
         id: string;
         circleId: string;

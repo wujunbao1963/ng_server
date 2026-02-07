@@ -106,6 +106,7 @@ const fileFilter = (req: any, file: { mimetype: string; originalname: string }, 
  * - GET    /api/circles/:circleId/witness-tasks              - 任务列表
  * - GET    /api/circles/:circleId/witness-tasks/:id          - 任务详情
  * - GET    /api/me/witness-tasks                             - 我的任务 (Witness)
+ * - GET    /api/me/available-witness-tasks                   - 所有圈子可领取任务
  */
 @Controller()
 @UseGuards(AuthGuard('jwt'))
@@ -326,6 +327,15 @@ export class WitnessTasksController {
   @Get('api/me/witness-tasks')
   async listMyTasks(@Req() req: { user: JwtUser }) {
     const tasks = await this.tasksService.listMyTasks(req.user.userId);
+    return { tasks: tasks.map(t => this.formatTask(t)) };
+  }
+
+  /**
+   * 所有圈子中可领取的任务 (跨圈子)
+   */
+  @Get('api/me/available-witness-tasks')
+  async listAllAvailableTasks(@Req() req: { user: JwtUser }) {
+    const tasks = await this.tasksService.listAllAvailableTasks(req.user.userId);
     return { tasks: tasks.map(t => this.formatTask(t)) };
   }
 

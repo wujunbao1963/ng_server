@@ -77,6 +77,7 @@ export declare class WitnessTasksService {
         total: number;
     }>;
     listMyTasks(userId: string): Promise<NgWitnessTask[]>;
+    listAllAvailableTasks(userId: string): Promise<NgWitnessTask[]>;
     private getTaskOrThrow;
     private expireOverdueTasks;
     private verifyProximity;

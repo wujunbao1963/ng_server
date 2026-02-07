@@ -349,6 +349,12 @@ let CirclesService = class CirclesService {
         });
         return owner?.userId ?? null;
     }
+    async getWitnessUserIds(circleId) {
+        const roles = await this.rolesRepo.find({
+            where: { circleId, role: (0, typeorm_2.In)(['witness', 'acting_owner']), suspended: false },
+        });
+        return roles.map(r => r.userId);
+    }
     async mustBeMember(userId, circleId) {
         const role = await this.rolesRepo.findOne({ where: { userId, circleId } });
         if (!role) {
