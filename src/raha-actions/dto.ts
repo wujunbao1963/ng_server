@@ -20,7 +20,7 @@ export class ExecuteActionDto {
   action!: HumanActionType;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   eventId?: string;
 
   @IsOptional()
