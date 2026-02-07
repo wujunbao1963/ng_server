@@ -54,28 +54,12 @@
     .header-right { display: flex; align-items: center; gap: 8px; }
     .main { padding: 16px; max-width: 1200px; margin: 0 auto; padding-bottom: 80px; }
 
-    /* Alert Banner */
-    .alert-banner {
-      background: linear-gradient(135deg, #ff6b35, #e55100);
-      color: white;
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 14px;
-      animation: alertSlideDown 0.3s ease;
-    }
-    .alert-banner:hover { opacity: 0.95; }
-    .alert-banner-close {
-      background: none; border: none; color: white; font-size: 20px;
-      cursor: pointer; padding: 0 4px; line-height: 1; opacity: 0.8;
-    }
-    .alert-banner-close:hover { opacity: 1; }
-    @keyframes alertSlideDown {
-      from { transform: translateY(-100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+    /* Nav Badge */
+    .nav-badge {
+      color: #e74c3c;
+      font-weight: 600;
+      font-size: 13px;
+      margin-left: 2px;
     }
 
     /* Buttons */
@@ -619,11 +603,6 @@
           <button class="btn-icon" id="pushToggleBtn" onclick="enablePushByUser()" title="开启推送通知">🔕</button>
           <button class="btn-icon" onclick="logout()" title="退出">🚪</button>
         </div>
-      </div>
-      <!-- Notification Banner -->
-      <div id="alertBanner" style="display:none;" class="alert-banner" onclick="handleAlertBannerClick()">
-        <span id="alertBannerText"></span>
-        <button class="alert-banner-close" onclick="event.stopPropagation(); dismissAlertBanner();">&times;</button>
       </div>
       <!-- Nav Tabs (Desktop) -->
       <div class="nav-tabs" id="navTabs"></div>
@@ -1216,7 +1195,7 @@ function onLoginSuccess(data) {
 }
 
 function logout() {
-  stopAlertPolling();
+  stopTaskCountPolling();
   state.jwt = null;
   state.user = null;
   state.circles = [];
@@ -1252,8 +1231,8 @@ async function showMainApp() {
   await loadCircles();
   renderCurrentTab();
 
-  // Start alert polling
-  startAlertPolling();
+  // Start pending task count polling
+  startTaskCountPolling();
 }
 
 function updateRoleBadge() {
@@ -1284,7 +1263,7 @@ function buildNavigation() {
   const tabs = [
     // SuperAdmin 专用标签
     ...(isAdmin ? [{ id: 'users', icon: '👤', label: '用户管理' }] : []),
-    { id: 'circles', icon: '🏘️', label: '圈子' },
+    { id: 'circles', icon: '🏘️', label: '圈子', badgeKey: 'pendingTaskCount' },
     ...(state.currentCircle ? [
       ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
       ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
@@ -1295,17 +1274,21 @@ function buildNavigation() {
   ];
   
   // Desktop nav
-  document.getElementById('navTabs').innerHTML = tabs.map(t => 
-    `<div class="nav-tab ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</div>`
-  ).join('');
-  
+  document.getElementById('navTabs').innerHTML = tabs.map(t => {
+    const count = t.badgeKey ? (state[t.badgeKey] || 0) : 0;
+    const badge = count > 0 ? `<span class="nav-badge">(${count})</span>` : '';
+    return `<div class="nav-tab ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}${badge}</div>`;
+  }).join('');
+
   // Mobile nav
-  document.getElementById('bottomNav').innerHTML = tabs.map(t => 
-    `<div class="bottom-nav-item ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
+  document.getElementById('bottomNav').innerHTML = tabs.map(t => {
+    const count = t.badgeKey ? (state[t.badgeKey] || 0) : 0;
+    const badge = count > 0 ? `<span class="nav-badge">(${count})</span>` : '';
+    return `<div class="bottom-nav-item ${state.currentTab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')">
       <span class="bottom-nav-icon">${t.icon}</span>
-      <span>${t.label}</span>
-    </div>`
-  ).join('');
+      <span>${t.label}${badge}</span>
+    </div>`;
+  }).join('');
 }
 
 function switchTab(tab) {
@@ -2264,6 +2247,7 @@ async function offerTask(id, circleId) {
   try {
     await api(`/api/circles/${cid}/witness-tasks/${id}/offer`, { method: 'POST' });
     toast('任务已发布', 'success');
+    refreshPendingTaskCount();
     renderCurrentTab();
   } catch (err) {
     toast(err.message, 'error');
@@ -2276,6 +2260,7 @@ async function closeTask(id, circleId) {
   try {
     await api(`/api/circles/${cid}/witness-tasks/${id}/close`, { method: 'POST' });
     toast('任务已关闭', 'success');
+    refreshPendingTaskCount();
     renderCurrentTab();
   } catch (err) {
     toast(err.message, 'error');
@@ -2295,6 +2280,7 @@ async function claimTask(id, circleId) {
   try {
     await api(`/api/circles/${cid}/witness-tasks/${id}/claim`, { method: 'POST' });
     toast('任务已领取', 'success');
+    refreshPendingTaskCount();
     renderCurrentTab();
   } catch (err) {
     toast(err.message, 'error');
@@ -2741,6 +2727,7 @@ async function cancelTask(taskId, circleId) {
       body: { reason }
     });
     toast('任务已取消', 'success');
+    refreshPendingTaskCount();
     closeModal('taskDetailModal');
     renderCurrentTab();
   } catch (err) {
@@ -4365,76 +4352,45 @@ if ('serviceWorker' in navigator) {
 }
 
 // =============================================================================
-// Alert Banner & Notification Polling
+// Pending Task Count Polling (导航标签红色提醒)
 // =============================================================================
 
-let alertPollTimer = null;
-let lastAlertCheckTime = null;
-let currentBannerAlert = null;
+let taskCountPollTimer = null;
 
-// 显示通知横幅
-function showAlertBanner(text, alertData) {
-  currentBannerAlert = alertData;
-  const banner = document.getElementById('alertBanner');
-  document.getElementById('alertBannerText').textContent = text;
-  banner.style.display = 'flex';
-}
-
-// 隐藏通知横幅
-function dismissAlertBanner() {
-  document.getElementById('alertBanner').style.display = 'none';
-  // 标记已读
-  if (currentBannerAlert?.id) {
-    api(`/api/me/witness-alerts/${currentBannerAlert.id}/read`, { method: 'POST' }).catch(() => {});
-  }
-  currentBannerAlert = null;
-}
-
-// 点击通知横幅
-function handleAlertBannerClick() {
-  const data = currentBannerAlert;
-  dismissAlertBanner();
-  if (data?.taskId && data?.circleId) {
-    showTaskDetail(data.taskId, data.circleId);
-  } else {
-    switchTab('circles');
-  }
-}
-
-// 轮询未读 alert
-async function checkNewAlerts() {
+async function refreshPendingTaskCount() {
   if (!state.jwt) return;
   try {
-    const data = await api('/api/me/witness-alerts?unreadOnly=true&limit=1&types=task_created');
-    if (data.alerts && data.alerts.length > 0) {
-      const alert = data.alerts[0];
-      // 只提示最近 5 分钟内的 alert，避免旧 alert 弹出
-      const alertTime = new Date(alert.createdAt).getTime();
-      if (Date.now() - alertTime < 5 * 60 * 1000) {
-        showAlertBanner(alert.body || alert.title, alert);
-      }
+    const [available, created] = await Promise.all([
+      api('/api/me/available-witness-tasks'),
+      api('/api/me/created-witness-tasks'),
+    ]);
+    // 待领取 + 自己创建的还没人响应的 (offered 状态)
+    const availableCount = (available.tasks || []).length;
+    const createdPending = (created.tasks || []).filter(t => t.status === 'offered').length;
+    const total = availableCount + createdPending;
+    if (state.pendingTaskCount !== total) {
+      state.pendingTaskCount = total;
+      buildNavigation();
     }
   } catch (err) {
     // 静默失败
   }
 }
 
-function startAlertPolling() {
-  if (alertPollTimer) clearInterval(alertPollTimer);
-  // 首次检查
-  checkNewAlerts();
-  // 每 30 秒检查
-  alertPollTimer = setInterval(() => {
+function startTaskCountPolling() {
+  if (taskCountPollTimer) clearInterval(taskCountPollTimer);
+  refreshPendingTaskCount();
+  taskCountPollTimer = setInterval(() => {
     if (!document.hidden) {
-      checkNewAlerts();
+      refreshPendingTaskCount();
     }
   }, 30000);
 }
 
-function stopAlertPolling() {
-  if (alertPollTimer) {
-    clearInterval(alertPollTimer);
-    alertPollTimer = null;
+function stopTaskCountPolling() {
+  if (taskCountPollTimer) {
+    clearInterval(taskCountPollTimer);
+    taskCountPollTimer = null;
   }
 }
 

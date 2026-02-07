@@ -192,7 +192,7 @@ export class WitnessTasksService {
    * GET /api/circles/:circleId/witness-tasks/available
    */
   async listAvailableTasks(userId: string, circleId: string): Promise<NgWitnessTask[]> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     // 先处理过期任务
     await this.expireOverdueTasks(circleId);
@@ -214,7 +214,7 @@ export class WitnessTasksService {
    * POST /api/circles/:circleId/witness-tasks/:taskId/claim
    */
   async claimTask(userId: string, circleId: string, taskId: string, dto?: ClaimTaskDto): Promise<NgWitnessTask> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 
@@ -259,7 +259,7 @@ export class WitnessTasksService {
    * POST /api/circles/:circleId/witness-tasks/:taskId/arrive
    */
   async arriveAtTask(userId: string, circleId: string, taskId: string, dto: ArriveDto): Promise<NgWitnessTask> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 
@@ -342,7 +342,7 @@ export class WitnessTasksService {
    * POST /api/circles/:circleId/witness-tasks/:taskId/submit
    */
   async submitTask(userId: string, circleId: string, taskId: string, dto: SubmitDto): Promise<NgWitnessTask> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 
@@ -406,7 +406,7 @@ export class WitnessTasksService {
    * Witness 可在 CLAIMED 或 ARRIVED 状态下标记风险退出
    */
   async riskAbortTask(userId: string, circleId: string, taskId: string, dto: RiskAbortDto): Promise<NgWitnessTask> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 
@@ -467,7 +467,7 @@ export class WitnessTasksService {
     size: number;
     uploadedAt: string;
   }> {
-    await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+    await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
 
     const task = await this.getTaskOrThrow(taskId, circleId);
 

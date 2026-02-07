@@ -88,7 +88,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async listAvailableTasks(userId, circleId) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         await this.expireOverdueTasks(circleId);
         const tasks = await this.tasksRepo.find({
             where: {
@@ -100,7 +100,7 @@ let WitnessTasksService = class WitnessTasksService {
         return tasks;
     }
     async claimTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (task.status !== 'offered') {
             throw this.makeError(400, 'INVALID_STATE', `Cannot claim task in status: ${task.status}`);
@@ -124,7 +124,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async arriveAtTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (task.status !== 'claimed') {
             throw this.makeError(400, 'INVALID_STATE', `Cannot arrive at task in status: ${task.status}`);
@@ -171,7 +171,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async submitTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (!['claimed', 'arrived'].includes(task.status)) {
             throw this.makeError(400, 'INVALID_STATE', `Cannot submit task in status: ${task.status}`);
@@ -203,7 +203,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async riskAbortTask(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (!['claimed', 'arrived'].includes(task.status)) {
             throw this.makeError(400, 'INVALID_STATE', `Cannot risk-abort task in status: ${task.status}`);
@@ -222,7 +222,7 @@ let WitnessTasksService = class WitnessTasksService {
         return task;
     }
     async addEvidence(userId, circleId, taskId, dto) {
-        await this.circles.mustHaveRole(userId, circleId, ['witness', 'acting_owner']);
+        await this.circles.mustHaveRole(userId, circleId, ['caretaker', 'witness', 'acting_owner']);
         const task = await this.getTaskOrThrow(taskId, circleId);
         if (!['claimed', 'arrived'].includes(task.status)) {
             throw this.makeError(400, 'INVALID_STATE', `Cannot upload evidence in status: ${task.status}`);
