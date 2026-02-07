@@ -4011,14 +4011,14 @@ function confirmEventAction(action, title, msg) {
 async function executeConfirmedAction() {
   const action = state.pendingAction;
   const incident = state.selectedIncident;
-  
+
   closeModal('confirmModal');
-  
+
   if (!action || !incident) {
     toast('操作无效', 'error');
     return;
   }
-  
+
   // Map action to RAHA action
   const rahaActions = {
     'resolve': 'RESOLVE',
@@ -4026,65 +4026,57 @@ async function executeConfirmedAction() {
     'silence': 'STOP_SIREN',
     'disarm': 'DISARM'
   };
-  
+
   const rahaAction = rahaActions[action];
   if (!rahaAction) {
     toast('未知操作', 'error');
     return;
   }
-  
-  // Get role
-  const role = state.currentCircle?.role || 'owner';
-  
-  // Build RAHA request
-  const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  const body = {
-    requestId: requestId,
-    eventId: incident.incident_id,
-    actorId: state.user?.id || 'cloud_user',
-    actorRole: role,
-    action: rahaAction
-  };
-  
+
+  const circleId = state.currentCircle?.id;
+  if (!circleId) {
+    toast('未选择圈子', 'error');
+    return;
+  }
+
   try {
-    const res = await fetch(`${state.edgeUrl}/api/raha/execute`, {
+    // 通过服务器 RAHA 转发通道（带 JWT 认证 + 角色验证）
+    const data = await api(`/api/circles/${circleId}/actions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: {
+        action: rahaAction,
+        eventId: incident.incident_id,
+      }
     });
-    
-    const data = await res.json().catch(() => ({}));
-    
-    if (!res.ok) {
-      toast(data.detail || data.error || '操作失败', 'error');
-      return;
-    }
-    
+
     if (data.accepted === false) {
       const rejectMsg = {
         'RESOLVER_LOCKED': '其他人正在处理此事件',
         'ROLE_INVALID': '角色无效',
         'ROLE_EXPIRED': '角色已过期',
         'POLICY_DENIED': '操作被策略拒绝',
-        'BAD_REQUEST': '请求无效'
+        'BAD_REQUEST': '请求无效',
+        'EDGE_ERROR': data.rejectedReason || 'Edge 设备错误',
+        'TIMEOUT': 'Edge 设备无响应',
+        'NETWORK_ERROR': '无法连接 Edge 设备',
       };
-      toast(rejectMsg[data.rejectedCode] || data.rejectedCode || '操作被拒绝', 'error');
+      toast(rejectMsg[data.rejectedCode] || data.rejectedReason || '操作被拒绝', 'error');
       return;
     }
-    
+
     toast('操作成功', 'success');
     closeModal('eventDetailModal');
-    
+
     // Clear state
     state.selectedIncident = null;
     state.pendingAction = null;
-    
+
     // Refresh events after delay
     setTimeout(() => {
       loadEdgeEvents();
       loadEdgeStatus();
     }, 500);
-    
+
   } catch (e) {
     console.error('RAHA error:', e);
     toast('操作失败: ' + e.message, 'error');
