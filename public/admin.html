@@ -1229,6 +1229,41 @@ async function showMainApp() {
   
   // Load data
   await loadCircles();
+
+  // 屋主自动选中圈子并进入仪表盘
+  if (!state.user?.isAdmin && state.circles.length > 0) {
+    const ownerCircle = state.circles.find(c => c.role === 'owner');
+    if (ownerCircle) {
+      state.currentCircle = ownerCircle;
+
+      // 加载圈子详情
+      try {
+        const detail = await api('/api/circles/' + ownerCircle.id);
+        if (detail.circle) {
+          state.currentCircle = { ...ownerCircle, ...detail.circle, role: ownerCircle.role };
+        }
+      } catch (err) {
+        console.error('Load circle detail error:', err);
+      }
+
+      state.edgeUrl = getEdgeUrl();
+      state.edgeConnected = false;
+      state.events = [];
+      updateRoleBadge();
+      buildNavigation();
+
+      if (state.edgeUrl) {
+        state.currentTab = 'dashboard';
+      } else {
+        // 未配置 Edge，弹出设置窗口
+        renderCurrentTab();
+        openEdgeConfigModal();
+        startTaskCountPolling();
+        return;
+      }
+    }
+  }
+
   renderCurrentTab();
 
   // Start pending task count polling
