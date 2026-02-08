@@ -1266,7 +1266,7 @@ function buildNavigation() {
     { id: 'circles', icon: '🏘️', label: '圈子', badgeKey: 'pendingTaskCount' },
     ...(state.currentCircle ? [
       ...(canViewDashboard ? [{ id: 'dashboard', icon: '📊', label: '仪表盘' }] : []),
-      ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件' }] : []),
+      ...(canViewDashboard ? [{ id: 'events', icon: '🔔', label: '事件', badgeKey: 'activeEventCount' }] : []),
       ...(canViewDashboard ? [{ id: 'live', icon: '📹', label: '实时视频' }] : []),
       ...(canManage ? [{ id: 'members', icon: '👥', label: '成员' }] : []),
       ...(canManage ? [{ id: 'edge', icon: '📡', label: 'Edge' }] : []),
@@ -3451,6 +3451,11 @@ async function loadEdgeEvents(showLoading = true) {
     }
     
     state.events = events;
+    const activeCount = events.filter(e => e.is_active).length;
+    if (state.activeEventCount !== activeCount) {
+      state.activeEventCount = activeCount;
+      buildNavigation();
+    }
     renderRecentEvents();
     renderEventsList();
     
