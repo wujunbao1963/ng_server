@@ -596,6 +596,7 @@
       <div class="header">
         <div class="header-left">
           <span class="header-title">🛡️ NeighborGuard</span>
+          <span id="headerCircleName" style="font-size:14px; color:var(--gray-600); font-weight:500;"></span>
           <span id="headerRole" class="badge badge-owner"></span>
         </div>
         <div class="header-right">
@@ -1272,6 +1273,7 @@ async function showMainApp() {
 
 function updateRoleBadge() {
   const badge = document.getElementById('headerRole');
+  const circleName = document.getElementById('headerCircleName');
   let role;
   if (state.user?.isAdmin) {
     role = 'admin';
@@ -1285,6 +1287,7 @@ function updateRoleBadge() {
   const labels = { admin: '👑 Admin', owner: '🏠 Owner', caretaker: '🛡️ Caretaker', acting_owner: '⏱️ Acting', witness: '👁️ Witness', user: '👤 User' };
   badge.textContent = labels[role] || role;
   badge.className = `badge badge-${role}`;
+  circleName.textContent = state.currentCircle?.name || '';
 }
 
 function buildNavigation() {
