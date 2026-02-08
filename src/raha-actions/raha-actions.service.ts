@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -136,8 +136,8 @@ export class RahaActionsService {
    */
   private async getEdgeDevice(circleId: string): Promise<EdgeDeviceInfo | null> {
     const device = await this.edgeDevicesRepo.findOne({
-      where: { circleId },
-      order: { createdAt: 'ASC' },
+      where: { circleId, revokedAt: IsNull() },
+      order: { createdAt: 'DESC' },
     });
 
     if (!device) {

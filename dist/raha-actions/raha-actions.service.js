@@ -95,8 +95,8 @@ let RahaActionsService = RahaActionsService_1 = class RahaActionsService {
     }
     async getEdgeDevice(circleId) {
         const device = await this.edgeDevicesRepo.findOne({
-            where: { circleId },
-            order: { createdAt: 'ASC' },
+            where: { circleId, revokedAt: (0, typeorm_2.IsNull)() },
+            order: { createdAt: 'DESC' },
         });
         if (!device) {
             return null;

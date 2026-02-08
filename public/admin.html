@@ -2875,10 +2875,25 @@ function setEdgeUrl(url) {
   state.edgeUrl = url;
 }
 
-function handleSaveEdgeConfig(e) {
+async function handleSaveEdgeConfig(e) {
   e.preventDefault();
   const url = document.getElementById('edgeConfigUrl').value.trim().replace(/\/$/, '');
   setEdgeUrl(url);
+
+  // 同步写入服务器端设备 metadata（供 RAHA 转发使用）
+  if (state.currentCircle?.id) {
+    try {
+      const devicesData = await api('/api/circles/' + state.currentCircle.id + '/edge/devices');
+      const devices = devicesData.devices || devicesData;
+      const active = (Array.isArray(devices) ? devices : []).find(function(d) { return d.enabled; });
+      if (active) {
+        await api('/api/circles/' + state.currentCircle.id + '/devices/' + active.deviceId + '/edge-url', { method: 'PUT', body: { edgeUrl: url } });
+      }
+    } catch (err) {
+      console.warn('Sync edge URL to server failed:', err.message);
+    }
+  }
+
   closeModal('edgeConfigModal');
   toast('Edge URL 已保存', 'success');
   renderCurrentTab();
