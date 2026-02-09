@@ -132,6 +132,7 @@ export class EventViewModelService {
     motion_active: '检测到活动',
     delivery_detected: '快递到达',
     network_down: '摄像头离线',
+    signal_cleared: '事件已结束',
   };
 
   constructor(private readonly topoMapService: TopoMapService) {}
@@ -429,6 +430,10 @@ export class EventViewModelService {
           return `${loc}门外有人活动（进行中）`;
         }
         if (triggerReason === 'delivery_detected') {
+          const confidence = (summary.summary as any)?.confidence;
+          if (confidence !== undefined && confidence < 0.6) {
+            return `${loc}疑似快递（进行中）`;
+          }
           return `${loc}快递到达`;
         }
         if (triggerReason === 'network_down') {
@@ -443,16 +448,16 @@ export class EventViewModelService {
         return `${loc}已解除本次等待确认`;
 
       case 'NONE':
+        // LOGISTICS 快递事件（优先判断，避免被 entryPointId 抢先匹配）
+        if ((summary.workflowClass as string) === 'LOGISTICS') {
+          return `${loc}快递到达`;
+        }
         // PRE clear 后的 NONE 状态
         // 有 entryPointId 或 SECURITY 类型说明是安全事件的结束
-        if (summary.entryPointId || 
+        if (summary.entryPointId ||
             (summary.workflowClass as string) === 'SECURITY_HEAVY' ||
             (summary.workflowClass as string) === 'SUSPICION_LIGHT') {
           return `${loc}检测到活动（已正常）`;
-        }
-        // LOGISTICS 快递事件
-        if ((summary.workflowClass as string) === 'LOGISTICS') {
-          return `${loc}快递到达`;
         }
         // 其他 NONE 状态不应该出现在列表中
         return `${loc}无事件`;

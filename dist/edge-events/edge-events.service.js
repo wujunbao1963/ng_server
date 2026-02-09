@@ -55,8 +55,7 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
             }
             const isStrongSecurityEvent = ev.threatState === 'TRIGGERED' ||
                 ev.triggerReason === 'glass_break';
-            const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
-                ev.triggerReason === 'delivery_detected';
+            const isLogisticsEvent = workflowClass === 'LOGISTICS';
             if (!isStrongSecurityEvent && !isLogisticsEvent) {
                 this.logger.debug(`listEvents: filtering out Home mode event ${ev.eventId} (threatState=${ev.threatState})`);
             }
@@ -374,8 +373,7 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                 if (mode?.toLowerCase() === 'home') {
                     const isStrongSecurityEvent = threatState === 'TRIGGERED' ||
                         triggerReason === 'glass_break';
-                    const isLogisticsEvent = workflowClass === 'LOGISTICS' &&
-                        triggerReason === 'delivery_detected';
+                    const isLogisticsEvent = workflowClass === 'LOGISTICS';
                     if (!isStrongSecurityEvent && !isLogisticsEvent) {
                         this.logger.log(`[Fallback] Home mode: skipping notification for threatState=${threatState} ` +
                             `triggerReason=${triggerReason} (Edge did not send notificationEligible)`);
@@ -390,6 +388,7 @@ let EdgeEventsService = EdgeEventsService_1 = class EdgeEventsService {
                     eventId: payload.eventId,
                     edgeInstanceId: payload.edgeInstanceId,
                     entryPointId: payload.entryPointId,
+                    confidence: payload.summary?.confidence,
                 });
                 this.logger.log(`Created parcel notification for event ${payload.eventId}`);
                 return;

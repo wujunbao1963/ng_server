@@ -296,12 +296,14 @@ let NotificationEvaluator = NotificationEvaluator_1 = class NotificationEvaluato
                     title: '设备异常警报',
                     body: `检测到设备可能被篡改，请检查`,
                 };
-            case 'LOGISTICS_DELIVERY':
+            case 'LOGISTICS_DELIVERY': {
+                const isHighConf = (input.confidence ?? 1) >= 0.6;
                 return {
                     emoji: '📦',
-                    title: '快递到达',
-                    body: `在 ${entryPoint} 检测到快递`,
+                    title: isHighConf ? '快递到达' : '疑似快递',
+                    body: `在 ${entryPoint} ${isHighConf ? '检测到快递' : '检测到疑似快递活动'}`,
                 };
+            }
             default:
                 return {
                     emoji: '🔔',

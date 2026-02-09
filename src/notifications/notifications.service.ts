@@ -321,6 +321,7 @@ export class NotificationsService {
     eventId: string;
     edgeInstanceId?: string;
     entryPointId?: string;
+    confidence?: number;
   }): Promise<NgNotification | null> {
     const existing = await this.notificationsRepo
       .createQueryBuilder('n')
@@ -347,6 +348,7 @@ export class NotificationsService {
       eventId: string;
       edgeInstanceId?: string;
       entryPointId?: string;
+      confidence?: number;
     },
   ): Promise<NgNotification> {
     const notificationsRepo = manager.getRepository(NgNotification);
@@ -354,13 +356,19 @@ export class NotificationsService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const isHighConfidence = (args.confidence ?? 1) >= 0.6;
+    const title = isHighConfidence ? '📦 快递到达' : '📦 疑似快递';
+    const body = args.entryPointId
+      ? `在 ${args.entryPointId} ${isHighConfidence ? '检测到快递' : '检测到疑似快递活动'}`
+      : (isHighConfidence ? '检测到快递到达' : '检测到疑似快递活动');
+
     const notification = notificationsRepo.create({
       userId: args.userId,
       circleId: args.circleId,
       type: 'LOGISTICS_PARCEL_DELIVERED' as NotificationType,
       severity: 'info' as NotificationSeverity,
-      title: '📦 快递到达',
-      body: args.entryPointId ? `在 ${args.entryPointId} 检测到快递` : '检测到快递到达',
+      title,
+      body,
       deeplinkRoute: 'event_detail',
       deeplinkParams: { eventId: args.eventId },
       eventRef: {

@@ -3605,14 +3605,24 @@ function renderEventItem(e) {
   
   if (ts === 'triggered') { icon = '🚨'; title = `【${loc}】警报触发`; stateClass = 'triggered'; }
   else if (ts === 'pending') { icon = '⏳'; title = `【${loc}】入口延时`; stateClass = 'pending'; }
-  else if (ts.startsWith('pre')) { icon = '👁️'; title = `【${loc}】检测到活动`; stateClass = 'pre'; }
+  else if (ts.startsWith('pre')) {
+    if (e.workflow_class === 'LOGISTICS' || e.trigger_reason === 'delivery_detected') {
+      icon = '📦'; title = `【${loc}】快递到达`; stateClass = 'pre';
+    } else {
+      icon = '👁️'; title = `【${loc}】检测到活动`; stateClass = 'pre';
+    }
+  }
   else if (e.is_active) { title = `【${loc}】事件`; }
   else {
-    const resolution = e.resolution || '';
-    if (resolution === 'false_alarm' || resolution === 'dismissed') { icon = '✅'; title = `【${loc}】误报`; }
-    else if (resolution === 'safe' || ts === 'resolved') { icon = '✅'; title = `【${loc}】已确认安全`; }
-    else if (ts === 'canceled') { icon = '❌'; title = `【${loc}】已取消`; }
-    else { icon = '✅'; title = `【${loc}】已结束`; }
+    if (e.workflow_class === 'LOGISTICS' || e.trigger_reason === 'delivery_detected') {
+      icon = '📦'; title = `【${loc}】快递到达`;
+    } else {
+      const resolution = e.resolution || '';
+      if (resolution === 'false_alarm' || resolution === 'dismissed') { icon = '✅'; title = `【${loc}】误报`; }
+      else if (resolution === 'safe' || ts === 'resolved') { icon = '✅'; title = `【${loc}】已确认安全`; }
+      else if (ts === 'canceled') { icon = '❌'; title = `【${loc}】已取消`; }
+      else { icon = '✅'; title = `【${loc}】已结束`; }
+    }
   }
   
   return `
@@ -3697,7 +3707,15 @@ function getEventDisplay(i) {
   if (ts === 'triggered') return { icon: '🚨', title: `【${loc}】警报触发` };
   if (ts === 'pending') return { icon: '⏳', title: `【${loc}】入口延时` };
   if (ts === 'pre_l2' || ts === 'pre_l3') return { icon: '👁️', title: `【${loc}】持续观察` };
-  if (ts === 'pre_l1') return { icon: '🔍', title: `【${loc}】检测到活动` };
+  if (ts === 'pre_l1') {
+    if (i.workflow_class === 'LOGISTICS' || i.trigger_reason === 'delivery_detected') {
+      return { icon: '📦', title: `【${loc}】快递到达` };
+    }
+    return { icon: '🔍', title: `【${loc}】检测到活动` };
+  }
+  if (i.workflow_class === 'LOGISTICS' || i.trigger_reason === 'delivery_detected') {
+    return { icon: '📦', title: `【${loc}】快递到达` };
+  }
   if (i.resolution === 'safe') return { icon: '✅', title: `【${loc}】已确认安全` };
   if (i.resolution === 'false_alarm') return { icon: '❌', title: `【${loc}】误报` };
   return { icon: '📋', title: `【${loc}】事件` };
@@ -3707,7 +3725,7 @@ function getEventType(i) {
   if (i.trigger_reason === 'door_open') return '门';
   if (i.trigger_reason === 'glass_break') return '玻璃';
   if (i.trigger_reason === 'person_detected' || i.trigger_reason === 'activity_detected') return '活动';
-  if (i.workflow_class === 'delivery') return '快递';
+  if (i.workflow_class === 'LOGISTICS' || i.trigger_reason === 'delivery_detected') return '快递';
   return '事件';
 }
 

@@ -56,6 +56,7 @@ export declare class NotificationsService {
         eventId: string;
         edgeInstanceId?: string;
         entryPointId?: string;
+        confidence?: number;
     }): Promise<NgNotification | null>;
     private createParcelNotificationWithOutbox;
     sendTestNotification(userId: string, circleId: string): Promise<NgNotification>;

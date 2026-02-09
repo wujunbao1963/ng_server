@@ -212,13 +212,18 @@ let NotificationsService = NotificationsService_1 = class NotificationsService {
         const notificationsRepo = manager.getRepository(ng_notification_entity_1.NgNotification);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
+        const isHighConfidence = (args.confidence ?? 1) >= 0.6;
+        const title = isHighConfidence ? '📦 快递到达' : '📦 疑似快递';
+        const body = args.entryPointId
+            ? `在 ${args.entryPointId} ${isHighConfidence ? '检测到快递' : '检测到疑似快递活动'}`
+            : (isHighConfidence ? '检测到快递到达' : '检测到疑似快递活动');
         const notification = notificationsRepo.create({
             userId: args.userId,
             circleId: args.circleId,
             type: 'LOGISTICS_PARCEL_DELIVERED',
             severity: 'info',
-            title: '📦 快递到达',
-            body: args.entryPointId ? `在 ${args.entryPointId} 检测到快递` : '检测到快递到达',
+            title,
+            body,
             deeplinkRoute: 'event_detail',
             deeplinkParams: { eventId: args.eventId },
             eventRef: {

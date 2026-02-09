@@ -53,6 +53,7 @@ let EventViewModelService = class EventViewModelService {
             motion_active: '检测到活动',
             delivery_detected: '快递到达',
             network_down: '摄像头离线',
+            signal_cleared: '事件已结束',
         };
     }
     async toViewModel(raw, circleId, options) {
@@ -248,6 +249,10 @@ let EventViewModelService = class EventViewModelService {
                     return `${loc}门外有人活动（进行中）`;
                 }
                 if (triggerReason === 'delivery_detected') {
+                    const confidence = summary.summary?.confidence;
+                    if (confidence !== undefined && confidence < 0.6) {
+                        return `${loc}疑似快递（进行中）`;
+                    }
                     return `${loc}快递到达`;
                 }
                 if (triggerReason === 'network_down') {
@@ -259,13 +264,13 @@ let EventViewModelService = class EventViewModelService {
             case 'CANCELED':
                 return `${loc}已解除本次等待确认`;
             case 'NONE':
+                if (summary.workflowClass === 'LOGISTICS') {
+                    return `${loc}快递到达`;
+                }
                 if (summary.entryPointId ||
                     summary.workflowClass === 'SECURITY_HEAVY' ||
                     summary.workflowClass === 'SUSPICION_LIGHT') {
                     return `${loc}检测到活动（已正常）`;
-                }
-                if (summary.workflowClass === 'LOGISTICS') {
-                    return `${loc}快递到达`;
                 }
                 return `${loc}无事件`;
             default:

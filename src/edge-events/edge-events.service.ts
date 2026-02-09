@@ -121,16 +121,14 @@ export class EdgeEventsService {
         ev.threatState === 'TRIGGERED' || 
         ev.triggerReason === 'glass_break';
       
-      const isLogisticsEvent = 
-        workflowClass === 'LOGISTICS' && 
-        ev.triggerReason === 'delivery_detected';
-      
+      const isLogisticsEvent = workflowClass === 'LOGISTICS';
+
       if (!isStrongSecurityEvent && !isLogisticsEvent) {
         this.logger.debug(
           `listEvents: filtering out Home mode event ${ev.eventId} (threatState=${ev.threatState})`
         );
       }
-      
+
       return isStrongSecurityEvent || isLogisticsEvent;
     });
     // ========================================================================
@@ -605,10 +603,8 @@ export class EdgeEventsService {
             threatState === 'TRIGGERED' || 
             triggerReason === 'glass_break';
           
-          const isLogisticsEvent = 
-            workflowClass === 'LOGISTICS' && 
-            triggerReason === 'delivery_detected';
-          
+          const isLogisticsEvent = workflowClass === 'LOGISTICS';
+
           if (!isStrongSecurityEvent && !isLogisticsEvent) {
             this.logger.log(
               `[Fallback] Home mode: skipping notification for threatState=${threatState} ` +
@@ -628,6 +624,7 @@ export class EdgeEventsService {
           eventId: payload.eventId,
           edgeInstanceId: payload.edgeInstanceId,
           entryPointId: (payload as any).entryPointId,
+          confidence: (payload as any).summary?.confidence,
         });
         this.logger.log(`Created parcel notification for event ${payload.eventId}`);
         return;

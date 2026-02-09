@@ -12,6 +12,7 @@ export interface EdgeEventInput {
     entryPointId?: string;
     preLevel?: PreLevel;
     entryDelaySec?: number;
+    confidence?: number;
     notificationEligible?: boolean;
     notificationHint?: {
         suppressReason?: 'MODE_HOME' | 'MODE_DISARM' | 'BELOW_THRESHOLD' | null;
