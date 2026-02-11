@@ -8,6 +8,7 @@ import {
   PUSH_PROVIDER_PORT,
   PushPayload,
 } from '../../infra/ports/push-provider.port';
+import { MultiPushProvider } from '../../infra/ports/multi-push-provider';
 
 /**
  * Outbox 消息处理器接口
@@ -82,9 +83,20 @@ export class PushNotificationHandler implements OutboxHandler {
       },
     };
 
-    // 发送到所有设备
-    const tokens = devices.map(d => d.token);
-    const results = await this.pushProvider.sendBatch(tokens, payload);
+    // 发送到所有设备（使用平台感知的批量发送）
+    let results;
+    if (this.pushProvider instanceof MultiPushProvider) {
+      // 使用 MultiPushProvider 的平台感知方法
+      const devicesWithPlatform = devices.map(d => ({
+        platform: d.platform,
+        token: d.token,
+      }));
+      results = await this.pushProvider.sendBatchByPlatform(devicesWithPlatform, payload);
+    } else {
+      // 回退到标准批量发送（向后兼容）
+      const tokens = devices.map(d => d.token);
+      results = await this.pushProvider.sendBatch(tokens, payload);
+    }
 
     // 处理结果
     let successCount = 0;
