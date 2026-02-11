@@ -13,6 +13,21 @@ This package contains:
 
 2) a **contract fix**: `POST .../evidence/complete` now returns `warnings` as an array of objects `{ code, message, itemSha256? }` per schema.
 
+## 🆕 iOS Native Push Notifications
+
+The server now supports **iOS native push notifications** (APNs) in addition to Web Push:
+
+- **Multi-provider system**: Automatically routes notifications to Web Push or APNs based on device platform
+- **Simultaneous support**: Both Web Push and iOS Push can work at the same time
+- **Easy migration**: Can disable Web Push later once iOS push is stable
+
+📖 **See [iOS Push Setup Guide](./docs/IOS_PUSH_SETUP.md)** for detailed configuration instructions.
+
+Quick setup:
+1. Create an APNs key in Apple Developer Portal
+2. Add `APNS_KEY_ID`, `APNS_TEAM_ID`, and `APNS_KEY_CONTENT` to your environment
+3. Register iOS devices via `POST /v1/push/devices` with `platform: "ios"`
+
 ## What changed in Step 9
 
 ### New endpoints (dev/local)
