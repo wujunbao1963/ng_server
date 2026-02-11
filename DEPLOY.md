@@ -11,33 +11,35 @@ git status
 git log --oneline -5
 ```
 
-当前分支 `copilot/add-ios-native-push-channel` 已包含所有 iOS 推送功能的改动。
+当前工作分支已包含所有代码改动（包括 iOS 推送功能）。
 
-### 2. 合并到主分支
+### 2. 推送到 GitHub
 
-如果 Railway 监听的是 `main` 分支：
+**注意**：`main` 分支不是工作代码，直接推送工作分支即可。
 
 ```bash
-# 切换到 main 分支
-git checkout main
+# 确认在正确的工作分支上
+git branch
 
-# 拉取最新代码
-git pull origin main
+# 提交所有改动（如果有）
+git add .
+git commit -m "你的提交信息"
 
-# 合并功能分支
-git merge copilot/add-ios-native-push-channel
-
-# 推送到 GitHub
-git push origin main
+# 推送到 GitHub 的工作分支
+git push origin copilot/add-ios-native-push-channel
 ```
+
+如果你的工作分支名称不同，替换为实际的分支名。
 
 ### 3. 自动部署
 
-推送到 GitHub 后，Railway 会自动：
+推送到 GitHub 后，Railway 会自动（如果 Railway 配置监听此分支）：
 - 检测到新的提交
 - 开始构建
 - 运行数据库迁移
 - 部署新版本
+
+**重要**：确保 Railway 项目配置中监听的是你的工作分支，而不是 `main` 分支。
 
 ### 4. 在 Railway 添加新的环境变量
 
@@ -75,10 +77,13 @@ curl https://你的应用.railway.app/health
 ## 仅此而已！
 
 就这么简单 - 您只需要：
-1. `git push` 到 GitHub
-2. Railway 自动部署
+1. `git push origin 你的工作分支` 到 GitHub
+2. Railway 自动检测并部署
 3. 添加 iOS 推送的环境变量（如果需要）
 
 ---
 
-**注意**：如果 Railway 监听的是其他分支（如 `develop`），请相应调整第 2 步中的分支名称。
+**重要提示**：
+- 确保 Railway 配置中监听的分支与你的工作分支一致
+- 不需要合并到 `main` 分支
+- Railway 会直接从你的工作分支部署
