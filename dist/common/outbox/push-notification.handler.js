@@ -20,6 +20,7 @@ const typeorm_2 = require("typeorm");
 const ng_outbox_entity_1 = require("./ng-outbox.entity");
 const ng_push_device_entity_1 = require("../../notifications/ng-push-device.entity");
 const push_provider_port_1 = require("../../infra/ports/push-provider.port");
+const multi_push_provider_1 = require("../../infra/ports/multi-push-provider");
 class NonRetryableError extends Error {
     constructor(message) {
         super(message);
@@ -54,8 +55,18 @@ let PushNotificationHandler = PushNotificationHandler_1 = class PushNotification
                 ...data,
             },
         };
-        const tokens = devices.map(d => d.token);
-        const results = await this.pushProvider.sendBatch(tokens, payload);
+        let results;
+        if (this.pushProvider instanceof multi_push_provider_1.MultiPushProvider) {
+            const devicesWithPlatform = devices.map(d => ({
+                platform: d.platform,
+                token: d.token,
+            }));
+            results = await this.pushProvider.sendBatchByPlatform(devicesWithPlatform, payload);
+        }
+        else {
+            const tokens = devices.map(d => d.token);
+            results = await this.pushProvider.sendBatch(tokens, payload);
+        }
         let successCount = 0;
         let failCount = 0;
         const tokensToRemove = [];
