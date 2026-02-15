@@ -294,6 +294,8 @@ export class NotificationsService {
             route: notification.deeplinkRoute,
             eventId: args.eventId,
             priority: info.priority,
+            notificationType: notification.type,
+            alarmState: args.alarmState ?? '',
           },
         },
         aggregateId: notification.id,
@@ -394,6 +396,7 @@ export class NotificationsService {
           data: {
             route: notification.deeplinkRoute,
             eventId: args.eventId,
+            notificationType: notification.type,
           },
         },
         aggregateId: notification.id,
@@ -458,6 +461,7 @@ export class NotificationsService {
             data: {
               route: n.deeplinkRoute,
               eventId: testEventId,
+              notificationType: n.type,
               isTest: true,
             },
           },
