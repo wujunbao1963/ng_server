@@ -19,7 +19,8 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const ng_outbox_entity_1 = require("./ng-outbox.entity");
 const ng_push_device_entity_1 = require("../../notifications/ng-push-device.entity");
-const push_provider_port_1 = require("../../infra/ports/push-provider.port");
+const web_push_provider_1 = require("../../infra/ports/web-push-provider");
+const apns_push_provider_1 = require("../../infra/ports/apns-push-provider");
 class NonRetryableError extends Error {
     constructor(message) {
         super(message);
@@ -28,8 +29,9 @@ class NonRetryableError extends Error {
 }
 exports.NonRetryableError = NonRetryableError;
 let PushNotificationHandler = PushNotificationHandler_1 = class PushNotificationHandler {
-    constructor(pushProvider, pushDevicesRepo) {
-        this.pushProvider = pushProvider;
+    constructor(webPushProvider, apnsPushProvider, pushDevicesRepo) {
+        this.webPushProvider = webPushProvider;
+        this.apnsPushProvider = apnsPushProvider;
         this.pushDevicesRepo = pushDevicesRepo;
         this.messageType = ng_outbox_entity_1.OutboxMessageType.PUSH_NOTIFICATION;
         this.logger = new common_1.Logger(PushNotificationHandler_1.name);
@@ -54,21 +56,31 @@ let PushNotificationHandler = PushNotificationHandler_1 = class PushNotification
                 ...data,
             },
         };
-        const tokens = devices.map(d => d.token);
-        const results = await this.pushProvider.sendBatch(tokens, payload);
+        const webDevices = devices.filter(d => d.platform === 'web');
+        const iosDevices = devices.filter(d => d.platform === 'ios');
+        const [webResults, iosResults] = await Promise.all([
+            webDevices.length > 0
+                ? this.webPushProvider.sendBatch(webDevices.map(d => d.token), payload)
+                : Promise.resolve([]),
+            iosDevices.length > 0
+                ? this.apnsPushProvider.sendBatch(iosDevices.map(d => d.token), payload)
+                : Promise.resolve([]),
+        ]);
+        const allDevices = [...webDevices, ...iosDevices];
+        const allResults = [...webResults, ...iosResults];
         let successCount = 0;
         let failCount = 0;
         const tokensToRemove = [];
-        for (let i = 0; i < results.length; i++) {
-            const result = results[i];
-            const device = devices[i];
+        for (let i = 0; i < allResults.length; i++) {
+            const result = allResults[i];
+            const device = allDevices[i];
             if (result.success) {
                 successCount++;
-                this.logger.debug(`Push sent to device ${device.id}: messageId=${result.messageId}`);
+                this.logger.debug(`Push sent to device ${device.id} (${device.platform}): messageId=${result.messageId}`);
             }
             else {
                 failCount++;
-                this.logger.warn(`Push failed to device ${device.id}: ${result.error}`);
+                this.logger.warn(`Push failed to device ${device.id} (${device.platform}): ${result.error}`);
                 if (result.shouldRemoveToken) {
                     tokensToRemove.push(device.id);
                 }
@@ -88,9 +100,10 @@ let PushNotificationHandler = PushNotificationHandler_1 = class PushNotification
 exports.PushNotificationHandler = PushNotificationHandler;
 exports.PushNotificationHandler = PushNotificationHandler = PushNotificationHandler_1 = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Inject)(push_provider_port_1.PUSH_PROVIDER_PORT)),
-    __param(1, (0, typeorm_1.InjectRepository)(ng_push_device_entity_1.NgPushDevice)),
-    __metadata("design:paramtypes", [Object, typeorm_2.Repository])
+    __param(2, (0, typeorm_1.InjectRepository)(ng_push_device_entity_1.NgPushDevice)),
+    __metadata("design:paramtypes", [web_push_provider_1.WebPushProvider,
+        apns_push_provider_1.ApnsPushProvider,
+        typeorm_2.Repository])
 ], PushNotificationHandler);
 exports.OUTBOX_HANDLERS = Symbol('OUTBOX_HANDLERS');
 //# sourceMappingURL=push-notification.handler.js.map

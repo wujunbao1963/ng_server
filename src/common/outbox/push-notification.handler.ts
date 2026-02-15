@@ -1,13 +1,11 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NgOutbox, OutboxMessageType } from './ng-outbox.entity';
 import { NgPushDevice } from '../../notifications/ng-push-device.entity';
-import {
-  PushProviderPort,
-  PUSH_PROVIDER_PORT,
-  PushPayload,
-} from '../../infra/ports/push-provider.port';
+import { PushPayload, PushResult } from '../../infra/ports/push-provider.port';
+import { WebPushProvider } from '../../infra/ports/web-push-provider';
+import { ApnsPushProvider } from '../../infra/ports/apns-push-provider';
 
 /**
  * Outbox 消息处理器接口
@@ -50,8 +48,8 @@ export class PushNotificationHandler implements OutboxHandler {
   private readonly logger = new Logger(PushNotificationHandler.name);
 
   constructor(
-    @Inject(PUSH_PROVIDER_PORT)
-    private readonly pushProvider: PushProviderPort,
+    private readonly webPushProvider: WebPushProvider,
+    private readonly apnsPushProvider: ApnsPushProvider,
     @InjectRepository(NgPushDevice)
     private readonly pushDevicesRepo: Repository<NgPushDevice>,
   ) {}
@@ -82,25 +80,39 @@ export class PushNotificationHandler implements OutboxHandler {
       },
     };
 
-    // 发送到所有设备
-    const tokens = devices.map(d => d.token);
-    const results = await this.pushProvider.sendBatch(tokens, payload);
+    // 按平台分组
+    const webDevices = devices.filter(d => d.platform === 'web');
+    const iosDevices = devices.filter(d => d.platform === 'ios');
+
+    // 并行发送到各平台
+    const [webResults, iosResults] = await Promise.all([
+      webDevices.length > 0
+        ? this.webPushProvider.sendBatch(webDevices.map(d => d.token), payload)
+        : Promise.resolve([]),
+      iosDevices.length > 0
+        ? this.apnsPushProvider.sendBatch(iosDevices.map(d => d.token), payload)
+        : Promise.resolve([]),
+    ]);
+
+    // 合并设备和结果，保持对应关系
+    const allDevices = [...webDevices, ...iosDevices];
+    const allResults: PushResult[] = [...webResults, ...iosResults];
 
     // 处理结果
     let successCount = 0;
     let failCount = 0;
     const tokensToRemove: string[] = [];
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const device = devices[i];
+    for (let i = 0; i < allResults.length; i++) {
+      const result = allResults[i];
+      const device = allDevices[i];
 
       if (result.success) {
         successCount++;
-        this.logger.debug(`Push sent to device ${device.id}: messageId=${result.messageId}`);
+        this.logger.debug(`Push sent to device ${device.id} (${device.platform}): messageId=${result.messageId}`);
       } else {
         failCount++;
-        this.logger.warn(`Push failed to device ${device.id}: ${result.error}`);
+        this.logger.warn(`Push failed to device ${device.id} (${device.platform}): ${result.error}`);
 
         if (result.shouldRemoveToken) {
           tokensToRemove.push(device.id);

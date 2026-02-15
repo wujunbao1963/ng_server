@@ -1,18 +1,15 @@
 import { Global, Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { WebPushProvider } from './ports/web-push-provider';
-import { PUSH_PROVIDER_PORT } from './ports/push-provider.port';
+import { ApnsPushProvider } from './ports/apns-push-provider';
 
 @Global()
 @Module({
   imports: [ConfigModule],
   providers: [
-    {
-      provide: PUSH_PROVIDER_PORT,
-      useClass: WebPushProvider,
-    },
     WebPushProvider,
+    ApnsPushProvider,
   ],
-  exports: [PUSH_PROVIDER_PORT, WebPushProvider],
+  exports: [WebPushProvider, ApnsPushProvider],
 })
 export class InfraModule {}
