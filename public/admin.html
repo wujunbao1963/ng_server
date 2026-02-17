@@ -3595,44 +3595,53 @@ function renderEventsList() {
 }
 
 function renderEventItem(e) {
-  const ts = e.threat_state || 'none';
-  const loc = e.entry_point_name || e.entry_point_id || '入口';
-  const time = formatTime(e.created_at);
-  
+  const ts = (e.threat_state || 'none').toLowerCase();
+  const rawLoc = e.entry_point_name || e.entry_point_id || '入口';
+  const loc = translateEntryPointName(rawLoc);
+  const time = getRelativeTime(e.created_at);
+  const eventType = getEventType(e);
+
   let icon = '·';
-  let title = '';
+  let statusText = '';
+  let statusColor = 'var(--success)';
   let stateClass = '';
-  
-  if (ts === 'triggered') { icon = '🚨'; title = `【${loc}】警报触发`; stateClass = 'triggered'; }
-  else if (ts === 'pending') { icon = '⏳'; title = `【${loc}】入口延时`; stateClass = 'pending'; }
-  else if (ts.startsWith('pre')) {
+
+  if (ts === 'triggered') {
+    icon = '🚨'; statusText = '警报触发'; statusColor = 'var(--danger)'; stateClass = 'triggered';
+  } else if (ts === 'pending') {
+    icon = '⏳'; statusText = '等待确认'; statusColor = 'var(--warning)'; stateClass = 'pending';
+  } else if (ts.startsWith('pre')) {
     if (e.workflow_class === 'LOGISTICS' || e.trigger_reason === 'delivery_detected') {
-      icon = '📦'; title = `【${loc}】快递到达`; stateClass = 'pre';
+      icon = '📦'; statusText = '已正常'; statusColor = 'var(--success)'; stateClass = 'pre';
     } else {
-      icon = '👁️'; title = `【${loc}】检测到活动`; stateClass = 'pre';
+      icon = '👁️'; statusText = '观察中'; statusColor = 'var(--primary)'; stateClass = 'pre';
     }
-  }
-  else if (e.is_active) { title = `【${loc}】事件`; }
-  else {
+  } else if (e.is_active) {
+    icon = '📋'; statusText = '进行中'; statusColor = 'var(--primary)';
+  } else {
     if (e.workflow_class === 'LOGISTICS' || e.trigger_reason === 'delivery_detected') {
-      icon = '📦'; title = `【${loc}】快递到达`;
+      icon = '📦'; statusText = '已正常'; statusColor = 'var(--success)';
     } else {
       const resolution = e.resolution || '';
-      if (resolution === 'false_alarm' || resolution === 'dismissed') { icon = '✅'; title = `【${loc}】误报`; }
-      else if (resolution === 'safe' || ts === 'resolved') { icon = '✅'; title = `【${loc}】已确认安全`; }
-      else if (ts === 'canceled') { icon = '❌'; title = `【${loc}】已取消`; }
-      else { icon = '✅'; title = `【${loc}】已结束`; }
+      if (resolution === 'false_alarm' || resolution === 'dismissed') {
+        icon = '✅'; statusText = '已正常'; statusColor = 'var(--success)';
+      } else if (resolution === 'safe' || ts === 'resolved') {
+        icon = '✅'; statusText = '已确认安全'; statusColor = 'var(--success)';
+      } else if (ts === 'canceled') {
+        icon = '❌'; statusText = '已取消'; statusColor = 'var(--gray-500)';
+      } else {
+        icon = '✅'; statusText = '已正常'; statusColor = 'var(--success)';
+      }
     }
   }
-  
+
   return `
     <div class="event-item ${stateClass}" onclick="showEventDetail('${e.incident_id}')">
       <span class="event-icon">${icon}</span>
       <div class="event-content">
-        <div class="event-title">${title}</div>
-        <div class="event-meta">${e.incident_id.slice(0, 8)} ${e.evidence_count ? `· 📹 ${e.evidence_count}` : ''}</div>
+        <div class="event-title">【${loc}】<span style="color: ${statusColor}; font-weight: 500;">${statusText}</span></div>
+        <div class="event-meta">${loc} · ${time} · ${eventType}</div>
       </div>
-      <div class="event-time">${time}</div>
     </div>
   `;
 }
@@ -3648,13 +3657,13 @@ async function showEventDetail(id) {
   const cached = state.events.find(x => x.incident_id === id);
   if (cached) {
     const { icon, title } = getEventDisplay(cached);
-    const loc = cached.entry_point_name || cached.entry_point_id || '入口';
+    const loc = translateEntryPointName(cached.entry_point_name || cached.entry_point_id || '入口');
     const time = getRelativeTime(cached.created_at);
     const type = getEventType(cached);
-    
+
     document.getElementById('eventDetailIcon').textContent = icon;
     document.getElementById('eventDetailTitle').textContent = title;
-    document.getElementById('eventDetailSubtitle').textContent = `${loc}·${time}·${type}`;
+    document.getElementById('eventDetailSubtitle').textContent = `${loc} · ${time} · ${type}`;
   }
   
   try {
@@ -3682,13 +3691,13 @@ async function showEventDetail(id) {
     
     // Update header with full info
     const { icon, title } = getEventDisplay(i);
-    const loc = i.entry_point_name || i.entry_point_id || '入口';
+    const loc = translateEntryPointName(i.entry_point_name || i.entry_point_id || '入口');
     const time = getRelativeTime(i.created_at);
     const type = getEventType(i);
-    
+
     document.getElementById('eventDetailIcon').textContent = icon;
     document.getElementById('eventDetailTitle').textContent = title;
-    document.getElementById('eventDetailSubtitle').textContent = `${loc}·${time}·${type}`;
+    document.getElementById('eventDetailSubtitle').textContent = `${loc} · ${time} · ${type}`;
     
     // Render detail and actions (like app.html)
     renderEventDetailContent(i, ev, tl);
@@ -3701,11 +3710,11 @@ async function showEventDetail(id) {
 
 // Helper functions for event display (from app.html)
 function getEventDisplay(i) {
-  const ts = i.threat_state || 'none';
-  const loc = i.entry_point_name || i.entry_point_id || '入口';
-  
+  const ts = (i.threat_state || 'none').toLowerCase();
+  const loc = translateEntryPointName(i.entry_point_name || i.entry_point_id || '入口');
+
   if (ts === 'triggered') return { icon: '🚨', title: `【${loc}】警报触发` };
-  if (ts === 'pending') return { icon: '⏳', title: `【${loc}】入口延时` };
+  if (ts === 'pending') return { icon: '⏳', title: `【${loc}】等待确认` };
   if (ts === 'pre_l2' || ts === 'pre_l3') return { icon: '👁️', title: `【${loc}】持续观察` };
   if (ts === 'pre_l1') {
     if (i.workflow_class === 'LOGISTICS' || i.trigger_reason === 'delivery_detected') {
@@ -3722,22 +3731,42 @@ function getEventDisplay(i) {
 }
 
 function getEventType(i) {
-  if (i.trigger_reason === 'door_open') return '门';
-  if (i.trigger_reason === 'glass_break') return '玻璃';
-  if (i.trigger_reason === 'person_detected' || i.trigger_reason === 'activity_detected') return '活动';
   if (i.workflow_class === 'LOGISTICS' || i.trigger_reason === 'delivery_detected') return '快递';
-  return '事件';
+  if (i.trigger_reason === 'door_open') return '安全警报';
+  if (i.trigger_reason === 'glass_break') return '安全警报';
+  if (i.trigger_reason === 'person_detected' || i.trigger_reason === 'activity_detected') return '可疑活动';
+  const ts = (i.threat_state || '').toLowerCase();
+  if (ts === 'triggered' || ts === 'pending') return '安全警报';
+  if (ts === 'resolved') return '安全警报';
+  if (ts.startsWith('pre')) return '可疑活动';
+  return '可疑活动';
+}
+
+// 入口点名称中文映射
+function translateEntryPointName(name) {
+  if (!name) return '入口';
+  const map = {
+    'back': '后门', 'Back': '后门', 'BACK': '后门',
+    'front': '前门', 'Front': '前门', 'FRONT': '前门',
+    'garage': '车库门', 'Garage': '车库门', 'GARAGE': '车库门',
+    'side': '侧门', 'Side': '侧门', 'SIDE': '侧门',
+    'ep_back': '后门', 'ep_front': '前门', 'ep_garage': '车库门', 'ep_side': '侧门',
+    'back_door': '后门', 'front_door': '前门', 'garage_door': '车库门', 'side_door': '侧门',
+  };
+  return map[name] || name;
 }
 
 function getRelativeTime(ts) {
   if (!ts) return '';
   const now = Date.now();
-  const t = new Date(ts).getTime();
+  const d = new Date(ts);
+  const t = d.getTime();
   const diff = Math.floor((now - t) / 1000);
   if (diff < 60) return '刚刚';
   if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
   if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
-  return Math.floor(diff / 86400) + ' 天前';
+  // 超过1天显示日期
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // =============================================================================
